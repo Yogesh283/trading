@@ -1,0 +1,657 @@
+/* ========== Global mobile / responsive ========== */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.app-shell {
+  min-width: 0;
+}
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1024px) {
+  .app-shell {
+    padding: 24px 18px 36px;
+  }
+
+  .auth-shell {
+    padding: 28px 18px 36px;
+  }
+
+  .landing-features {
+    padding: 48px 18px 56px;
+  }
+
+  .landing-demo-block {
+    padding: 0 18px 48px;
+  }
+
+  .landing-feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 4.5vw, 48px);
+  }
+}
+
+/* ---------- Mobile (phones) ---------- */
+@media (max-width: 768px) {
+  .app-shell {
+    padding: 16px 14px 28px;
+    padding-bottom: max(28px, env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* Auth / Login page — nav + login form upar, center */
+  .auth-page-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 14px 24px;
+    padding-top: env(safe-area-inset-top, 0);
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
+  .auth-sticky-nav {
+    top: 0;
+    margin-bottom: 12px;
+    background: #000000;
+    border-radius: 0 0 16px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  .auth-sticky-inner {
+    padding: 12px 14px;
+    justify-content: space-between;
+  }
+
+  .auth-nav-back {
+    flex-shrink: 0;
+    padding: 8px 4px 8px 0;
+    font-size: 14px;
+  }
+
+  .auth-nav-brand {
+    flex: 1;
+    justify-content: flex-start;
+    font-size: 16px;
+    min-width: 0;
+  }
+
+  .auth-nav-brand .auth-nav-brand-logo {
+    width: 32px;
+    height: 32px;
+  }
+
+  .auth-shell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    padding: 0 0 max(24px, env(safe-area-inset-bottom, 0px) + 16px);
+    width: 100%;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
+  .auth-hero {
+    order: 2;
+    padding: 20px 16px;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .auth-card {
+    order: 1;
+    padding: 20px 16px;
+    border-radius: 18px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .auth-hero h1,
+  .auth-hero .subtext {
+    max-width: none;
+  }
+
+  .hero {
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .hero h1 {
+    font-size: clamp(24px, 8vw, 40px);
+    line-height: 1.08;
+  }
+
+  .subtext {
+    font-size: 14px;
+    margin-top: 10px;
+  }
+
+  .status-card {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .dashboard-nav-funds {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .dashboard-nav-funds button {
+    width: 100%;
+    min-height: 48px;
+    font-size: 14px;
+    padding: 12px 14px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .link-button {
+    min-height: 44px;
+    padding: 10px 0;
+  }
+
+  .panel {
+    padding: 16px 14px;
+    border-radius: 16px;
+  }
+
+  .panel h2 {
+    font-size: 17px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat {
+    padding: 12px;
+    min-width: 0;
+  }
+
+  .stat strong {
+    font-size: 16px;
+    word-break: break-word;
+  }
+
+  .chart-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .chart-badges {
+    justify-content: flex-start;
+  }
+
+  .badge {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .chart-card.tv-chart {
+    border-radius: 12px;
+  }
+
+  .tv-chart-toolbar {
+    padding: 10px;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .tv-toolbar-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .tv-ohlc {
+    font-size: 11px;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  .chart-meta-right,
+  .tv-chart-meta {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .tv-chart-svg {
+    width: 100%;
+    height: auto;
+    min-height: 220px;
+    max-height: 50vh;
+  }
+
+  .tv-time-label {
+    font-size: 22px !important;
+    font-weight: 700;
+  }
+
+  .chart-toolbar-vertical {
+    left: 8px;
+    bottom: 40px;
+    padding: 4px 2px;
+  }
+
+  .chart-toolbar-vertical button {
+    min-width: 32px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .chart-zoom-controls {
+    bottom: 40px;
+  }
+
+  .chart-zoom-controls button {
+    width: 32px;
+    height: 24px;
+    font-size: 16px;
+  }
+
+  .trade-form input,
+  .trade-form select,
+  .trade-form button {
+    min-height: 48px;
+    font-size: 16px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .trade-form button {
+    width: 100%;
+  }
+
+  .price-row {
+    padding: 14px 12px;
+    min-height: 48px;
+    gap: 8px;
+  }
+
+  .price-row strong {
+    word-break: break-all;
+  }
+
+  .auth-tabs {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tab {
+    min-height: 44px;
+    padding: 10px 16px;
+    flex: 1 1 auto;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .auth-form input {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .auth-form button {
+    min-height: 50px;
+    width: 100%;
+    font-size: 16px;
+  }
+
+  .secondary-button {
+    min-height: 48px;
+    width: 100%;
+  }
+
+  .auth-demo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auth-demo .secondary-button {
+    width: 100%;
+  }
+
+  .auth-footer {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .message {
+    word-break: break-word;
+    font-size: 14px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -6px;
+    padding: 0 6px 4px;
+    scrollbar-width: thin;
+  }
+
+  .table-scroll .table {
+    min-width: 520px;
+  }
+
+  .table-head,
+  .table-row {
+    padding: 10px 12px;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .wallet-pill {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  /* Deposit / Withdraw / Admin (funds-page) */
+  .funds-page {
+    max-width: none;
+    margin: 0;
+    padding: 12px 12px 48px;
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
+
+  .funds-back {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin-bottom: 8px;
+    min-height: 44px;
+    padding: 10px 0;
+    display: inline-flex;
+    align-items: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .funds-card {
+    margin-top: 0;
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .funds-card h1 {
+    font-size: clamp(18px, 5vw, 22px);
+    line-height: 1.25;
+  }
+
+  .funds-card h2 {
+    font-size: 16px;
+  }
+
+  .funds-network {
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+
+  .funds-gateway .funds-amount-label input {
+    font-size: 16px;
+    width: 100%;
+  }
+
+  .wallet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .wallet-tile {
+    min-height: 68px;
+    padding: 12px 10px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-tile-name {
+    font-size: 13px;
+  }
+
+  .deposit-table-wrap {
+    margin-left: -6px;
+    margin-right: -6px;
+    padding: 0 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .deposit-table {
+    min-width: 560px;
+    font-size: 11px;
+  }
+
+  .deposit-table th,
+  .deposit-table td {
+    padding: 8px 6px;
+    white-space: nowrap;
+  }
+
+  .funds-admin-form {
+    flex-direction: column;
+  }
+
+  .funds-admin-form input,
+  .funds-admin-form button {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .funds-form input,
+  .funds-form button {
+    min-height: 48px;
+    font-size: 16px;
+    width: 100%;
+  }
+
+  .funds-balance {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .funds-balance strong {
+    font-size: 20px;
+  }
+
+  .funds-address-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .funds-copy {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Landing — menu bar: logo + brand left, hamburger right */
+  .landing-nav {
+    padding-top: env(safe-area-inset-top, 0px);
+    border-radius: 0 0 16px 16px;
+  }
+
+  .landing-nav-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .landing-brand {
+    justify-content: flex-start;
+    font-size: 17px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .landing-menu-btn {
+    display: flex !important;
+  }
+
+  .landing-nav-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .landing-nav-links .landing-link,
+  .landing-nav-links .landing-btn-outline {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .landing-nav-links .landing-btn-primary {
+    flex: 1 1 100%;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .landing-hero {
+    padding: 36px 16px 48px;
+  }
+
+  .landing-features {
+    padding: 36px 14px 48px;
+  }
+
+  .landing-section-title {
+    font-size: 22px;
+    margin-bottom: 28px;
+  }
+
+  .landing-feature-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .landing-feature-card {
+    padding: 18px 16px;
+  }
+
+  .landing-demo-block {
+    padding: 0 14px 48px;
+  }
+
+  .landing-demo-inner {
+    padding: 24px 16px;
+    flex-direction: column;
+    text-align: center;
+    gap: 18px;
+  }
+
+  .landing-demo-inner .landing-btn-primary {
+    width: 100%;
+    max-width: 280px;
+    min-height: 48px;
+  }
+
+  .landing-footer {
+    padding: 24px 14px 32px;
+    padding-bottom: max(32px, env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* Splash */
+  .splash-inner {
+    padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  }
+
+  .splash-title {
+    font-size: clamp(22px, 6vw, 28px);
+  }
+}
+
+/* ---------- Small phones ---------- */
+@media (max-width: 480px) {
+  .app-shell {
+    padding-inline: 12px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+  }
+
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-hero h1 {
+    font-size: clamp(24px, 9vw, 34px);
+  }
+
+  .landing-hero-sub {
+    font-size: 15px;
+  }
+
+  .landing-hero-cta {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .landing-hero-cta .landing-btn-primary,
+  .landing-hero-cta .landing-btn-secondary,
+  .landing-hero-cta .landing-btn-outline {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .landing-nav-links .landing-link,
+  .landing-nav-links .landing-btn-outline {
+    flex: 1 1 100%;
+  }
+
+  .wallet-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tv-chart-svg {
+    min-height: 200px;
+    max-height: 45vh;
+  }
+}
+
+@media (max-width: 380px) {
+  .panel h2 {
+    font-size: 15px;
+  }
+
+  .badge {
+    font-size: 11px;
+  }
+}

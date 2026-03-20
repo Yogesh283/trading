@@ -1,0 +1,1167 @@
+import cors from "cors";
+import express from "express";
+import helmet from "helmet";
+import crypto from "node:crypto";
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { WebSocketServer } from "ws";
+import cron from "node-cron";
+import { env } from "./config/env";
+import { getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
+import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
+import { TRADE_TIMEFRAMES_SEC } from "./config/timeframes";
+import {
+  forEachWalletAccount,
+  getAccountForWallet,
+  getGuestUser,
+  getUserForAdminById,
+  hydrateLiveAccountFromWallet,
+  listUsersForAdmin,
+  prepareAccountForRequest,
+  loginUser,
+  registerUser,
+  promoteAdminFromEnv,
+  requireAdminSession,
+  requireSession,
+  resolveDemoUser,
+  resolveWallet,
+  updateUserFromAdmin
+} from "./services/authService";
+import {
+  createDepositIntent,
+  finalizeDepositCredit,
+  listAllDeposits,
+  listDepositsForUser,
+  markDepositTxSent
+} from "./services/depositStore";
+import { createWithdrawal, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
+import {
+  applyLedger,
+  getWalletBalance,
+  listTransactionsForUser,
+  saveDemoBalanceToDb
+} from "./services/walletStore";
+import { TradeSide } from "./services/demoAccount";
+import { ForexFeed, ForexTick } from "./services/forexFeed";
+import { logger } from "./utils/logger";
+import { distributeBinaryBetLevelIncome } from "./services/referralService";
+import {
+  getAdminRaOne,
+  listMarketTicksForAdmin,
+  listTransactionsForAdmin,
+  listUserInvestmentsForAdmin,
+  listWalletsForAdmin
+} from "./services/adminTablesStore";
+import {
+  getOrCreateInvestment,
+  investFromWallet,
+  investmentSnapshot,
+  runInvestmentDailyYield,
+  withdrawToWallet
+} from "./services/investmentStore";
+
+/** True when running via `tsx` from `src/` (not compiled `dist/`). */
+const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src";
+/** Dev: API + Vite on PORT. SEPARATE_FRONTEND=1 → API only + `npm run frontend:dev` on 5173. */
+export const useUnifiedDevPort =
+  runningFromSourceTree && String(process.env.SEPARATE_FRONTEND ?? "").trim() !== "1";
+
+const app = express();
+app.use(
+  useUnifiedDevPort
+    ? helmet({ contentSecurityPolicy: false })
+    : helmet()
+);
+app.use(cors());
+app.use(express.json());
+
+const frontendDist = path.join(process.cwd(), "frontend", "dist");
+if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+}
+
+let viteDevServer: { close: () => Promise<void> } | null = null;
+
+const server = http.createServer(app);
+const wsServer = new WebSocketServer({ server, path: "/ws" });
+const forexFeed = new ForexFeed();
+
+forexFeed.start();
+
+/** Buffer ticks and flush to DB so chart has history after restart. */
+const tickBuffer: ForexTick[] = [];
+const TICK_FLUSH_MS = 2000;
+setInterval(async () => {
+  if (tickBuffer.length === 0) return;
+  const batch = tickBuffer.splice(0, tickBuffer.length);
+  try {
+    await initAppDb();
+    await saveMarketTicks(batch.map((t) => ({ symbol: t.symbol, price: t.price, timestamp: t.timestamp })));
+  } catch (err) {
+    logger.warn({ err, count: batch.length }, "Failed to save market ticks to DB");
+  }
+}, TICK_FLUSH_MS);
+
+forexFeed.on("tick", (tick: ForexTick) => {
+  tickBuffer.push(tick);
+  const payload = JSON.stringify({ type: "tick", data: tick });
+
+  for (const client of wsServer.clients) {
+    if (client.readyState === client.OPEN) {
+      client.send(payload);
+    }
+  }
+});
+
+app.get("/api/system/database", (_req, res) => {
+  res.json(getDatabaseInfo());
+});
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const name = String(req.body?.name ?? "").trim();
+    const email = String(req.body?.email ?? "").trim();
+    const password = String(req.body?.password ?? "");
+
+    if (name.length < 2) {
+      return res.status(400).json({ message: "Name must be at least 2 characters" });
+    }
+
+    if (!email.includes("@")) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const referralCode = String(req.body?.referralCode ?? req.body?.referral_code ?? "").trim() || undefined;
+    const result = await registerUser({ name, email, password, referralCode });
+    logger.info({ userId: result.user.id, email: result.user.email }, "User registered — row saved in users table");
+    return res.status(201).json({ ...result, database: getDatabaseInfo() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Registration failed";
+    logger.warn({ err: error, email: String(req.body?.email ?? "") }, "Register failed");
+    const hint =
+      message.includes("wallet") || message.includes("FOREIGN")
+        ? " Check MySQL wallets table and demo_balance column."
+        : "";
+    return res.status(400).json({ message: message + hint, database: getDatabaseInfo() });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const email = String(req.body?.email ?? "").trim();
+    const password = String(req.body?.password ?? "");
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const result = await loginUser({ email, password });
+    return res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Login failed";
+    return res.status(400).json({ message });
+  }
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  try {
+    const user = await requireSession(req.headers.authorization);
+    return res.json({ user });
+  } catch {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+});
+
+app.get("/api/health", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "updownfx",
+    symbols: FOREX_SYMBOLS,
+    forexPairs: FOREX_SYMBOLS.length
+  });
+});
+
+app.get("/api/markets", (_req, res) => {
+  res.json({
+    symbols: FOREX_SYMBOLS,
+    ticks: forexFeed.snapshot(),
+    pairs: FOREX_PAIRS.map(({ symbol, name }) => ({ symbol, name }))
+  });
+});
+
+app.get("/api/markets/history", (req, res) => {
+  void (async () => {
+    const symbol = typeof req.query.symbol === "string" ? req.query.symbol.trim().toUpperCase() : undefined;
+    const limit = Math.min(10000, Math.max(1, Number(req.query.limit) || 2000));
+    await initAppDb();
+    const fromDb = await getMarketTicks(symbol, limit);
+    const fromMemory = forexFeed.getHistory(symbol, 800);
+    const byKey = new Map<string, { symbol: string; price: number; timestamp: number }>();
+    for (const t of fromDb) byKey.set(`${t.symbol}:${t.timestamp}`, t);
+    for (const t of fromMemory) byKey.set(`${t.symbol}:${t.timestamp}`, { symbol: t.symbol, price: t.price, timestamp: t.timestamp });
+    const merged = [...byKey.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
+    res.json({ ticks: merged });
+  })().catch((err) => {
+    logger.warn({ err }, "Markets history failed");
+    res.status(500).json({ ticks: [] });
+  });
+});
+
+app.get("/api/account", (_req, res) => {
+  void (async () => {
+    const user = await resolveDemoUser(_req.headers.authorization);
+    const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
+    await prepareAccountForRequest(user.id, wallet);
+    const account = getAccountForWallet(user.id, wallet);
+    const snap = account.snapshot(forexFeed.snapshot());
+    if (user.id !== getGuestUser().id && wallet === "demo") {
+      await saveDemoBalanceToDb(user.id, account.balance);
+    }
+    res.json(snap);
+  })().catch((error) => {
+    logger.error({ error }, "Unable to load account");
+    res.status(500).json({ message: "Unable to load account" });
+  });
+});
+
+app.get("/api/trades", (_req, res) => {
+  void (async () => {
+    const user = await resolveDemoUser(_req.headers.authorization);
+    const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
+    await prepareAccountForRequest(user.id, wallet);
+    const account = getAccountForWallet(user.id, wallet);
+    if (user.id !== getGuestUser().id && wallet === "demo") {
+      await saveDemoBalanceToDb(user.id, account.balance);
+    }
+    res.json({ trades: account.listTrades() });
+  })().catch((error) => {
+    logger.error({ error }, "Unable to load trades");
+    res.status(500).json({ message: "Unable to load trades" });
+  });
+});
+
+const MIN_DEPOSIT_USDT = 1;
+const MAX_DEPOSIT_USDT = 1_000_000;
+
+app.post("/api/deposits/intent", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const amount = Number(req.body?.amount);
+    const walletProvider = String(req.body?.walletProvider ?? "unknown").slice(0, 64);
+
+    if (!Number.isFinite(amount) || amount < MIN_DEPOSIT_USDT || amount > MAX_DEPOSIT_USDT) {
+      return res.status(400).json({
+        message: `Amount must be between ${MIN_DEPOSIT_USDT} and ${MAX_DEPOSIT_USDT} USDT`
+      });
+    }
+
+    const row = await createDepositIntent({
+      userId: user.id,
+      userEmail: user.email,
+      amount,
+      walletProvider,
+      adminToAddress: env.USDT_BEP20_DEPOSIT_ADDRESS,
+      tokenContract: env.BSC_USDT_CONTRACT,
+      chainId: env.BSC_CHAIN_ID
+    });
+
+    return res.status(201).json({
+      deposit: row,
+      chainId: env.BSC_CHAIN_ID,
+      chainIdHex: `0x${env.BSC_CHAIN_ID.toString(16)}`,
+      tokenAddress: env.BSC_USDT_CONTRACT,
+      toAddress: env.USDT_BEP20_DEPOSIT_ADDRESS,
+      amount,
+      decimals: 18
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Deposit intent failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "deposit intent");
+    res.status(500).json({ message });
+  });
+});
+
+app.post("/api/deposits/submit-tx", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const depositId = String(req.body?.depositId ?? "").trim();
+    const txHash = String(req.body?.txHash ?? "").trim();
+    const fromAddress = String(req.body?.fromAddress ?? "").trim();
+
+    if (!depositId || !txHash.startsWith("0x") || txHash.length < 10) {
+      return res.status(400).json({ message: "depositId and valid txHash required" });
+    }
+    if (!fromAddress.startsWith("0x") || fromAddress.length < 42) {
+      return res.status(400).json({ message: "Valid fromAddress required" });
+    }
+
+    const updated = await markDepositTxSent({
+      depositId,
+      userId: user.id,
+      txHash,
+      fromAddress
+    });
+
+    if (!updated || updated.status !== "tx_sent") {
+      return res.status(400).json({
+        message: "Deposit not found, already submitted, or invalid"
+      });
+    }
+
+    const creditedAmount = await finalizeDepositCredit(depositId, user.id);
+    if (creditedAmount == null) {
+      return res.status(400).json({ message: "Deposit already credited or invalid state" });
+    }
+    await applyLedger(user.id, creditedAmount, "deposit_credited", depositId);
+    await hydrateLiveAccountFromWallet(user.id);
+
+    return res.json({
+      ok: true,
+      deposit: { ...updated, status: "credited" as const },
+      creditedUsdt: creditedAmount
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Submit failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "deposit submit-tx");
+    res.status(500).json({ message });
+  });
+});
+
+app.get("/api/deposits/my", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const rows = await listDepositsForUser(user.id);
+    return res.json({ deposits: rows });
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    logger.error({ error }, "deposits my");
+    res.status(500).json({ message: "Failed to list deposits" });
+  });
+});
+
+app.get("/api/deposits/admin-all", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required — DB mein users.role = 'admin'" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const rows = await listAllDeposits();
+    return res.json({ deposits: rows, total: rows.length });
+  })().catch((error) => {
+    logger.error({ error }, "deposits admin");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+/**
+ * ra-data-simple-rest v5 sends `sort` / `range` as JSON in query string.
+ * Older dialect used `_start`, `_end`, `_sort`, `_order`.
+ */
+function parseReactAdminListQuery(q: express.Request["query"]): {
+  start: number;
+  endExclusive: number;
+  sortField: string;
+  order: "ASC" | "DESC";
+} {
+  let start = Math.max(0, Number(q._start) || 0);
+  let endExclusive = Math.min(10_000, Math.max(start + 1, Number(q._end) || 1000));
+
+  if (typeof q.range === "string") {
+    try {
+      const arr = JSON.parse(q.range) as unknown;
+      if (Array.isArray(arr) && arr.length >= 2) {
+        const lo = Number(arr[0]);
+        const hi = Number(arr[1]);
+        if (Number.isFinite(lo) && Number.isFinite(hi)) {
+          start = Math.max(0, Math.floor(lo));
+          // inclusive end from RA → slice end exclusive
+          endExclusive = Math.min(10_000, Math.max(start + 1, Math.floor(hi) + 1));
+        }
+      }
+    } catch {
+      /* keep legacy _start/_end */
+    }
+  }
+
+  let sortField = typeof q._sort === "string" ? q._sort : "created_at";
+  let order: "ASC" | "DESC" =
+    String(q._order ?? "DESC").toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+  if (typeof q.sort === "string") {
+    try {
+      const arr = JSON.parse(q.sort) as unknown;
+      if (Array.isArray(arr) && typeof arr[0] === "string" && arr[0].length > 0) {
+        sortField = arr[0];
+        order = String(arr[1] ?? "DESC").toUpperCase() === "ASC" ? "ASC" : "DESC";
+      }
+    } catch {
+      /* keep legacy */
+    }
+  }
+
+  return { start, endExclusive, sortField, order };
+}
+
+function adminSafePathId(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    return "";
+  }
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+/** Literal list paths — Express 5 + static can mishandle a single `:resource` pattern for some names (e.g. `transactions`). */
+const ADMIN_RA_LIST_RESOURCES = [
+  "deposits",
+  "withdrawals",
+  "users",
+  "wallets",
+  "transactions",
+  "user_investments",
+  "market_ticks"
+] as const;
+
+async function handleAdminReactAdminList(
+  req: express.Request,
+  res: express.Response,
+  resourceRaw: string
+): Promise<void> {
+  try {
+    await requireAdminSession(req.headers.authorization);
+  } catch (e) {
+    const m = e instanceof Error ? e.message : "";
+    if (m === "Forbidden") {
+      res.status(403).json({ message: "Admin role required" });
+      return;
+    }
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const resource = String(resourceRaw ?? "")
+    .toLowerCase()
+    .replace(/-/g, "_");
+  const allowed = new Set<string>([...ADMIN_RA_LIST_RESOURCES]);
+  if (!allowed.has(resource)) {
+    res.status(404).json({ message: "Unknown resource" });
+    return;
+  }
+
+  const { start, endExclusive, sortField, order } = parseReactAdminListQuery(req.query);
+
+  let rows: Record<string, unknown>[] = [];
+  if (resource === "deposits") {
+    rows = (await listAllDeposits()) as unknown as Record<string, unknown>[];
+  } else if (resource === "withdrawals") {
+    rows = (await listAllWithdrawals()) as unknown as Record<string, unknown>[];
+  } else if (resource === "users") {
+    rows = (await listUsersForAdmin()) as unknown as Record<string, unknown>[];
+  } else if (resource === "wallets") {
+    rows = await listWalletsForAdmin();
+  } else if (resource === "transactions") {
+    rows = await listTransactionsForAdmin();
+  } else if (resource === "user_investments") {
+    rows = await listUserInvestmentsForAdmin();
+  } else {
+    rows = await listMarketTicksForAdmin();
+  }
+
+  const mult = order === "ASC" ? 1 : -1;
+  rows.sort((a, b) => {
+    const va = a[sortField];
+    const vb = b[sortField];
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    if (typeof va === "number" && typeof vb === "number") {
+      return va < vb ? -mult : va > vb ? mult : 0;
+    }
+    const sa = String(va);
+    const sb = String(vb);
+    return sa < sb ? -mult : sa > sb ? mult : 0;
+  });
+
+  const total = rows.length;
+  const slice = rows.slice(start, endExclusive);
+  res.setHeader("X-Total-Count", String(total));
+  let contentRange: string;
+  if (total === 0) {
+    contentRange = `${resource} */0`;
+  } else {
+    const first = Math.min(start, total - 1);
+    const lastIdx = Math.min(endExclusive - 1, total - 1);
+    contentRange = `${resource} ${first}-${lastIdx}/${total}`;
+  }
+  res.setHeader("Content-Range", contentRange);
+  res.setHeader("Access-Control-Expose-Headers", "X-Total-Count, Content-Range");
+  res.json(slice);
+}
+
+/**
+ * Literal `/users/:id` — more reliable than `/:resource/:id` with Express 5 + Vite.
+ * Must stay BEFORE `GET /api/admin/ra/:resource` (list).
+ */
+app.get("/api/admin/ra/users/:id", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const id = adminSafePathId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Missing id" });
+    }
+
+    const row = await getUserForAdminById(id);
+    if (!row) {
+      logger.warn({ pathId: id }, "Admin GET user — DB mein row nahi mili (galat DB / purana server / id mismatch?)");
+      return res.status(404).json({ message: "Not found" });
+    }
+    return res.json(row);
+  })().catch((error) => {
+    logger.error({ error }, "admin ra getOne");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+app.put("/api/admin/ra/users/:id", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const id = adminSafePathId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Missing id" });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    try {
+      const payload: Parameters<typeof updateUserFromAdmin>[1] = {};
+      if (typeof body.name === "string") {
+        payload.name = body.name;
+      }
+      if (typeof body.email === "string") {
+        payload.email = body.email;
+      }
+      if (typeof body.role === "string") {
+        payload.role = body.role;
+      }
+      if (body.self_referral_code === null || typeof body.self_referral_code === "string") {
+        payload.self_referral_code = body.self_referral_code as string | null;
+      }
+      if (body.referral_code === null || typeof body.referral_code === "string") {
+        payload.referral_code = body.referral_code as string | null;
+      }
+      if (body.balance !== undefined && body.balance !== null) {
+        payload.balance = Number(body.balance);
+      }
+      if (body.demo_balance !== undefined && body.demo_balance !== null) {
+        payload.demo_balance = Number(body.demo_balance);
+      }
+      if (typeof body.new_password === "string") {
+        payload.new_password = body.new_password;
+      }
+
+      const row = await updateUserFromAdmin(id, payload);
+      return res.json(row);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      if (msg === "User not found") {
+        return res.status(404).json({ message: msg });
+      }
+      return res.status(400).json({ message: msg });
+    }
+  })().catch((error) => {
+    logger.error({ error }, "admin ra put");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+/**
+ * React-Admin `getOne` / internal fetches: GET /api/admin/ra/:resource/:id
+ * Register before GET /api/admin/ra/:resource so `.../user_investments/5` is not swallowed as list.
+ */
+app.get("/api/admin/ra/:resource/:id", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const resource = String(req.params.resource ?? "")
+      .toLowerCase()
+      .replace(/-/g, "_");
+    const id = adminSafePathId(req.params.id);
+    if (!resource || !id) {
+      return res.status(400).json({ message: "Bad request" });
+    }
+    /** Express 5 kabhi pehle yahi route match kar leta hai (`:resource` = users) — yahan bhi load karo. */
+    if (resource === "users") {
+      const row = await getUserForAdminById(id);
+      if (!row) {
+        logger.warn({ pathId: id }, "Admin GET user (generic route) — not found");
+        return res.status(404).json({ message: "Not found" });
+      }
+      return res.json(row);
+    }
+
+    const allowedOne = new Set([
+      "deposits",
+      "withdrawals",
+      "wallets",
+      "transactions",
+      "user_investments",
+      "market_ticks"
+    ]);
+    if (!allowedOne.has(resource)) {
+      return res.status(404).json({ message: "Unknown resource" });
+    }
+
+    const row = await getAdminRaOne(resource, id);
+    if (!row) {
+      return res.status(404).json({ message: "Not found" });
+    }
+    return res.json(row);
+  })().catch((error) => {
+    logger.error({ error }, "admin ra getOne resource");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+/** React-Admin getList — literal paths first (reliable with Express 5). */
+for (const name of ADMIN_RA_LIST_RESOURCES) {
+  app.get(`/api/admin/ra/${name}`, (req, res) => {
+    void handleAdminReactAdminList(req, res, name).catch((error) => {
+      logger.error({ error }, "admin ra");
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed" });
+      }
+    });
+  });
+}
+
+/** Fallback for hyphenated names etc. */
+app.get("/api/admin/ra/:resource", (req, res) => {
+  const resource = String(req.params.resource ?? "").toLowerCase().replace(/-/g, "_");
+  void handleAdminReactAdminList(req, res, resource).catch((error) => {
+    logger.error({ error }, "admin ra");
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Failed" });
+    }
+  });
+});
+
+const MIN_WITHDRAWAL_USDT = 20;
+const MAX_WITHDRAWAL_USDT = 1_000_000;
+
+app.post("/api/withdrawals", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const amount = Number(req.body?.amount);
+    const toAddress = String(req.body?.toAddress ?? "").trim().toLowerCase();
+
+    if (
+      !Number.isFinite(amount) ||
+      amount < MIN_WITHDRAWAL_USDT ||
+      amount > MAX_WITHDRAWAL_USDT
+    ) {
+      return res.status(400).json({
+        message: `Amount must be between ${MIN_WITHDRAWAL_USDT} and ${MAX_WITHDRAWAL_USDT} USDT`
+      });
+    }
+    if (!toAddress.startsWith("0x") || toAddress.length < 42) {
+      return res.status(400).json({ message: "Valid BEP20 (0x...) address required" });
+    }
+
+    try {
+      await applyLedger(user.id, -amount, "withdrawal_pending", null);
+    } catch {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
+
+    try {
+      const withdrawal = await createWithdrawal({
+        userId: user.id,
+        userEmail: user.email,
+        amount,
+        toAddress
+      });
+      await hydrateLiveAccountFromWallet(user.id);
+      return res.status(201).json({ withdrawal });
+    } catch (err) {
+      await applyLedger(user.id, amount, "withdrawal_create_failed_refund", null).catch(() => {});
+      await hydrateLiveAccountFromWallet(user.id);
+      throw err;
+    }
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Withdrawal failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "withdrawal create");
+    res.status(500).json({ message });
+  });
+});
+
+app.get("/api/withdrawals/my", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const withdrawals = await listWithdrawalsForUser(user.id);
+    return res.json({ withdrawals });
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    logger.error({ error }, "withdrawals my");
+    res.status(500).json({ message: "Failed to list withdrawals" });
+  });
+});
+
+app.post("/api/demo/orders", (req, res) => {
+  void (async () => {
+    const symbol = String(req.body?.symbol ?? "").toUpperCase();
+    const side = String(req.body?.side ?? "").toLowerCase() as TradeSide;
+    const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
+    const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
+    const timeframeSec = Number(req.body?.timeframe);
+    const user = await resolveDemoUser(req.headers.authorization);
+    if (user.id !== getGuestUser().id) {
+      return res.status(403).json({
+        message:
+          "Demo trading is only before login. Log out and use Enter Demo to practice, or trade from your live account when available."
+      });
+    }
+    const account = getAccountForWallet(getGuestUser().id, "demo");
+
+    if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
+      return res.status(400).json({ message: "Unsupported symbol" });
+    }
+
+    const isBinary = direction === "up" || direction === "down";
+    if (isBinary) {
+      if (
+        !Number.isFinite(timeframeSec) ||
+        !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
+      ) {
+        return res.status(400).json({
+          message: "Timeframe must be one of: 5s, 1m, 2m, 3m, 5m, 10m"
+        });
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ message: "Amount must be greater than 0" });
+      }
+    } else {
+      if (side !== "buy" && side !== "sell") {
+        return res.status(400).json({ message: "Side must be buy or sell" });
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ message: "Quantity must be greater than 0" });
+      }
+    }
+
+    const tick = forexFeed.getTick(symbol);
+    if (!tick) {
+      return res.status(409).json({ message: "No live price available yet" });
+    }
+
+    const expiryAt = isBinary ? Date.now() + timeframeSec * 1000 : undefined;
+    const trade = isBinary
+      ? account.openTrade({
+          symbol,
+          side: "buy",
+          quantity,
+          entryPrice: tick.price,
+          direction: direction as "up" | "down",
+          expiryAt,
+          timeframeSeconds: timeframeSec
+        })
+      : account.openTrade({
+          symbol,
+          side,
+          quantity,
+          entryPrice: tick.price
+        });
+
+    if (!trade) {
+      if (!isBinary && tick) {
+        const need = quantity * tick.price;
+        return res.status(400).json({
+          message:
+            account.balance <= 0
+              ? "Balance is zero — deposit or use demo funds. No leverage: position needs cash ≥ quantity × price."
+              : `Insufficient cash. No leverage — need at least ${need.toFixed(2)} (quantity × price). Balance: ${account.balance.toFixed(2)}.`
+        });
+      }
+      return res.status(400).json({ message: "Insufficient balance for this amount" });
+    }
+
+    logger.info({ trade, userId: "guest" }, "Demo trade opened");
+
+    return res.status(201).json({ trade });
+  })().catch((error) => {
+    logger.error({ error }, "Unable to open demo trade");
+    res.status(500).json({ message: "Unable to open demo trade" });
+  });
+});
+
+app.post("/api/orders", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const symbol = String(req.body?.symbol ?? "").toUpperCase();
+    const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
+    const amount = Number(req.body?.amount ?? req.body?.quantity ?? 0);
+    const timeframeSec = Number(req.body?.timeframe);
+
+    if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
+      return res.status(400).json({ message: "Unsupported symbol" });
+    }
+    if (direction !== "up" && direction !== "down") {
+      return res.status(400).json({ message: "Direction must be up or down" });
+    }
+    if (
+      !Number.isFinite(timeframeSec) ||
+      !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
+    ) {
+      return res.status(400).json({
+        message: "Timeframe must be one of: 5s, 1m, 2m, 3m, 5m, 10m"
+      });
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+
+    const tick = forexFeed.getTick(symbol);
+    if (!tick) {
+      return res.status(409).json({ message: "No live price available yet" });
+    }
+
+    const account = getAccountForWallet(user.id, "live");
+    const tradeId = `trade-${crypto.randomUUID()}`;
+    try {
+      await applyLedger(user.id, -amount, "binary_stake", tradeId);
+    } catch {
+      return res.status(400).json({ message: "Insufficient balance for this amount" });
+    }
+    const after = await getWalletBalance(user.id);
+    account.setBalance(after);
+    const expiryAt = Date.now() + timeframeSec * 1000;
+    const trade = account.openTrade({
+      symbol,
+      side: "buy",
+      quantity: amount,
+      entryPrice: tick.price,
+      direction,
+      expiryAt,
+      timeframeSeconds: timeframeSec,
+      skipBinaryStakeDebit: true,
+      tradeId
+    });
+
+    if (!trade) {
+      await applyLedger(user.id, amount, "binary_stake_reversal", tradeId).catch(() => {});
+      await hydrateLiveAccountFromWallet(user.id);
+      return res.status(400).json({ message: "Unable to open trade" });
+    }
+
+    logger.info({ trade, userId: user.id }, "Live binary trade opened");
+    void distributeBinaryBetLevelIncome(user.id, amount, tradeId).catch((e) =>
+      logger.warn({ e, userId: user.id, tradeId }, "Level income distribution failed")
+    );
+    return res.status(201).json({ trade });
+  })().catch((error) => {
+    logger.error({ error }, "Unable to open live trade");
+    res.status(500).json({ message: "Unable to open live trade" });
+  });
+});
+
+// Auto-settle expired binary trades every second (demo + live ledger)
+let settlingTrades = false;
+setInterval(() => {
+  if (settlingTrades) {
+    return;
+  }
+  settlingTrades = true;
+  void (async () => {
+    const now = Date.now();
+    try {
+      const liveTasks: Promise<void>[] = [];
+      forEachWalletAccount((userId, wallet, account) => {
+        const expired = account.getExpiredOpenTrades(now);
+        for (const trade of expired) {
+          const tick = forexFeed.getTick(trade.symbol);
+          if (!tick) {
+            continue;
+          }
+          if (wallet === "live" && userId !== getGuestUser().id) {
+            liveTasks.push(
+              (async () => {
+                try {
+                  const win =
+                    trade.direction === "up"
+                      ? tick.price > trade.entryPrice
+                      : tick.price < trade.entryPrice;
+                  if (win) {
+                    await applyLedger(
+                      userId,
+                      trade.quantity * BINARY_WIN_PAYOUT_MULTIPLIER,
+                      "binary_settle_win",
+                      trade.id
+                    );
+                  } else {
+                    await applyLedger(userId, 0, "binary_settle_loss", trade.id);
+                  }
+                  const acc = getAccountForWallet(userId, "live");
+                  acc.setBalance(await getWalletBalance(userId));
+                  const settled = acc.settleExpiredTradeRecordOnly(trade.id, tick.price);
+                  if (settled) {
+                    logger.info(
+                      { tradeId: settled.id, symbol: settled.symbol, pnl: settled.pnl, wallet: "live" },
+                      "Binary trade settled"
+                    );
+                  }
+                } catch (e) {
+                  logger.error({ e, tradeId: trade.id }, "Live binary settle failed");
+                }
+              })()
+            );
+          } else {
+            const settled = account.settleExpiredTrade(trade.id, tick.price);
+            if (settled) {
+              logger.info(
+                { tradeId: settled.id, symbol: settled.symbol, pnl: settled.pnl, wallet },
+                "Binary trade settled"
+              );
+            }
+          }
+        }
+      });
+      await Promise.all(liveTasks);
+    } finally {
+      settlingTrades = false;
+    }
+  })();
+}, 1000);
+
+app.get("/api/investment", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const row = await getOrCreateInvestment(user.id);
+    const live = await getWalletBalance(user.id);
+    return res.json(investmentSnapshot(row, live));
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    logger.error({ error }, "investment get");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+app.post("/api/investment/deposit", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+    const row = await investFromWallet(user.id, amount);
+    await hydrateLiveAccountFromWallet(user.id);
+    const live = await getWalletBalance(user.id);
+    return res.json(investmentSnapshot(row, live));
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const msg = error instanceof Error ? error.message : "Failed";
+    res.status(400).json({ message: msg });
+  });
+});
+
+app.post("/api/investment/withdraw", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const amount = Number(req.body?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+    const row = await withdrawToWallet(user.id, amount);
+    await hydrateLiveAccountFromWallet(user.id);
+    const live = await getWalletBalance(user.id);
+    return res.json(investmentSnapshot(row, live));
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const msg = error instanceof Error ? error.message : "Failed";
+    res.status(400).json({ message: msg });
+  });
+});
+
+app.post("/api/system/investment-yield", (req, res) => {
+  void (async () => {
+    const secret = env.INVESTMENT_CRON_SECRET?.trim();
+    if (!secret) {
+      return res.status(503).json({ message: "Set INVESTMENT_CRON_SECRET in .env to enable this endpoint" });
+    }
+    const got = String(req.body?.secret ?? req.query?.secret ?? "");
+    if (got !== secret) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const result = await runInvestmentDailyYield();
+    return res.json(result);
+  })().catch((error) => {
+    logger.error({ error }, "investment-yield system");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+app.get("/api/wallet/transactions", (req, res) => {
+  void (async () => {
+    const user = await requireSession(req.headers.authorization);
+    const rows = await listTransactionsForUser(user.id, 200);
+    return res.json({ transactions: rows });
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    logger.error({ error }, "wallet transactions");
+    res.status(500).json({ message: "Failed to list transactions" });
+  });
+});
+
+if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api") || req.method !== "GET") {
+      return next();
+    }
+    const adminHtml = path.join(frontendDist, "admin.html");
+    if ((req.path === "/admin" || req.path === "/admin.html") && fs.existsSync(adminHtml)) {
+      return res.sendFile(adminHtml);
+    }
+    return res.sendFile(path.join(frontendDist, "index.html"));
+  });
+}
+
+async function attachViteDevMiddleware(): Promise<void> {
+  if (!useUnifiedDevPort) {
+    return;
+  }
+  const frontendRoot = path.join(process.cwd(), "frontend");
+  const { createServer: createViteServer } = await import("vite");
+  const vite = await createViteServer({
+    root: frontendRoot,
+    server: {
+      middlewareMode: true,
+      /** HMR on same port as API (avoids 24678 and clashes with a second Vite) */
+      hmr: { server }
+    },
+    appType: "spa"
+  });
+  viteDevServer = vite;
+  app.use(vite.middlewares);
+  logger.info({ port: env.PORT }, "Vite dev middleware — open frontend on same port");
+}
+
+wsServer.on("connection", (socket) => {
+  socket.send(
+    JSON.stringify({
+      type: "snapshot",
+      data: {
+        markets: forexFeed.snapshot(),
+        account: getAccountForWallet(getGuestUser().id, "demo").snapshot(forexFeed.snapshot())
+      }
+    })
+  );
+});
+
+export async function startServer(): Promise<http.Server> {
+  await attachViteDevMiddleware();
+  return new Promise((resolve, reject) => {
+    const onListenError = (err: NodeJS.ErrnoException) => {
+      server.off("error", onListenError);
+      if (err.code === "EADDRINUSE") {
+        logger.error(
+          { port: env.PORT },
+          `Port ${env.PORT} is already in use. Close the other \`npm run dev\`, XAMPP/Apache on that port, or set PORT=3001 in .env`
+        );
+      }
+      reject(err);
+    };
+    server.once("error", onListenError);
+    server.listen(env.PORT, () => {
+      server.off("error", onListenError);
+      logger.info(
+        {
+          port: env.PORT,
+          unified: useUnifiedDevPort,
+          symbols: FOREX_SYMBOLS
+        },
+        useUnifiedDevPort
+          ? `App + API → http://localhost:${env.PORT}`
+          : "Trading backend listening"
+      );
+      if (env.INVESTMENT_CRON_IN_PROCESS) {
+        cron.schedule(
+          "5 0 * * *",
+          () => {
+            void runInvestmentDailyYield().catch((e) => logger.error({ e }, "investment daily cron"));
+          },
+          { timezone: "UTC" }
+        );
+        logger.info("Investment yield cron scheduled: daily 00:05 UTC (~10%/month as 10/30 per day)");
+      }
+      resolve(server);
+    });
+  });
+}
+
+export async function stopServer() {
+  forexFeed.stop();
+  wsServer.close();
+  if (viteDevServer) {
+    await viteDevServer.close().catch(() => {});
+    viteDevServer = null;
+  }
+  server.close();
+}

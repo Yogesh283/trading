@@ -1,0 +1,2 @@
+# Normal line endings for the repo (reduces LF/CRLF noise on Windows)
+* text=auto

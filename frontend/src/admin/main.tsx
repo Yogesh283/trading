@@ -1,0 +1,68 @@
+import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import PeopleIcon from "@mui/icons-material/People";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import SavingsIcon from "@mui/icons-material/Savings";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import ShowChartIcon from "@mui/icons-material/ShowChart";
+import WalletIcon from "@mui/icons-material/Wallet";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { Admin, Resource } from "react-admin";
+import { adminAuthProvider } from "./authProvider";
+import { adminDataProvider } from "./dataProvider";
+import { AdminLoginPage } from "./AdminLogin";
+import {
+  DepositList,
+  MarketTickList,
+  TransactionList,
+  UserEdit,
+  UserInvestmentList,
+  UserList,
+  WalletList,
+  WithdrawalList
+} from "./resources";
+
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: { main: "#00e676" },
+    background: { default: "#0a0a0a", paper: "#121418" }
+  }
+});
+
+const adminMount = document.getElementById("admin-root");
+if (!adminMount) {
+  throw new Error(
+    'Admin UI needs <div id="admin-root"></div> in the page. Open /admin or /admin.html from this app (not a bare HTML file).'
+  );
+}
+
+ReactDOM.createRoot(adminMount).render(
+  <React.StrictMode>
+    <ThemeProvider theme={darkTheme}>
+      <CssBaseline />
+      <Admin
+        dataProvider={adminDataProvider}
+        authProvider={adminAuthProvider}
+        loginPage={AdminLoginPage}
+        title="UpDown FX · Admin"
+        requireAuth
+        disableTelemetry
+      >
+        <Resource name="deposits" list={DepositList} icon={AccountBalanceWalletIcon} options={{ label: "Deposits" }} />
+        <Resource name="withdrawals" list={WithdrawalList} icon={PaymentsIcon} options={{ label: "Withdrawals" }} />
+        <Resource name="users" list={UserList} edit={UserEdit} icon={PeopleIcon} options={{ label: "Users" }} />
+        <Resource name="wallets" list={WalletList} icon={WalletIcon} options={{ label: "Wallets" }} />
+        <Resource name="transactions" list={TransactionList} icon={ReceiptLongIcon} options={{ label: "Transactions" }} />
+        <Resource
+          name="user_investments"
+          list={UserInvestmentList}
+          icon={SavingsIcon}
+          options={{ label: "User investments" }}
+        />
+        <Resource name="market_ticks" list={MarketTickList} icon={ShowChartIcon} options={{ label: "Market ticks" }} />
+      </Admin>
+    </ThemeProvider>
+  </React.StrictMode>
+);

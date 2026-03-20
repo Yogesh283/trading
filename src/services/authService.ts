@@ -1,0 +1,1020 @@
+import crypto from "node:crypto";
+import { env } from "../config/env";
+import { logger } from "../utils/logger";
+import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
+import { DemoAccount } from "./demoAccount";
+import {
+  ensureWallet,
+  getDemoBalanceFromDb,
+  getWalletBalance
+} from "./walletStore";
+import { validateInviterReferralCode, allocateUniqueSelfReferralCode } from "./referralService";
+
+/** Compare admin URL id vs DB id (spaces, BOM, BigInt vs string, leading zeros on digits). */
+function normalizeAdminIdToken(v: unknown): string {
+  return String(v ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/[\s\u200B-\u200D\uFEFF]/g, "")
+    .trim();
+}
+
+function adminIdsLooselyEqual(dbId: unknown, requested: string): boolean {
+  const a = normalizeAdminIdToken(dbId);
+  const b = normalizeAdminIdToken(requested);
+  if (!b) {
+    return false;
+  }
+  if (a === b) {
+    return true;
+  }
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+    try {
+      return BigInt(a) === BigInt(b);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+function rawUserPkToString(id: string | number | bigint): string {
+  if (typeof id === "bigint") {
+    return id.toString();
+  }
+  return String(id).trim();
+}
+
+/**
+ * Read only `users.id` — matches Edit URL even when `WHERE id = ?` binding is picky.
+ */
+async function findUserPrimaryKeyByIdScan(requested: string): Promise<string | null> {
+  await ready;
+  const want = normalizeAdminIdToken(requested);
+  if (!want) {
+    return null;
+  }
+  try {
+    const rows = await dbAll<{ id: string | number | bigint }>("SELECT id FROM users");
+    for (const r of rows) {
+      if (adminIdsLooselyEqual(r.id, want)) {
+        return rawUserPkToString(r.id);
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "findUserPrimaryKeyByIdScan");
+  }
+  return null;
+}
+
+function rowToAuthUser(
+  row: Pick<UserRow, "id" | "name" | "email" | "created_at" | "self_referral_code" | "role">
+): AuthUser {
+  const role = row.role === "admin" ? "admin" : "user";
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    createdAt: row.created_at,
+    selfReferralCode: String(row.self_referral_code ?? "").trim() || "—",
+    role
+  };
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  /** User's own code to share (generated at register). */
+  selfReferralCode: string;
+  /** `admin` = React-Admin + /api/admin/* + /api/deposits/admin-all */
+  role: "user" | "admin";
+}
+
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  password_hash: string;
+  password_salt: string;
+  created_at: string;
+  self_referral_code: string | null;
+  referral_code: string | null;
+  role: string;
+}
+
+const GUEST_USER: AuthUser = {
+  id: "guest",
+  name: "Guest Demo",
+  email: "guest@demo.local",
+  createdAt: new Date(0).toISOString(),
+  selfReferralCode: "",
+  role: "user"
+};
+
+const demoAccounts = new Map<string, DemoAccount>();
+const ready = initAppDb();
+
+export function listAllAccounts() {
+  return [...demoAccounts.values()];
+}
+
+function hashPassword(password: string, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return { salt, hash };
+}
+
+function createToken(userId: string) {
+  const payload = JSON.stringify({
+    sub: userId,
+    iat: Date.now()
+  });
+  const encodedPayload = Buffer.from(payload).toString("base64url");
+  const signature = crypto.createHmac("sha256", env.AUTH_SECRET).update(encodedPayload).digest("base64url");
+  return `${encodedPayload}.${signature}`;
+}
+
+function verifyToken(token: string) {
+  const [encodedPayload, signature] = token.split(".");
+  if (!encodedPayload || !signature) {
+    return null;
+  }
+
+  const expected = crypto.createHmac("sha256", env.AUTH_SECRET).update(encodedPayload).digest("base64url");
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length) {
+    return null;
+  }
+
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as {
+      sub?: string;
+    };
+
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+export function extractBearerToken(authHeader?: string | null) {
+  if (!authHeader) {
+    return null;
+  }
+
+  const [scheme, value] = authHeader.split(" ");
+  if (scheme !== "Bearer" || !value) {
+    return null;
+  }
+
+  return value;
+}
+
+const DEFAULT_REGISTER_DEMO = 1000;
+
+/** Unique 4-digit string id (0000–9999), collision-checked against users.id */
+async function allocateUniqueFourDigitUserId(): Promise<string> {
+  await ready;
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    const id = crypto.randomInt(0, 10000).toString().padStart(4, "0");
+    const taken = await dbGet<{ id: string }>(
+      isMysqlMode() ? "SELECT id FROM users WHERE id = ? LIMIT 1" : "SELECT id FROM users WHERE id = ?",
+      [id]
+    );
+    if (!taken) {
+      return id;
+    }
+  }
+  for (let n = 0; n < 10000; n++) {
+    const id = n.toString().padStart(4, "0");
+    const taken = await dbGet<{ id: string }>(
+      isMysqlMode() ? "SELECT id FROM users WHERE id = ? LIMIT 1" : "SELECT id FROM users WHERE id = ?",
+      [id]
+    );
+    if (!taken) {
+      return id;
+    }
+  }
+  throw new Error("No free 4-digit user id available");
+}
+
+/**
+ * Clears in-memory trading accounts for everyone except guest (forces next request to load from DB).
+ * Call after registration so no stale RAM state lingers for the new user id space.
+ */
+export function clearServerAccountCacheExceptGuest() {
+  for (const key of [...demoAccounts.keys()]) {
+    if (!key.startsWith(`${GUEST_USER.id}:`)) {
+      demoAccounts.delete(key);
+    }
+  }
+}
+
+function isDuplicateUserIdError(err: unknown): boolean {
+  const msg = String((err as Error).message ?? "");
+  if (msg.toLowerCase().includes("email")) {
+    return false;
+  }
+  const e = err as { code?: string; errno?: number };
+  if (e.code === "ER_DUP_ENTRY" || e.errno === 1062) {
+    return msg.includes("PRIMARY") || /for key ['"]PRIMARY['"]/i.test(msg);
+  }
+  return msg.includes("users.id") || (msg.includes("UNIQUE constraint failed") && !msg.includes("email"));
+}
+
+function isDuplicateEmailError(err: unknown): boolean {
+  const msg = String((err as Error).message ?? "").toLowerCase();
+  return msg.includes("email") && (msg.includes("duplicate") || msg.includes("unique") || msg.includes("constraint"));
+}
+
+/**
+ * 1) INSERT user — committed immediately so the row always appears in `users`.
+ * 2) INSERT wallet — if this fails, user still exists; ensureWallet fixes on next login/API.
+ */
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  /** Optional inviter's self-referral code */
+  referralCode?: string;
+}) {
+  await ready;
+
+  const email = input.email.toLowerCase();
+  const existing = await dbGet<UserRow>("SELECT * FROM users WHERE email = ?", [email]);
+  if (existing) {
+    throw new Error("Email already registered");
+  }
+
+  let usedReferral: string | null = null;
+  try {
+    usedReferral = await validateInviterReferralCode(input.referralCode);
+  } catch (e) {
+    if (e instanceof Error && e.message === "Invalid referral code") {
+      throw e;
+    }
+    throw e;
+  }
+
+  const createdAt = new Date().toISOString();
+  const { salt, hash } = hashPassword(input.password);
+  const name = input.name.trim();
+  const now = createdAt;
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const id = await allocateUniqueFourDigitUserId();
+    const selfCode = await allocateUniqueSelfReferralCode();
+    try {
+      if (isMysqlMode()) {
+        try {
+          await getPool().execute(
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral]
+          );
+        } catch (e) {
+          if (isDuplicateEmailError(e)) {
+            throw new Error("Email already registered");
+          }
+          if (isDuplicateUserIdError(e) && attempt < 24) {
+            continue;
+          }
+          throw e;
+        }
+      } else {
+        try {
+          await dbRun(
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral]
+          );
+        } catch (e) {
+          if (isDuplicateEmailError(e)) {
+            throw new Error("Email already registered");
+          }
+          if (isDuplicateUserIdError(e) && attempt < 24) {
+            continue;
+          }
+          throw e;
+        }
+      }
+
+      try {
+        if (isMysqlMode()) {
+          await getPool().execute(
+            `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
+            [id, DEFAULT_REGISTER_DEMO, now]
+          );
+        } else {
+          await dbRun(
+            `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
+            [id, DEFAULT_REGISTER_DEMO, now]
+          );
+        }
+      } catch {
+        try {
+          await ensureWallet(id);
+        } catch {
+          /* user row is still saved */
+        }
+      }
+
+      evictInMemoryAccountsForUser(id);
+      if (!env.SKIP_CLEAR_CACHE_ON_REGISTER) {
+        clearServerAccountCacheExceptGuest();
+      }
+
+      const saved = await dbGet<UserRow>(
+        "SELECT id, name, email, created_at, self_referral_code, role FROM users WHERE id = ?",
+        [id]
+      );
+      if (!saved) {
+        throw new Error("Registration failed: user not found after insert");
+      }
+
+      return {
+        user: rowToAuthUser(saved),
+        token: createToken(saved.id),
+        wallet: {
+          liveBalance: 0,
+          demoBalance: DEFAULT_REGISTER_DEMO
+        }
+      };
+    } catch (e) {
+      if (e instanceof Error && e.message === "Email already registered") {
+        throw e;
+      }
+      if (isDuplicateUserIdError(e) && attempt < 24) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw new Error("Registration failed: could not assign a unique user id");
+}
+
+/** Fixed credentials for Chrome DevTools live editing (see docs/CHROME_LIVE_USER.md) */
+export const CHROME_LIVE_USER_EMAIL = "chrome-live@local.test";
+export const CHROME_LIVE_USER_PASSWORD = "LiveEdit1!";
+
+/** Call on server start when SEED_CHROME_USER=1 and NODE_ENV=development */
+export async function ensureDevChromeUser(): Promise<void> {
+  if (env.NODE_ENV !== "development" || !env.SEED_CHROME_USER) {
+    return;
+  }
+  await ready;
+  try {
+    await registerUser({
+      name: "Chrome Live",
+      email: CHROME_LIVE_USER_EMAIL,
+      password: CHROME_LIVE_USER_PASSWORD
+    });
+    logger.info({ email: CHROME_LIVE_USER_EMAIL }, "Dev Chrome user created");
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Email already registered")) {
+      return;
+    }
+    logger.warn({ err: e }, "Dev Chrome user seed failed");
+  }
+}
+
+export async function loginUser(input: { email: string; password: string }) {
+  await ready;
+
+  const user = await dbGet<UserRow>(
+    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role FROM users WHERE email = ?",
+    [input.email.toLowerCase()]
+  );
+  if (!user) {
+    throw new Error("Invalid email or password");
+  }
+
+  const { hash } = hashPassword(input.password, user.password_salt);
+  const storedHash = Buffer.from(user.password_hash, "hex");
+  const computedHash = Buffer.from(hash, "hex");
+
+  if (
+    storedHash.length !== computedHash.length ||
+    !crypto.timingSafeEqual(storedHash, computedHash)
+  ) {
+    throw new Error("Invalid email or password");
+  }
+
+  try {
+    await ensureWallet(user.id);
+  } catch {
+    /* wallet row next time deposit/live API runs */
+  }
+
+  return {
+    user: rowToAuthUser(user),
+    token: createToken(user.id)
+  };
+}
+
+export async function getUserFromToken(token?: string | null) {
+  if (!token) {
+    return null;
+  }
+
+  const userId = verifyToken(token);
+  if (!userId) {
+    return null;
+  }
+
+  await ready;
+
+  const user = await dbGet<UserRow>(
+    "SELECT id, name, email, created_at, self_referral_code, role FROM users WHERE id = ?",
+    [userId]
+  );
+  if (!user) {
+    return null;
+  }
+
+  return rowToAuthUser(user);
+}
+
+export async function resolveDemoUser(authHeader?: string | null) {
+  const token = extractBearerToken(authHeader);
+  const user = await getUserFromToken(token);
+  return user ?? GUEST_USER;
+}
+
+export async function requireSession(authHeader?: string | null) {
+  const token = extractBearerToken(authHeader);
+  const user = await getUserFromToken(token);
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  return user;
+}
+
+/** Bearer JWT + DB `users.role = 'admin'` (React-Admin, admin-all, /api/admin/ra). */
+export async function requireAdminSession(authHeader?: string | null) {
+  const bearer = extractBearerToken(authHeader);
+  if (!bearer) {
+    throw new Error("Unauthorized");
+  }
+  const userId = verifyToken(bearer);
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+  await ready;
+  const row = await dbGet<{ id: string; email: string; role: string }>(
+    isMysqlMode()
+      ? "SELECT id, email, role FROM users WHERE id = ? LIMIT 1"
+      : "SELECT id, email, role FROM users WHERE id = ?",
+    [userId]
+  );
+  if (!row) {
+    throw new Error("Unauthorized");
+  }
+  if (row.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+  return { id: row.id, email: row.email };
+}
+
+/** One-time promote: set `.env` `ADMIN_PROMOTE_EMAIL=you@mail.com`, restart server, then remove line. */
+export async function promoteAdminFromEnv() {
+  const email = env.ADMIN_PROMOTE_EMAIL?.trim().toLowerCase();
+  if (!email) {
+    return;
+  }
+  await ready;
+  const { affectedRows } = await dbRun("UPDATE users SET role = 'admin' WHERE LOWER(email) = ?", [email]);
+  if (affectedRows > 0) {
+    logger.info({ email }, "ADMIN_PROMOTE_EMAIL: promoted to admin");
+  } else {
+    logger.warn({ email }, "ADMIN_PROMOTE_EMAIL: no matching user — register first or fix email");
+  }
+}
+
+export type WalletType = "demo" | "live";
+
+/** Guest = demo-only (try before login). Logged-in = separate demo + real wallets. */
+export function resolveWallet(userId: string, headerValue: string | undefined): WalletType {
+  if (userId === GUEST_USER.id) {
+    return "demo";
+  }
+  const raw = String(headerValue ?? "demo").toLowerCase();
+  return raw === "live" ? "live" : "demo";
+}
+
+function walletStorageKey(userId: string, wallet: WalletType) {
+  return `${userId}:${wallet}`;
+}
+
+/** Remove any in-memory trading state so the next request loads from DB only. */
+export function evictInMemoryAccountsForUser(userId: string) {
+  demoAccounts.delete(walletStorageKey(userId, "demo"));
+  demoAccounts.delete(walletStorageKey(userId, "live"));
+}
+
+/** Load account state from DB before handling the request (no stale RAM after register). */
+export async function prepareAccountForRequest(userId: string, wallet: WalletType) {
+  if (userId === GUEST_USER.id) {
+    return;
+  }
+  if (wallet === "live") {
+    await hydrateLiveAccountFromWallet(userId);
+    return;
+  }
+  const key = walletStorageKey(userId, "demo");
+  if (demoAccounts.has(key)) {
+    return;
+  }
+  const demoBal = await getDemoBalanceFromDb(userId);
+  const acc = new DemoAccount(demoBal);
+  demoAccounts.set(key, acc);
+}
+
+export function getAccountForWallet(userId: string, wallet: WalletType) {
+  const key = walletStorageKey(userId, wallet);
+  const existing = demoAccounts.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const startingBalance = wallet === "demo" ? 1_000 : 0;
+  const account = new DemoAccount(startingBalance);
+  demoAccounts.set(key, account);
+  return account;
+}
+
+/** @deprecated use getAccountForWallet */
+export function getDemoAccountFor(userId: string) {
+  return getAccountForWallet(userId, "demo");
+}
+
+export function getGuestUser() {
+  return GUEST_USER;
+}
+
+/** Safe columns only — for React-Admin / admin API (no password fields). */
+export type AdminUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  created_at: string;
+  self_referral_code: string | null;
+  referral_code: string | null;
+  role: string;
+};
+
+/** List + edit: wallet, upline (inviter), direct / total team size under this user. */
+export type AdminUserListRow = AdminUserRow & {
+  balance: number;
+  demo_balance: number;
+  inviter_id: string | null;
+  inviter_name: string | null;
+  inviter_email: string | null;
+  direct_team_count: number;
+  total_team_count: number;
+};
+
+export type AdminUserDetailRow = AdminUserListRow;
+
+type ReferralGraphRow = { id: string; self_referral_code: string | null; referral_code: string | null };
+
+function buildReferralChildrenMap(rows: ReferralGraphRow[]): Map<string, string[]> {
+  const codeToId = new Map<string, string>();
+  for (const r of rows) {
+    const c = r.self_referral_code?.trim().toUpperCase();
+    if (c) {
+      codeToId.set(c, String(r.id));
+    }
+  }
+  const childrenByParentId = new Map<string, string[]>();
+  for (const r of rows) {
+    const ref = r.referral_code?.trim().toUpperCase();
+    if (!ref) {
+      continue;
+    }
+    const pid = codeToId.get(ref);
+    if (!pid) {
+      continue;
+    }
+    if (!childrenByParentId.has(pid)) {
+      childrenByParentId.set(pid, []);
+    }
+    childrenByParentId.get(pid)!.push(String(r.id));
+  }
+  return childrenByParentId;
+}
+
+/** All descendants (every level); cycle-safe. */
+function countTotalDownline(userId: string, childrenByParentId: Map<string, string[]>): number {
+  const stack = new Set<string>();
+  function walk(uid: string): number {
+    if (stack.has(uid)) {
+      return 0;
+    }
+    stack.add(uid);
+    const kids = childrenByParentId.get(uid) ?? [];
+    let n = kids.length;
+    for (const k of kids) {
+      n += walk(k);
+    }
+    stack.delete(uid);
+    return n;
+  }
+  return walk(userId);
+}
+
+const ADMIN_USER_SELECT = `
+  u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
+  COALESCE(w.balance, 0) AS balance,
+  COALESCE(w.demo_balance, 1000) AS demo_balance,
+  inv.id AS inviter_id,
+  inv.name AS inviter_name,
+  inv.email AS inviter_email
+`;
+
+const ADMIN_USER_JOINS = `
+  FROM users u
+  LEFT JOIN wallets w ON w.user_id = u.id
+  LEFT JOIN users inv
+    ON u.referral_code IS NOT NULL
+   AND TRIM(u.referral_code) <> ''
+   AND inv.self_referral_code IS NOT NULL
+   AND UPPER(TRIM(inv.self_referral_code)) = UPPER(TRIM(u.referral_code))
+`;
+
+function mapRawAdminUserRow(
+  row: AdminUserRow & {
+    balance: number | string | null;
+    demo_balance: number | string | null;
+    inviter_id: string | null;
+    inviter_name: string | null;
+    inviter_email: string | null;
+  },
+  childrenByParentId: Map<string, string[]>
+): AdminUserListRow {
+  return {
+    /** React-Admin URL + getOne ke liye hamesha string (number/BIGINT JSON mismatch se bachne ke liye). */
+    id: String(row.id ?? "").trim(),
+    name: row.name,
+    email: row.email,
+    created_at: row.created_at,
+    self_referral_code: row.self_referral_code,
+    referral_code: row.referral_code,
+    role: row.role,
+    balance: Number(row.balance ?? 0),
+    demo_balance: Number(row.demo_balance ?? 1000),
+    inviter_id: row.inviter_id != null ? String(row.inviter_id).trim() : null,
+    inviter_name: row.inviter_name ?? null,
+    inviter_email: row.inviter_email ?? null,
+    direct_team_count: childrenByParentId.get(String(row.id))?.length ?? 0,
+    total_team_count: countTotalDownline(String(row.id), childrenByParentId)
+  };
+}
+
+export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
+  await ready;
+  const graph = await dbAll<ReferralGraphRow>(
+    "SELECT id, self_referral_code, referral_code FROM users"
+  );
+  const childrenByParentId = buildReferralChildrenMap(graph);
+
+  const sql = isMysqlMode()
+    ? `SELECT ${ADMIN_USER_SELECT} ${ADMIN_USER_JOINS} ORDER BY u.created_at DESC`
+    : `SELECT ${ADMIN_USER_SELECT} ${ADMIN_USER_JOINS} ORDER BY u.created_at DESC`;
+
+  const raw = await dbAll<
+    AdminUserRow & {
+      balance: number | string | null;
+      demo_balance: number | string | null;
+      inviter_id: string | null;
+      inviter_name: string | null;
+      inviter_email: string | null;
+    }
+  >(sql);
+
+  return raw.map((r) => mapRawAdminUserRow(r, childrenByParentId));
+}
+
+/**
+ * Canonical `users.id` for admin GET/PUT — handles string vs numeric binding (MySQL INT/BIGINT/VARCHAR).
+ */
+async function resolveAdminUserPrimaryKey(raw: string): Promise<string | null> {
+  await ready;
+  const uid = String(raw ?? "").trim();
+  if (!uid) {
+    return null;
+  }
+
+  const idOnlySql = isMysqlMode()
+    ? "SELECT id FROM users WHERE id = ? LIMIT 1"
+    : "SELECT id FROM users WHERE id = ?";
+  const looseSql = isMysqlMode()
+    ? "SELECT id FROM users WHERE TRIM(CAST(id AS CHAR)) = TRIM(?) LIMIT 1"
+    : "SELECT id FROM users WHERE TRIM(CAST(id AS TEXT)) = TRIM(?)";
+
+  const attempts: unknown[] = [uid];
+  if (/^\d+$/.test(uid)) {
+    const n = Number(uid);
+    if (Number.isSafeInteger(n)) {
+      attempts.push(n);
+    }
+  }
+
+  for (const p of attempts) {
+    const hit = await dbGet<{ id: string | number }>(idOnlySql, [p]);
+    if (hit) {
+      return String(hit.id).trim();
+    }
+  }
+
+  const loose = await dbGet<{ id: string | number }>(looseSql, [uid]);
+  if (loose) {
+    return String(loose.id).trim();
+  }
+
+  /** Legacy MySQL tables: numeric PK / mixed types — CONVERT compares as text. */
+  if (isMysqlMode()) {
+    const convSql =
+      "SELECT id FROM users WHERE CONVERT(id, CHAR) = TRIM(?) OR CONVERT(id, CHAR) = ? LIMIT 1";
+    const conv = await dbGet<{ id: string | number }>(convSql, [uid, uid]);
+    if (conv) {
+      return String(conv.id).trim();
+    }
+  }
+
+  const scanned = await findUserPrimaryKeyByIdScan(uid);
+  if (scanned) {
+    return scanned;
+  }
+
+  try {
+    const rows = await listUsersForAdmin();
+    const hit = rows.find((u) => adminIdsLooselyEqual(u.id, uid));
+    if (hit) {
+      return String(hit.id).trim();
+    }
+  } catch {
+    /* ignore */
+  }
+
+  return null;
+}
+
+export async function getUserForAdminById(userId: string): Promise<AdminUserDetailRow | null> {
+  const target = String(userId ?? "").trim();
+  if (!target) {
+    return null;
+  }
+
+  const resolvedId = await resolveAdminUserPrimaryKey(target);
+
+  const baseSql = isMysqlMode()
+    ? "SELECT id, name, email, created_at, self_referral_code, referral_code, role FROM users WHERE id = ? LIMIT 1"
+    : "SELECT id, name, email, created_at, self_referral_code, referral_code, role FROM users WHERE id = ?";
+
+  if (resolvedId) {
+    const base = await dbGet<AdminUserRow>(baseSql, [resolvedId]);
+    if (base) {
+      return await assembleAdminUserDetailFromBase(base, resolvedId);
+    }
+  }
+
+  const scannedPk = await findUserPrimaryKeyByIdScan(target);
+  if (scannedPk) {
+    const base = await dbGet<AdminUserRow>(baseSql, [scannedPk]);
+    if (base) {
+      return await assembleAdminUserDetailFromBase(base, scannedPk);
+    }
+  }
+
+  const rows = await listUsersForAdmin();
+  return rows.find((r) => adminIdsLooselyEqual(r.id, target)) ?? null;
+}
+
+async function assembleAdminUserDetailFromBase(
+  base: AdminUserRow,
+  resolvedId: string
+): Promise<AdminUserDetailRow> {
+  let wallet = await dbGet<{ balance: number | string | null; demo_balance: number | string | null }>(
+    isMysqlMode()
+      ? "SELECT balance, demo_balance FROM wallets WHERE user_id = ? LIMIT 1"
+      : "SELECT balance, demo_balance FROM wallets WHERE user_id = ?",
+    [resolvedId]
+  );
+  if (!wallet && isMysqlMode()) {
+    wallet = await dbGet<{ balance: number | string | null; demo_balance: number | string | null }>(
+      "SELECT balance, demo_balance FROM wallets WHERE TRIM(CAST(user_id AS CHAR)) = TRIM(?) LIMIT 1",
+      [resolvedId]
+    );
+  }
+
+  let inviter_id: string | null = null;
+  let inviter_name: string | null = null;
+  let inviter_email: string | null = null;
+  const refCode = base.referral_code?.trim();
+  if (refCode) {
+    const invSql = isMysqlMode()
+      ? "SELECT id, name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?) LIMIT 1"
+      : "SELECT id, name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?)";
+    const inv = await dbGet<{ id: string; name: string; email: string }>(invSql, [refCode]);
+    if (inv) {
+      inviter_id = String(inv.id).trim();
+      inviter_name = inv.name;
+      inviter_email = inv.email;
+    }
+  }
+
+  const graph = await dbAll<ReferralGraphRow>(
+    "SELECT id, self_referral_code, referral_code FROM users"
+  );
+  const childrenByParentId = buildReferralChildrenMap(graph);
+
+  const raw: AdminUserRow & {
+    balance: number | string | null;
+    demo_balance: number | string | null;
+    inviter_id: string | null;
+    inviter_name: string | null;
+    inviter_email: string | null;
+  } = {
+    ...base,
+    balance: wallet?.balance ?? 0,
+    demo_balance: wallet?.demo_balance ?? 1000,
+    inviter_id,
+    inviter_name,
+    inviter_email
+  };
+
+  return mapRawAdminUserRow(raw, childrenByParentId);
+}
+
+export type AdminUserUpdatePayload = {
+  name?: string;
+  email?: string;
+  role?: string;
+  self_referral_code?: string | null;
+  referral_code?: string | null;
+  balance?: number;
+  demo_balance?: number;
+  /** Plain text only for this request — never stored; updates hash in DB. */
+  new_password?: string;
+};
+
+export async function updateUserFromAdmin(
+  userId: string,
+  body: AdminUserUpdatePayload
+): Promise<AdminUserDetailRow> {
+  await ready;
+  const canonicalId = await resolveAdminUserPrimaryKey(String(userId ?? "").trim());
+  if (!canonicalId) {
+    throw new Error("User not found");
+  }
+
+  const existing = await dbGet<{ id: string; email: string }>(
+    isMysqlMode() ? "SELECT id, email FROM users WHERE id = ? LIMIT 1" : "SELECT id, email FROM users WHERE id = ?",
+    [canonicalId]
+  );
+  if (!existing) {
+    throw new Error("User not found");
+  }
+
+  const emailIn =
+    body.email !== undefined && body.email !== null
+      ? String(body.email).trim().toLowerCase()
+      : undefined;
+  if (emailIn !== undefined) {
+    if (!emailIn.includes("@")) {
+      throw new Error("Invalid email");
+    }
+    if (emailIn !== existing.email.toLowerCase()) {
+      const clash = await dbGet<{ id: string }>(
+        isMysqlMode()
+          ? "SELECT id FROM users WHERE LOWER(email) = ? AND id != ? LIMIT 1"
+          : "SELECT id FROM users WHERE LOWER(email) = ? AND id != ?",
+        [emailIn, canonicalId]
+      );
+      if (clash) {
+        throw new Error("Email already in use");
+      }
+    }
+  }
+
+  const roleNorm =
+    body.role === "admin" || body.role === "user"
+      ? body.role
+      : body.role !== undefined && body.role !== null
+        ? null
+        : undefined;
+  if (roleNorm === null) {
+    throw new Error("role must be user or admin");
+  }
+
+  const updates: string[] = [];
+  const vals: unknown[] = [];
+  if (body.name !== undefined && body.name !== null) {
+    updates.push("name = ?");
+    vals.push(String(body.name).trim());
+  }
+  if (emailIn !== undefined) {
+    updates.push("email = ?");
+    vals.push(emailIn);
+  }
+  if (roleNorm !== undefined) {
+    updates.push("role = ?");
+    vals.push(roleNorm);
+  }
+  if (body.self_referral_code !== undefined) {
+    const code = body.self_referral_code ? String(body.self_referral_code).trim() : null;
+    if (code) {
+      const clash = await dbGet<{ id: string }>(
+        isMysqlMode()
+          ? "SELECT id FROM users WHERE self_referral_code = ? AND id != ? LIMIT 1"
+          : "SELECT id FROM users WHERE self_referral_code = ? AND id != ?",
+          [code, canonicalId]
+      );
+      if (clash) {
+        throw new Error("Self referral code already in use");
+      }
+    }
+    updates.push("self_referral_code = ?");
+    vals.push(code);
+  }
+  if (body.referral_code !== undefined) {
+    const ref = body.referral_code ? String(body.referral_code).trim() : null;
+    updates.push("referral_code = ?");
+    vals.push(ref);
+  }
+
+  if (updates.length > 0) {
+    vals.push(canonicalId);
+    await dbRun(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, vals);
+  }
+
+  if (body.balance !== undefined || body.demo_balance !== undefined) {
+    await ensureWallet(canonicalId);
+    const cur = await dbGet<{ balance: number; demo_balance: number }>(
+      "SELECT balance, demo_balance FROM wallets WHERE user_id = ?",
+      [canonicalId]
+    );
+    const newB =
+      body.balance !== undefined ? Number(body.balance) : Number(cur?.balance ?? 0);
+    const newD =
+      body.demo_balance !== undefined ? Number(body.demo_balance) : Number(cur?.demo_balance ?? 1000);
+    if (!Number.isFinite(newB) || newB < 0) {
+      throw new Error("Invalid live balance");
+    }
+    if (!Number.isFinite(newD) || newD < 0) {
+      throw new Error("Invalid demo balance");
+    }
+    const now = new Date().toISOString();
+    await dbRun(
+      "UPDATE wallets SET balance = ?, demo_balance = ?, updated_at = ? WHERE user_id = ?",
+      [newB, newD, now, canonicalId]
+    );
+  }
+
+  if (body.new_password !== undefined && body.new_password !== null) {
+    const pw = String(body.new_password).trim();
+    if (pw.length > 0) {
+      if (pw.length < 8) {
+        throw new Error("New password must be at least 8 characters");
+      }
+      const { salt, hash } = hashPassword(pw);
+      await dbRun("UPDATE users SET password_salt = ?, password_hash = ? WHERE id = ?", [
+        salt,
+        hash,
+        canonicalId
+      ]);
+    }
+  }
+
+  evictInMemoryAccountsForUser(canonicalId);
+
+  const out = await getUserForAdminById(canonicalId);
+  if (!out) {
+    throw new Error("User not found after update");
+  }
+  return out;
+}
+
+export async function hydrateLiveAccountFromWallet(userId: string) {
+  if (userId === GUEST_USER.id) {
+    return;
+  }
+  const b = await getWalletBalance(userId);
+  getAccountForWallet(userId, "live").setBalance(b);
+}
+
+export function forEachWalletAccount(
+  cb: (userId: string, wallet: WalletType, account: DemoAccount) => void
+) {
+  for (const [key, acc] of demoAccounts) {
+    const i = key.lastIndexOf(":");
+    cb(key.slice(0, i), key.slice(i + 1) as WalletType, acc);
+  }
+}
