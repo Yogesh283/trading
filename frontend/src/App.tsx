@@ -122,6 +122,25 @@ function tfLabel(sec: number): string {
   return o?.label ?? `${sec}s`;
 }
 
+/** UI label: Up = buy, Down = sell (matches API direction / legacy side). */
+function formatTradeDirectionLabel(direction?: string | null, side?: string | null): string {
+  const d = String(direction ?? "").toLowerCase();
+  if (d === "up") return "Up";
+  if (d === "down") return "Down";
+  const s = String(side ?? "").toLowerCase();
+  if (s === "buy") return "Up";
+  if (s === "sell") return "Down";
+  return String(direction ?? side ?? "—");
+}
+
+/** One letter on chart markers (U / D). */
+function formatTradeDirectionShort(direction?: string | null, side?: string | null): string {
+  const full = formatTradeDirectionLabel(direction, side);
+  if (full === "Up") return "U";
+  if (full === "Down") return "D";
+  return full.slice(0, 1).toUpperCase();
+}
+
 /** MM:SS until expiry (uses live Date.now — parent should re-render every second). */
 function countdownToExpiry(expiryAt: number | undefined): string {
   if (expiryAt == null) return "—";
@@ -420,7 +439,7 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       setMessage(
-        `Opened ${direction === "up" ? "Buy" : "Sell"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
+        `Opened ${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
       );
       await refresh();
     } catch (error) {
@@ -663,7 +682,7 @@ export default function App() {
         </div>
         {!isPhone ? (
           <p className="app-main-nav-sub">
-            {isGuestDemo ? "Virtual funds · practice Buy/Sell with timer" : session.user.email}
+            {isGuestDemo ? "Virtual funds · practice Up/Down with timer" : session.user.email}
           </p>
         ) : null}
 
@@ -956,14 +975,14 @@ export default function App() {
                 className={`mobile-bs-btn buy ${mobileSide === "buy" ? "on" : ""}`}
                 onClick={() => setMobileSide("buy")}
               >
-                Buy
+                Up
               </button>
               <button
                 type="button"
                 className={`mobile-bs-btn sell ${mobileSide === "sell" ? "on" : ""}`}
                 onClick={() => setMobileSide("sell")}
               >
-                Sell
+                Down
               </button>
             </div>
 
@@ -1036,7 +1055,7 @@ export default function App() {
               }}
             >
               <span className="mobile-cta-text">
-                <strong>{mobileSide === "buy" ? "Buy" : "Sell"}</strong>
+                <strong>{mobileSide === "buy" ? "Up" : "Down"}</strong>
                 <small>
                   {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
                 </small>
@@ -1063,7 +1082,7 @@ export default function App() {
               {trades.slice(0, 12).map((trade) => (
                 <div key={trade.id} className="mobile-hist-row">
                   <span>{formatForexPair(trade.symbol)}</span>
-                  <span>{trade.direction ?? trade.side}</span>
+                  <span>{formatTradeDirectionLabel(trade.direction, trade.side)}</span>
                   <span>{trade.quantity}</span>
                   <span
                     className={
@@ -1204,7 +1223,7 @@ export default function App() {
             <h2>Demo trading</h2>
             <p className="muted">
               <strong>{formatForexPair(symbol)}</strong> — open new trades from the{" "}
-              <strong>bar at the bottom</strong> (Buy / Sell, amount).
+              <strong>bar at the bottom</strong> (Up / Down, amount).
             </p>
             <div className="trade-timeout-banner" data-tick={timerTick}>
               <span className="trade-timeout-label">Timeout</span>
@@ -1235,14 +1254,14 @@ export default function App() {
                   className="btn-buy-up"
                   onClick={() => void handleBinaryOrder("up")}
                 >
-                  Buy Up
+                  Up
                 </button>
                 <button
                   type="button"
                   className="btn-buy-down"
                   onClick={() => void handleBinaryOrder("down")}
                 >
-                  Buy Down
+                  Down
                 </button>
               </div>
             </div>
@@ -1253,7 +1272,7 @@ export default function App() {
                   {openBinaryTrades.map((t) => (
                     <li key={t.id}>
                       <span>
-                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Buy" : "Sell"} · $
+                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · $
                         {t.quantity}
                       </span>
                       <span className="countdown-badge" aria-live="polite">
@@ -1269,7 +1288,7 @@ export default function App() {
           <section className="panel">
             <h2>Trading</h2>
             <p className="muted">
-              You are on <strong>Live</strong>. Select a <strong>timing</strong>, then Buy/Sell. When time is out,
+              You are on <strong>Live</strong>. Select a <strong>timing</strong>, then Up/Down. When time is out,
               it auto cuts in <strong>profit</strong> or <strong>loss</strong> based on price vs entry.
             </p>
             <div className="trade-timeout-banner" data-tick={timerTick}>
@@ -1282,7 +1301,7 @@ export default function App() {
               Win: <strong>1.8×</strong> stake back (e.g. $100 → $180). Loss: full stake.
             </p>
             <p className="muted">
-              Use the <strong>bottom bar</strong> to place trades (amount, Buy/Sell).
+              Use the <strong>bottom bar</strong> to place trades (amount, Up/Down).
               Demo practice:{" "}
               <button type="button" className="link-inline" onClick={logout}>
                 log out
@@ -1321,7 +1340,10 @@ export default function App() {
               trades.map((trade) => (
                 <div key={trade.id} className="table-row" data-tick={timerTick}>
                   <span>{trade.symbol}</span>
-                  <span>{trade.direction ?? trade.side}{trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}</span>
+                  <span>
+                    {formatTradeDirectionLabel(trade.direction, trade.side)}
+                    {trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}
+                  </span>
                   <span>{trade.quantity}</span>
                   <span>{trade.entryPrice.toFixed(4)}</span>
                   <span>{trade.status}</span>
@@ -1389,14 +1411,14 @@ export default function App() {
                   className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}`}
                   onClick={() => setMobileSide("buy")}
                 >
-                  Buy
+                  Up
                 </button>
                 <button
                   type="button"
                   className={`desktop-demo-bs-btn sell ${mobileSide === "sell" ? "on" : ""}`}
                   onClick={() => setMobileSide("sell")}
                 >
-                  Sell
+                  Down
                 </button>
               </div>
             </div>
@@ -1418,7 +1440,7 @@ export default function App() {
               }}
             >
               <span>
-                <strong>{mobileSide === "buy" ? "Place Buy" : "Place Sell"}</strong>
+                <strong>{mobileSide === "buy" ? "Place Up" : "Place Down"}</strong>
                 <small>
                   {" "}
                   stake $
@@ -2303,7 +2325,7 @@ function LiveChart({
                 <g key={trade.id}>
                   <circle cx={cx} cy={cy} r="4" className="tv-trade-dot" />
                   <text x={cx + 6} y={cy - 6} className="tv-trade-tag">
-                    {trade.side[0].toUpperCase()} {trade.entryPrice.toFixed(2)}
+                    {formatTradeDirectionShort(trade.direction, trade.side)} {trade.entryPrice.toFixed(2)}
                   </text>
                 </g>
               );
