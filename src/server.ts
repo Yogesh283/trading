@@ -68,6 +68,10 @@ const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src"
 export const useUnifiedDevPort =
   runningFromSourceTree && String(process.env.SEPARATE_FRONTEND ?? "").trim() !== "1";
 
+/** Repo root — not `process.cwd()` (PM2/systemd often use another cwd). */
+const projectRoot = path.resolve(__dirname, "..");
+const frontendDist = path.join(projectRoot, "frontend", "dist");
+
 const app = express();
 app.use(
   useUnifiedDevPort
@@ -77,7 +81,6 @@ app.use(
 app.use(cors());
 app.use(express.json());
 
-const frontendDist = path.join(process.cwd(), "frontend", "dist");
 if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
 }
@@ -1087,7 +1090,7 @@ async function attachViteDevMiddleware(): Promise<void> {
   if (!useUnifiedDevPort) {
     return;
   }
-  const frontendRoot = path.join(process.cwd(), "frontend");
+  const frontendRoot = path.join(projectRoot, "frontend");
   const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
     root: frontendRoot,
