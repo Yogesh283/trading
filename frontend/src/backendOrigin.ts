@@ -1,7 +1,8 @@
 /**
  * Dev + unified port (`npm run dev`): same origin → "" for /api and /ws.
  * Dev + separate frontend (`npm run dev:api-only` + frontend on 5173): "" + Vite proxy.
- * Prod: VITE_API_URL or same host :3000.
+ * Prod: `VITE_API_URL` if set; else same origin "" (reverse proxy serves /api on 443).
+ *       Do not use :3000 on public domains — that port is usually closed.
  */
 /**
  * Admin panel: localhost par hamesha same-origin API (local DB).
@@ -33,7 +34,8 @@ export function getBackendHttpOrigin(): string {
   if (hostname === "localhost" || hostname === "127.0.0.1") {
     return `${proto}://${hostname}:3000`;
   }
-  return `${proto}://${hostname}:3000`;
+  // Live: Nginx/CloudPanel proxies https://domain/api → Node — use same origin
+  return "";
 }
 
 export function getBackendWsUrl(): string {
