@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # UpDown FX
 
 Full-stack trading platform (Node.js, TypeScript, Express, React, WebSockets).
@@ -76,3 +77,6 @@ API: **`GET /api/admin/ra/:resource`** and **`GET /api/deposits/admin-all`** req
 - Add candle storage and backtesting
 - Add real broker integration
 - Add auth, admin controls, and deeper analytics
+=======
+# trading
+>>>>>>> 624159fd3d613617d24bc1a4f1270bb7ab25181e

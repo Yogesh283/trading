@@ -64,6 +64,22 @@ git config user.email "aapka-email@example.com"
 
 Windows par yeh **warning** aksar normal hai. Asli project ke liye repo root par **`.gitattributes`** (`* text=auto`) use ho raha hai. Edge cache files **commit mat karo** — unka reason hi galat folder tha.
 
+### `Permission denied (publickey)` push par
+
+Matlab **SSH key** GitHub account par add nahi hai (ya galat key).
+
+**Jaldi fix — HTTPS remote:**
+
+```bash
+cd /d/xampp/htdocs/tradeing
+git remote set-url origin https://github.com/Yogesh283/trading.git
+git push -u origin main
+```
+
+Password ki jagah GitHub **Personal Access Token** (repo access) use karo.
+
+**SSH rakhna ho to:** `~/.ssh/id_ed25519.pub` (ya `id_rsa.pub`) ki poori line GitHub → **Settings → SSH and GPG keys** par add karo, phir `ssh -T git@github.com` test karo.
+
 ---
 
 ## 1) Git install (agar nahi hai)
@@ -149,6 +165,24 @@ git pull origin main --allow-unrelated-histories
 # merge conflicts fix karo agar aayein
 git push -u origin main
 ```
+
+### `rejected (fetch first)` / remote contains work you do not have locally
+
+GitHub par repo banate waqt **README / .gitignore** add kiye hon to pehla push reject ho sakta hai.
+
+```bash
+cd /d/xampp/htdocs/tradeing
+git pull origin main --allow-unrelated-histories
+git push -u origin main
+```
+
+Conflict aaye to files fix karke `git add .` + `git commit` + `git push`.
+
+**Sirf local ko maan na ho (remote history mita degi):** `git push -u origin main --force` — careful.
+
+### Terminal paste: `^[[200~` / `command not found`
+
+Cursor se paste kabhi **bracketed paste** junk ke sath aata hai — command **type** karo ya paste ke start ka garbage hata kar dubara run karo.
 
 ### Remote galat lag gay ho to
 
