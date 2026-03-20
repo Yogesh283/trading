@@ -629,6 +629,93 @@ function countTotalDownline(userId: string, childrenByParentId: Map<string, stri
   return walk(userId);
 }
 
+export type ReferralTeamMemberPublic = {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  selfReferralCode: string;
+};
+
+/** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
+export async function getReferralDashboardForUser(userId: string): Promise<{
+  selfReferralCode: string;
+  inviter: { name: string; email: string } | null;
+  directTeam: ReferralTeamMemberPublic[];
+  directCount: number;
+  totalTeamCount: number;
+}> {
+  await ready;
+  const uid = String(userId ?? "").trim();
+  const me = await dbGet<{
+    id: string | number;
+    self_referral_code: string | null;
+    referral_code: string | null;
+  }>(
+    isMysqlMode()
+      ? "SELECT id, self_referral_code, referral_code FROM users WHERE id = ? LIMIT 1"
+      : "SELECT id, self_referral_code, referral_code FROM users WHERE id = ?",
+    [uid]
+  );
+  if (!me) {
+    throw new Error("User not found");
+  }
+  const myCode = String(me.self_referral_code ?? "").trim();
+
+  let inviter: { name: string; email: string } | null = null;
+  const mySignupRef = String(me.referral_code ?? "").trim();
+  if (mySignupRef) {
+    const inv = await dbGet<{ name: string; email: string }>(
+      isMysqlMode()
+        ? "SELECT name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?) LIMIT 1"
+        : "SELECT name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?)",
+      [mySignupRef]
+    );
+    if (inv) {
+      inviter = { name: inv.name, email: inv.email };
+    }
+  }
+
+  let directTeam: ReferralTeamMemberPublic[] = [];
+  if (myCode) {
+    const directSql = isMysqlMode()
+      ? `SELECT id, name, email, created_at, self_referral_code FROM users
+         WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
+         AND UPPER(TRIM(referral_code)) = UPPER(?)
+         ORDER BY created_at DESC`
+      : `SELECT id, name, email, created_at, self_referral_code FROM users
+         WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
+         AND UPPER(TRIM(referral_code)) = UPPER(?)
+         ORDER BY created_at DESC`;
+    const directRows = await dbAll<{
+      id: string | number;
+      name: string;
+      email: string;
+      created_at: string;
+      self_referral_code: string | null;
+    }>(directSql, [myCode]);
+    directTeam = directRows.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      email: r.email,
+      createdAt: r.created_at,
+      selfReferralCode: String(r.self_referral_code ?? "").trim() || "—"
+    }));
+  }
+
+  const graph = await dbAll<ReferralGraphRow>("SELECT id, self_referral_code, referral_code FROM users");
+  const childrenByParentId = buildReferralChildrenMap(graph);
+  const totalTeamCount = countTotalDownline(uid, childrenByParentId);
+
+  return {
+    selfReferralCode: myCode || "—",
+    inviter,
+    directTeam,
+    directCount: directTeam.length,
+    totalTeamCount
+  };
+}
+
 const ADMIN_USER_SELECT = `
   u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
   COALESCE(w.balance, 0) AS balance,

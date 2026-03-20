@@ -31,6 +31,7 @@ import LandingPage from "./LandingPage";
 import SplashScreen from "./SplashScreen";
 import WithdrawalPage from "./WithdrawalPage";
 import InvestmentPage from "./InvestmentPage";
+import ReferralPage from "./ReferralPage";
 import { APP_NAME, SESSION_STORAGE_KEY } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
@@ -54,7 +55,7 @@ type AuthView = "login" | "register";
 
 type PublicScreen = "landing" | "auth";
 
-type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment";
+type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral";
 
 const SPLASH_MS = 2000;
 
@@ -640,6 +641,13 @@ export default function App() {
                   </button>
                   <button
                     type="button"
+                    className={dashboardSection === "referral" ? "active" : ""}
+                    onClick={() => setDashboardSection("referral")}
+                  >
+                    Referral
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       setWalletActivityOpen(true);
                     }}
@@ -819,6 +827,15 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
+                        setDashboardSection("referral");
+                        setMainNavOpen(false);
+                      }}
+                    >
+                      Referral &amp; team
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         setMainNavOpen(false);
                         setWalletActivityOpen(true);
                       }}
@@ -876,6 +893,8 @@ export default function App() {
           onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
+      ) : isLoggedIn && dashboardSection === "referral" ? (
+        <ReferralPage token={session.token} onBack={() => setDashboardSection("trading")} />
       ) : (
       <>
       {session && isPhone ? (
@@ -1566,6 +1585,17 @@ export default function App() {
             >
               <span className="mobile-bottom-nav-icon" aria-hidden>📈</span>
               <span className="mobile-bottom-nav-label">Invest</span>
+            </button>
+          ) : null}
+          {isLoggedIn ? (
+            <button
+              type="button"
+              className={`mobile-bottom-nav-item ${dashboardSection === "referral" ? "active" : ""}`}
+              onClick={() => setDashboardSection("referral")}
+              aria-current={dashboardSection === "referral" ? "page" : undefined}
+            >
+              <span className="mobile-bottom-nav-icon" aria-hidden>👥</span>
+              <span className="mobile-bottom-nav-label">Team</span>
             </button>
           ) : null}
           <button

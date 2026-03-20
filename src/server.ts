@@ -22,6 +22,7 @@ import {
   prepareAccountForRequest,
   loginUser,
   registerUser,
+  getReferralDashboardForUser,
   promoteAdminFromEnv,
   requireAdminSession,
   requireSession,
@@ -179,6 +180,25 @@ app.get("/api/auth/me", async (req, res) => {
   } catch {
     return res.status(401).json({ message: "Unauthorized" });
   }
+});
+
+app.get("/api/referrals/summary", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const summary = await getReferralDashboardForUser(user.id);
+      return res.json(summary);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      if (e instanceof Error && e.message === "User not found") {
+        return res.status(404).json({ message: "User not found" });
+      }
+      logger.warn({ err: e }, "referrals summary");
+      return res.status(500).json({ message: "Failed to load referrals" });
+    }
+  })();
 });
 
 app.get("/api/health", (_req, res) => {

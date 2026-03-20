@@ -211,6 +211,33 @@ export interface InvestmentInfo {
   explanation: string;
 }
 
+export interface ReferralTeamMember {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  selfReferralCode: string;
+}
+
+export interface ReferralSummary {
+  selfReferralCode: string;
+  inviter: { name: string; email: string } | null;
+  directTeam: ReferralTeamMember[];
+  directCount: number;
+  totalTeamCount: number;
+}
+
+export async function loadReferralSummary(token: string) {
+  const response = await fetch(`${apiBase()}/api/referrals/summary`, {
+    headers: { ...requestHeaders(token) }
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to load referrals");
+  }
+  return j as ReferralSummary;
+}
+
 export async function loadInvestment(token: string) {
   const response = await fetch(`${apiBase()}/api/investment`, {
     headers: { ...requestHeaders(token) }
