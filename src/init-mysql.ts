@@ -4,10 +4,11 @@
  * 2. Set MYSQL_* in .env (or defaults: root, no password, 127.0.0.1)
  * 3. Run: npx tsx src/init-mysql.ts
  */
+import path from "node:path";
 import dotenv from "dotenv";
 import mysql from "mysql2/promise";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
 
 const host = process.env.MYSQL_HOST ?? "127.0.0.1";
 const port = Number(process.env.MYSQL_PORT ?? 3306);
