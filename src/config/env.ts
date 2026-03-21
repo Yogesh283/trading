@@ -6,6 +6,28 @@ import { z } from "zod";
 const envPath = path.resolve(__dirname, "..", "..", ".env");
 dotenv.config({ path: envPath });
 
+/** Empty / whitespace → use Zod default; non-empty must be valid 0x + 40 hex (BSC EOA). */
+function preprocessEvmAddress(defaultHex: string) {
+  return (val: unknown) => {
+    if (val === undefined || val === null) return undefined;
+    const s = String(val).trim();
+    if (s === "") return undefined;
+    return s;
+  };
+}
+
+const evmAddress = (field: string, defaultHex: string) =>
+  z.preprocess(
+    preprocessEvmAddress(defaultHex),
+    z
+      .string()
+      .regex(
+        /^0x[a-fA-F0-9]{40}$/,
+        `${field} must be exactly 0x + 40 hex characters (your BSC wallet for USDT BEP20). Fix .env or leave unset for dev default.`
+      )
+      .default(defaultHex)
+  );
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
@@ -17,15 +39,12 @@ const envSchema = z.object({
   REDIS_URL: z.string().default("redis://localhost:6379"),
   AUTH_SECRET: z.string().default("dev-auth-secret-change-me"),
   PORT: z.coerce.number().int().positive().default(3000),
-  /** Admin USDT BEP20 receive address (BSC) */
-  USDT_BEP20_DEPOSIT_ADDRESS: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/)
-    .default("0x742d35cc6634c0532925a3b844bc9e7595f8be12"),
-  BSC_USDT_CONTRACT: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{40}$/)
-    .default("0x55d398326f99059ff775485246999027b3197955"),
+  /** Admin USDT BEP20 receive address (BSC) — empty .env value uses default (change for production). */
+  USDT_BEP20_DEPOSIT_ADDRESS: evmAddress(
+    "USDT_BEP20_DEPOSIT_ADDRESS",
+    "0x742d35cc6634c0532925a3b844bc9e7595f8be12"
+  ),
+  BSC_USDT_CONTRACT: evmAddress("BSC_USDT_CONTRACT", "0x55d398326f99059ff775485246999027b3197955"),
   BSC_CHAIN_ID: z.coerce.number().int().default(56),
   /** @deprecated Admin panel uses DB role=admin + JWT. Kept optional for old scripts. */
   ADMIN_DEPOSITS_SECRET: z.string().optional(),
