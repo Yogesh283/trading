@@ -12,6 +12,7 @@ import {
   readAnySavedDepositAmount,
   readAutoDepositFromLocal,
   readAutoDepositFromLocation,
+  readAutoDepositFromSession,
   setAutoDepositLocalPending,
   stripAutoDepositFromUrl
 } from "./depositStorage";
@@ -44,6 +45,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
   const [yourWallet, setYourWallet] = useState<string | null>(null);
   /** Mobile in-wallet browser: run USDT transfer once after inject + amount ready. */
   const autoDepositStartedRef = useRef(false);
+  const [showMobileContinue, setShowMobileContinue] = useState(false);
 
   const refreshDeposits = useCallback(async () => {
     try {
@@ -154,6 +156,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
           /* ignore */
         }
         stripAutoDepositFromUrl();
+        setShowMobileContinue(false);
         setMessage(`Success: ${num} USDT sent. Tx: ${txHash.slice(0, 18)}… Balance will update on dashboard.`);
         await refreshDeposits();
         onSuccess?.();
@@ -164,15 +167,19 @@ export default function DepositPage({ token, onSuccess }: Props) {
     [token, refreshDeposits, onSuccess, detectWalletIdFromInjected]
   );
 
-  /** After MetaMask/Trust in-app browser opens: auto-trigger ERC20 transfer (admin treasury + amount in calldata). */
-  useEffect(() => {
-    if (!token) return;
-
-    const wantAuto = readAutoDepositFromLocation() || readAutoDepositFromLocal();
-    if (!wantAuto) return;
-
-    const run = async () => {
+  /**
+   * Mobile flow: Amount enter → open wallet app → in-app browser loads this page →
+   * auto connect + USDT transfer(tx) → user Confirm → submitDepositTx.
+   */
+  const tryAutoDepositInWalletBrowser = useCallback(
+    async (opts?: { skipAutoIntentFlag?: boolean }) => {
       if (autoDepositStartedRef.current) return;
+
+      const wantAuto =
+        opts?.skipAutoIntentFlag === true
+          ? true
+          : readAutoDepositFromLocation() || readAutoDepositFromLocal() || readAutoDepositFromSession();
+      if (!wantAuto) return;
 
       const raw = readAnySavedDepositAmount();
       const num = Number(raw ?? amount);
@@ -186,34 +193,64 @@ export default function DepositPage({ token, onSuccess }: Props) {
       if (!provider?.request) return;
 
       autoDepositStartedRef.current = true;
-      stripAutoDepositFromUrl();
-      clearAutoDepositLocal();
-      setMessage("Confirm in your wallet — USDT transfer to the platform address with your amount.");
+      setMessage("Step 3/4: Confirm in wallet — USDT to platform address (amount pre-filled).");
 
       const wid = detectWalletIdFromInjected(provider);
       try {
         await executeDepositTransfer(wid, "Wallet", num);
       } catch (err: unknown) {
         autoDepositStartedRef.current = false;
+        stripAutoDepositFromUrl();
+        clearAutoDepositLocal();
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("user rejected") || msg.includes("4001")) {
-          setMessage("Transaction cancelled. Tap a wallet below to try again.");
+          setMessage("Cancelled. Tap a wallet below or “Continue USDT payment” to try again.");
         } else {
           setMessage(msg.slice(0, 220));
         }
       }
-    };
+    },
+    [amount, executeDepositTransfer, detectWalletIdFromInjected]
+  );
 
-    const timers = [400, 900, 1800, 3200, 5500].map((ms) => window.setTimeout(() => void run(), ms));
+  useEffect(() => {
+    if (!token) return;
+
+    const wantAuto =
+      readAutoDepositFromLocation() || readAutoDepositFromLocal() || readAutoDepositFromSession();
+    if (!wantAuto) {
+      setShowMobileContinue(false);
+      return;
+    }
+
+    setShowMobileContinue(true);
+    const run = () => void tryAutoDepositInWalletBrowser();
+
+    const timers = [250, 600, 1200, 2000, 3500, 5000, 7500, 10000].map((ms) =>
+      window.setTimeout(run, ms)
+    );
+    const poll = window.setInterval(run, 900);
+    const stopPoll = window.setTimeout(() => window.clearInterval(poll), 32000);
+
     const onVis = () => {
-      if (document.visibilityState === "visible") void run();
+      if (document.visibilityState === "visible") run();
     };
+    const onShow = () => run();
+    const onFocus = () => run();
+
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onShow);
+    window.addEventListener("focus", onFocus);
+
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
+      window.clearInterval(poll);
+      window.clearTimeout(stopPoll);
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onShow);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [token, amount, executeDepositTransfer, detectWalletIdFromInjected]);
+  }, [token, amount, tryAutoDepositInWalletBrowser]);
 
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
     setMessage("");
@@ -284,6 +321,24 @@ export default function DepositPage({ token, onSuccess }: Props) {
           <span className="funds-badge">BSC</span> USDT BEP20 · Double-check the amount before you confirm
         </p>
 
+        {isMobileDevice() ? (
+          <ol className="deposit-flow-steps" aria-label="Mobile deposit steps">
+            <li>
+              <strong>Amount</strong> — enter USDT, then pick MetaMask / Trust / Coinbase.
+            </li>
+            <li>
+              <strong>Open wallet</strong> — app opens; this page loads inside the wallet browser.
+            </li>
+            <li>
+              <strong>Auto payment</strong> — wallet asks to send USDT (platform address + your amount). Tap{" "}
+              <strong>Confirm</strong>.
+            </li>
+            <li>
+              <strong>Done</strong> — we record the tx; balance updates on the dashboard.
+            </li>
+          </ol>
+        ) : null}
+
         {yourWallet ? (
           <p className="deposit-your-wallet">
             Your wallet: <span className="deposit-your-wallet-addr">{shortAddr(yourWallet, 8, 6)}</span>
@@ -304,9 +359,20 @@ export default function DepositPage({ token, onSuccess }: Props) {
 
         <h2 className="funds-wallets-title">Choose wallet</h2>
         <p className="funds-wallets-hint">
-          On phone: after the wallet app opens, the <strong>USDT send</strong> screen should appear with the correct amount and platform address — tap{" "}
-          <strong>Confirm</strong>. On desktop: same after you pick MetaMask / your wallet.
+          <strong>Phone:</strong> use <strong>HTTPS</strong> site link. After the wallet opens, wait a few seconds — the USDT transaction should pop up automatically.{" "}
+          <strong>Desktop:</strong> extension opens the same confirm screen.
         </p>
+
+        {isMobileDevice() && showMobileContinue ? (
+          <button
+            type="button"
+            className="deposit-continue-wallet-btn"
+            disabled={!!busy}
+            onClick={() => void tryAutoDepositInWalletBrowser({ skipAutoIntentFlag: true })}
+          >
+            Continue USDT payment (if wallet did not open the send screen)
+          </button>
+        ) : null}
 
         <div className="wallet-grid">
           {WALLET_OPTIONS.map((w) => (

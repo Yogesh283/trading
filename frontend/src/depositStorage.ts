@@ -7,6 +7,11 @@ export const DEPOSIT_AMOUNT_SESSION_KEY = "updownfx_deposit_amount";
 export const DEPOSIT_AMOUNT_LOCAL_KEY = "updownfx_deposit_amount_v1";
 /** Set right before wallet deep link; read after in-app browser loads (query can be stripped). */
 export const AUTODEPOSIT_LOCAL_KEY = "updownfx_autodeposit_v1";
+export const AUTODEPOSIT_TS_KEY = "updownfx_autodeposit_ts";
+/** Some in-app browsers keep sessionStorage for the same dapp navigation. */
+export const AUTODEPOSIT_SESSION_KEY = "updownfx_autodeposit";
+/** Abandon stale “open wallet” intents after this many ms. */
+export const AUTODEPOSIT_MAX_AGE_MS = 25 * 60 * 1000;
 
 export function appendDepositAmountToPageUrl(href: string, amountStr: string): string {
   try {
@@ -37,7 +42,21 @@ export function readAutoDepositFromLocation(): boolean {
 
 export function readAutoDepositFromLocal(): boolean {
   try {
-    return window.localStorage.getItem(AUTODEPOSIT_LOCAL_KEY) === "1";
+    if (window.localStorage.getItem(AUTODEPOSIT_LOCAL_KEY) !== "1") return false;
+    const ts = Number(window.localStorage.getItem(AUTODEPOSIT_TS_KEY));
+    if (!Number.isFinite(ts) || Date.now() - ts > AUTODEPOSIT_MAX_AGE_MS) {
+      clearAutoDepositLocal();
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function readAutoDepositFromSession(): boolean {
+  try {
+    return window.sessionStorage.getItem(AUTODEPOSIT_SESSION_KEY) === "1";
   } catch {
     return false;
   }
@@ -45,7 +64,10 @@ export function readAutoDepositFromLocal(): boolean {
 
 export function setAutoDepositLocalPending(): void {
   try {
+    const now = String(Date.now());
     window.localStorage.setItem(AUTODEPOSIT_LOCAL_KEY, "1");
+    window.localStorage.setItem(AUTODEPOSIT_TS_KEY, now);
+    window.sessionStorage.setItem(AUTODEPOSIT_SESSION_KEY, "1");
   } catch {
     /* ignore */
   }
@@ -54,6 +76,8 @@ export function setAutoDepositLocalPending(): void {
 export function clearAutoDepositLocal(): void {
   try {
     window.localStorage.removeItem(AUTODEPOSIT_LOCAL_KEY);
+    window.localStorage.removeItem(AUTODEPOSIT_TS_KEY);
+    window.sessionStorage.removeItem(AUTODEPOSIT_SESSION_KEY);
   } catch {
     /* ignore */
   }
