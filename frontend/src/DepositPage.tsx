@@ -1,13 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
 import { createDepositIntent, loadMyDeposits, submitDepositTx, type DepositRecord } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import {
   appendDepositAmountToPageUrl,
+  clearAutoDepositLocal,
   consumeDepositAmountFromNavigation,
   DEPOSIT_AMOUNT_LOCAL_KEY,
-  DEPOSIT_AMOUNT_SESSION_KEY
+  DEPOSIT_AMOUNT_SESSION_KEY,
+  readAnySavedDepositAmount,
+  readAutoDepositFromLocal,
+  readAutoDepositFromLocation,
+  setAutoDepositLocalPending,
+  stripAutoDepositFromUrl
 } from "./depositStorage";
 import {
   ensureBscChain,
@@ -36,6 +42,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [yourWallet, setYourWallet] = useState<string | null>(null);
+  /** Mobile in-wallet browser: run USDT transfer once after inject + amount ready. */
+  const autoDepositStartedRef = useRef(false);
+
   const refreshDeposits = useCallback(async () => {
     try {
       const { deposits: rows } = await loadMyDeposits(token);
@@ -87,6 +96,125 @@ export default function DepositPage({ token, onSuccess }: Props) {
     };
   }, [token]);
 
+  const detectWalletIdFromInjected = useCallback((provider: { isMetaMask?: boolean; isBraveWallet?: boolean; isTrust?: boolean; isCoinbaseWallet?: boolean }): WalletGatewayId => {
+    if (provider.isMetaMask && !provider.isBraveWallet) return "metamask";
+    if (provider.isTrust) return "trust_wallet";
+    if (provider.isCoinbaseWallet) return "coinbase_wallet";
+    return "browser_wallet";
+  }, []);
+
+  const executeDepositTransfer = useCallback(
+    async (walletId: WalletGatewayId, walletName: string, num: number) => {
+      let provider = getEthereumProvider(walletId);
+      if (!provider && walletId !== "browser_wallet") {
+        provider = getEthereumProvider("browser_wallet");
+      }
+      if (!provider) {
+        throw new Error("Wallet not available");
+      }
+
+      setBusy(walletName);
+      try {
+        const intentWalletId = walletId === "browser_wallet" ? detectWalletIdFromInjected(provider) : walletId;
+        const intent = await createDepositIntent(token, num, intentWalletId);
+        const { deposit, tokenAddress, toAddress, decimals } = intent;
+
+        await ensureBscChain(provider);
+        const accounts: string[] = await provider.request({
+          method: "eth_requestAccounts"
+        });
+        const from = accounts[0];
+        if (!from) {
+          throw new Error("No wallet address");
+        }
+
+        const iface = new ethers.Interface([ERC20_TRANSFER]);
+        const value = ethers.parseUnits(String(num), decimals);
+        const to = ethers.getAddress(toAddress.toLowerCase());
+        const usdtContract = ethers.getAddress(tokenAddress.toLowerCase());
+        const data = iface.encodeFunctionData("transfer", [to, value]);
+
+        const txHash: string = await provider.request({
+          method: "eth_sendTransaction",
+          params: [
+            {
+              from,
+              to: usdtContract,
+              data
+            }
+          ]
+        });
+
+        await submitDepositTx(token, deposit.id, txHash, from);
+        try {
+          sessionStorage.removeItem(DEPOSIT_AMOUNT_SESSION_KEY);
+          localStorage.removeItem(DEPOSIT_AMOUNT_LOCAL_KEY);
+          clearAutoDepositLocal();
+        } catch {
+          /* ignore */
+        }
+        stripAutoDepositFromUrl();
+        setMessage(`Success: ${num} USDT sent. Tx: ${txHash.slice(0, 18)}… Balance will update on dashboard.`);
+        await refreshDeposits();
+        onSuccess?.();
+      } finally {
+        setBusy(null);
+      }
+    },
+    [token, refreshDeposits, onSuccess, detectWalletIdFromInjected]
+  );
+
+  /** After MetaMask/Trust in-app browser opens: auto-trigger ERC20 transfer (admin treasury + amount in calldata). */
+  useEffect(() => {
+    if (!token) return;
+
+    const wantAuto = readAutoDepositFromLocation() || readAutoDepositFromLocal();
+    if (!wantAuto) return;
+
+    const run = async () => {
+      if (autoDepositStartedRef.current) return;
+
+      const raw = readAnySavedDepositAmount();
+      const num = Number(raw ?? amount);
+      if (!Number.isFinite(num) || num < 1) return;
+
+      const provider =
+        getEthereumProvider("metamask") ||
+        getEthereumProvider("trust_wallet") ||
+        getEthereumProvider("coinbase_wallet") ||
+        getEthereumProvider("browser_wallet");
+      if (!provider?.request) return;
+
+      autoDepositStartedRef.current = true;
+      stripAutoDepositFromUrl();
+      clearAutoDepositLocal();
+      setMessage("Confirm in your wallet — USDT transfer to the platform address with your amount.");
+
+      const wid = detectWalletIdFromInjected(provider);
+      try {
+        await executeDepositTransfer(wid, "Wallet", num);
+      } catch (err: unknown) {
+        autoDepositStartedRef.current = false;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("user rejected") || msg.includes("4001")) {
+          setMessage("Transaction cancelled. Tap a wallet below to try again.");
+        } else {
+          setMessage(msg.slice(0, 220));
+        }
+      }
+    };
+
+    const timers = [400, 900, 1800, 3200, 5500].map((ms) => window.setTimeout(() => void run(), ms));
+    const onVis = () => {
+      if (document.visibilityState === "visible") void run();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [token, amount, executeDepositTransfer, detectWalletIdFromInjected]);
+
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
     setMessage("");
     const num = Number(amount);
@@ -106,6 +234,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
         try {
           sessionStorage.setItem(DEPOSIT_AMOUNT_SESSION_KEY, String(num));
           localStorage.setItem(DEPOSIT_AMOUNT_LOCAL_KEY, String(num));
+          setAutoDepositLocalPending();
         } catch {
           /* ignore */
         }
@@ -114,7 +243,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
           getOpenInWalletDeepLink("metamask", pageWithAmount);
         if (deep) {
           setMessage(
-            "Opening the app — amount is saved. When this page opens in the wallet browser, the amount should auto-fill; then choose the same wallet again to pay."
+            "Opening wallet app… Page will load with your amount; then the USDT send screen should open automatically — confirm there."
           );
           window.setTimeout(() => {
             window.location.href = deep;
@@ -132,47 +261,8 @@ export default function DepositPage({ token, onSuccess }: Props) {
       return;
     }
 
-    setBusy(walletName);
     try {
-      const intent = await createDepositIntent(token, num, walletId);
-      const { deposit, tokenAddress, toAddress, decimals } = intent;
-
-      await ensureBscChain(provider);
-      const accounts: string[] = await provider.request({
-        method: "eth_requestAccounts"
-      });
-      const from = accounts[0];
-      if (!from) {
-        throw new Error("No wallet address");
-      }
-
-      const iface = new ethers.Interface([ERC20_TRANSFER]);
-      const value = ethers.parseUnits(String(num), decimals);
-      const to = ethers.getAddress(toAddress.toLowerCase());
-      const usdtContract = ethers.getAddress(tokenAddress.toLowerCase());
-      const data = iface.encodeFunctionData("transfer", [to, value]);
-
-      const txHash: string = await provider.request({
-        method: "eth_sendTransaction",
-        params: [
-          {
-            from,
-            to: usdtContract,
-            data
-          }
-        ]
-      });
-
-      await submitDepositTx(token, deposit.id, txHash, from);
-      try {
-        sessionStorage.removeItem(DEPOSIT_AMOUNT_SESSION_KEY);
-        localStorage.removeItem(DEPOSIT_AMOUNT_LOCAL_KEY);
-      } catch {
-        /* ignore */
-      }
-      setMessage(`Success: ${num} USDT sent. Tx: ${txHash.slice(0, 18)}… Balance will update on dashboard.`);
-      await refreshDeposits();
-      onSuccess?.();
+      await executeDepositTransfer(walletId, walletName, num);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("user rejected") || msg.includes("4001")) {
@@ -180,8 +270,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
       } else {
         setMessage(msg.slice(0, 200));
       }
-    } finally {
-      setBusy(null);
     }
   };
 
@@ -215,7 +303,10 @@ export default function DepositPage({ token, onSuccess }: Props) {
         </label>
 
         <h2 className="funds-wallets-title">Choose wallet</h2>
-        <p className="funds-wallets-hint">Click a wallet — it opens so you can approve USDT transfer to the platform address.</p>
+        <p className="funds-wallets-hint">
+          On phone: after the wallet app opens, the <strong>USDT send</strong> screen should appear with the correct amount and platform address — tap{" "}
+          <strong>Confirm</strong>. On desktop: same after you pick MetaMask / your wallet.
+        </p>
 
         <div className="wallet-grid">
           {WALLET_OPTIONS.map((w) => (

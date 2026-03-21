@@ -1,18 +1,87 @@
 /** Query + hash + localStorage: MetaMask WebView does NOT share sessionStorage with Chrome/Safari. */
 export const DEPOSIT_AMOUNT_QUERY = "depositAmount";
+/** When set to 1, Deposit page auto-opens the USDT transfer prompt (treasury + amount) in the in-wallet browser. */
+export const AUTODEPOSIT_QUERY = "autodeposit";
 export const DEPOSIT_AMOUNT_SESSION_KEY = "updownfx_deposit_amount";
 /** Same-origin localStorage sometimes survives in-wallet reload (query/hash are primary). */
 export const DEPOSIT_AMOUNT_LOCAL_KEY = "updownfx_deposit_amount_v1";
+/** Set right before wallet deep link; read after in-app browser loads (query can be stripped). */
+export const AUTODEPOSIT_LOCAL_KEY = "updownfx_autodeposit_v1";
 
 export function appendDepositAmountToPageUrl(href: string, amountStr: string): string {
   try {
     const u = new URL(href);
     u.searchParams.set(DEPOSIT_AMOUNT_QUERY, amountStr);
-    // Hash backup: some in-app browsers strip query but keep hash
-    u.hash = `${DEPOSIT_AMOUNT_QUERY}=${encodeURIComponent(amountStr)}`;
+    u.searchParams.set(AUTODEPOSIT_QUERY, "1");
+    const hashParams = new URLSearchParams();
+    hashParams.set(DEPOSIT_AMOUNT_QUERY, amountStr);
+    hashParams.set(AUTODEPOSIT_QUERY, "1");
+    u.hash = hashParams.toString();
     return u.toString();
   } catch {
     return href;
+  }
+}
+
+export function readAutoDepositFromLocation(): boolean {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get(AUTODEPOSIT_QUERY) === "1") return true;
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    if (h.get(AUTODEPOSIT_QUERY) === "1") return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+export function readAutoDepositFromLocal(): boolean {
+  try {
+    return window.localStorage.getItem(AUTODEPOSIT_LOCAL_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setAutoDepositLocalPending(): void {
+  try {
+    window.localStorage.setItem(AUTODEPOSIT_LOCAL_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearAutoDepositLocal(): void {
+  try {
+    window.localStorage.removeItem(AUTODEPOSIT_LOCAL_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function stripAutoDepositFromUrl(): void {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has(AUTODEPOSIT_QUERY)) {
+      params.delete(AUTODEPOSIT_QUERY);
+      const q = params.toString();
+      const next = `${window.location.pathname}${q ? `?${q}` : ""}${window.location.hash}`;
+      window.history.replaceState({}, "", next);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    const raw = window.location.hash.replace(/^#/, "");
+    if (!raw) return;
+    const hp = new URLSearchParams(raw);
+    if (!hp.has(AUTODEPOSIT_QUERY)) return;
+    hp.delete(AUTODEPOSIT_QUERY);
+    const q = hp.toString();
+    const next = `${window.location.pathname}${window.location.search}${q ? `#${q}` : ""}`;
+    window.history.replaceState({}, "", next);
+  } catch {
+    /* ignore */
   }
 }
 
