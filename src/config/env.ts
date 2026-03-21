@@ -6,19 +6,33 @@ import { z } from "zod";
 const envPath = path.resolve(__dirname, "..", "..", ".env");
 dotenv.config({ path: envPath });
 
-/** Empty / whitespace → use Zod default; non-empty must be valid 0x + 40 hex (BSC EOA). */
-function preprocessEvmAddress(defaultHex: string) {
-  return (val: unknown) => {
-    if (val === undefined || val === null) return undefined;
-    const s = String(val).trim();
-    if (s === "") return undefined;
-    return s;
-  };
+/**
+ * Empty / whitespace → undefined (Zod `.default()` applies).
+ * Strips quotes, BOM/zero-width chars, inner spaces (bad .env paste), fixes `Ox` typo.
+ */
+function normalizeEvmEnvValue(val: unknown): string | undefined {
+  if (val === undefined || val === null) return undefined;
+  let s = String(val).trim();
+  s = s.replace(/[\u201C\u201D\u2018\u2019]/g, "");
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  s = s.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+  s = s.replace(/\s+/g, "");
+  if (s === "") return undefined;
+  if (s.startsWith("Ox") || s.startsWith("0X")) {
+    s = `0x${s.slice(2)}`;
+  }
+  return s;
+}
+
+function preprocessEvmAddress() {
+  return (val: unknown) => normalizeEvmEnvValue(val);
 }
 
 const evmAddress = (field: string, defaultHex: string) =>
   z.preprocess(
-    preprocessEvmAddress(defaultHex),
+    preprocessEvmAddress(),
     z
       .string()
       .regex(

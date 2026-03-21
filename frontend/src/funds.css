@@ -339,6 +339,66 @@
   color: #c5d4ea;
 }
 
+.deposit-flow-steps-short {
+  margin-bottom: 12px;
+}
+
+.deposit-flow-mobile-hint {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8da2c0;
+}
+
+.deposit-direct-wrap {
+  margin: 0 0 22px;
+}
+
+.deposit-confirm-primary {
+  display: block;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #00c853 0%, #00a344 100%);
+  color: #041208;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(0, 200, 83, 0.35);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.deposit-confirm-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(0, 200, 83, 0.45);
+}
+
+.deposit-confirm-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.deposit-direct-sub {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #8da2c0;
+}
+
+.deposit-connect-first {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 180, 0, 0.08);
+  border: 1px solid rgba(255, 200, 80, 0.25);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e8c97a;
+}
+
 .deposit-continue-wallet-btn {
   display: block;
   width: 100%;
@@ -407,6 +467,36 @@
 .wallet-tile-busy {
   font-size: 11px;
   color: #70f0b4;
+}
+
+.wallet-row-minimal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.wallet-tile--compact {
+  flex: 1 1 120px;
+  min-height: auto;
+  padding: 12px 14px;
+  align-items: center;
+  text-align: center;
+}
+
+.wallet-tile--compact .wallet-tile-name {
+  width: 100%;
+  text-align: center;
+}
+
+.deposit-inr-preview {
+  margin: -6px 0 14px;
+  font-size: 13px;
+}
+
+.withdrawal-inr-line {
+  margin: -8px 0 12px;
+  font-size: 13px;
 }
 
 .funds-message-wide {

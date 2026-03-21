@@ -92,6 +92,26 @@ export function getEthereumProvider(id: WalletGatewayId): any | null {
   }
 }
 
+/** First injected EIP-1193 provider (for one-tap deposit when already inside wallet browser / extension). */
+export function getFirstInjectedEthereumProvider(): { provider: any; walletId: WalletGatewayId } | null {
+  const tryOrder: WalletGatewayId[] = [
+    "metamask",
+    "trust_wallet",
+    "coinbase_wallet",
+    "okx_wallet",
+    "binance_web3",
+    "rabby",
+    "tokenpocket",
+    "brave_wallet",
+    "browser_wallet"
+  ];
+  for (const walletId of tryOrder) {
+    const p = getEthereumProvider(walletId);
+    if (p?.request) return { provider: p, walletId };
+  }
+  return null;
+}
+
 const BSC_CHAIN = {
   chainId: "0x38",
   chainName: "BNB Smart Chain",

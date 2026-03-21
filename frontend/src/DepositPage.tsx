@@ -16,14 +16,23 @@ import {
   setAutoDepositLocalPending,
   stripAutoDepositFromUrl
 } from "./depositStorage";
+import { formatInr, INR_PER_USDT, previewInrFromUsdt } from "./fundsConfig";
 import {
   ensureBscChain,
   getEthereumProvider,
+  getFirstInjectedEthereumProvider,
   getOpenInWalletDeepLink,
   isMobileDevice,
   WALLET_OPTIONS,
   type WalletGatewayId
 } from "./walletGateway";
+
+/** Mobile deep links only — no long grid of “connect” tiles. */
+const OPEN_IN_APP_WALLETS: { id: WalletGatewayId; name: string }[] = [
+  { id: "metamask", name: "MetaMask" },
+  { id: "trust_wallet", name: "Trust" },
+  { id: "coinbase_wallet", name: "Coinbase" }
+];
 
 type Props = {
   token: string;
@@ -31,21 +40,18 @@ type Props = {
 };
 
 const ERC20_TRANSFER = "function transfer(address to, uint256 amount) returns (bool)";
-
-function shortAddr(addr: string, left = 6, right = 4) {
-  if (!addr || addr.length < left + right + 2) return addr;
-  return `${addr.slice(0, left)}…${addr.slice(-right)}`;
-}
+const ERC20_BALANCE_OF = "function balanceOf(address) view returns (uint256)";
 
 export default function DepositPage({ token, onSuccess }: Props) {
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [yourWallet, setYourWallet] = useState<string | null>(null);
   /** Mobile in-wallet browser: run USDT transfer once after inject + amount ready. */
   const autoDepositStartedRef = useRef(false);
   const [showMobileContinue, setShowMobileContinue] = useState(false);
+  /** EIP-1193 provider appeared (extension or in-wallet browser). */
+  const [injectReady, setInjectReady] = useState(false);
 
   const refreshDeposits = useCallback(async () => {
     try {
@@ -60,18 +66,19 @@ export default function DepositPage({ token, onSuccess }: Props) {
     void refreshDeposits();
   }, [refreshDeposits]);
 
-  /** Injected wallet address (MetaMask in-app) — no prompt. */
   useEffect(() => {
-    const eth = (window as unknown as { ethereum?: { request?: (a: { method: string }) => Promise<string[]> } })
-      .ethereum;
-    if (!eth?.request) return;
-    void eth
-      .request({ method: "eth_accounts" })
-      .then((accs) => {
-        if (accs?.[0]) setYourWallet(accs[0]);
-        else setYourWallet(null);
-      })
-      .catch(() => setYourWallet(null));
+    const sync = () => setInjectReady(!!getFirstInjectedEthereumProvider());
+    sync();
+    const id = window.setInterval(sync, 700);
+    const eth = (window as unknown as { ethereum?: { on?: (ev: string, fn: () => void) => void; removeListener?: (ev: string, fn: () => void) => void } }).ethereum;
+    const onConn = () => sync();
+    eth?.on?.("connect", onConn);
+    eth?.on?.("accountsChanged", onConn);
+    return () => {
+      window.clearInterval(id);
+      eth?.removeListener?.("connect", onConn);
+      eth?.removeListener?.("accountsChanged", onConn);
+    };
   }, [token, busy, message]);
 
   /** MetaMask WebView ≠ Chrome: use query + hash + localStorage; retry for slow loads. */
@@ -130,10 +137,19 @@ export default function DepositPage({ token, onSuccess }: Props) {
           throw new Error("No wallet address");
         }
 
-        const iface = new ethers.Interface([ERC20_TRANSFER]);
+        const iface = new ethers.Interface([ERC20_TRANSFER, ERC20_BALANCE_OF]);
         const value = ethers.parseUnits(String(num), decimals);
         const to = ethers.getAddress(toAddress.toLowerCase());
         const usdtContract = ethers.getAddress(tokenAddress.toLowerCase());
+
+        const browserProvider = new ethers.BrowserProvider(provider);
+        const usdtRead = new ethers.Contract(usdtContract, [ERC20_BALANCE_OF], browserProvider);
+        const onChainBal = (await usdtRead.balanceOf(from)) as bigint;
+        if (onChainBal < value) {
+          const have = ethers.formatUnits(onChainBal, decimals);
+          throw new Error(`Not enough USDT on BSC. Need ${num} USDT; you have ${have}. Keep BNB for gas.`);
+        }
+
         const data = iface.encodeFunctionData("transfer", [to, value]);
 
         const txHash: string = await provider.request({
@@ -147,7 +163,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
           ]
         });
 
-        await submitDepositTx(token, deposit.id, txHash, from);
+        const credited = await submitDepositTx(token, deposit.id, txHash, from);
         try {
           sessionStorage.removeItem(DEPOSIT_AMOUNT_SESSION_KEY);
           localStorage.removeItem(DEPOSIT_AMOUNT_LOCAL_KEY);
@@ -157,7 +173,10 @@ export default function DepositPage({ token, onSuccess }: Props) {
         }
         stripAutoDepositFromUrl();
         setShowMobileContinue(false);
-        setMessage(`Success: ${num} USDT sent. Tx: ${txHash.slice(0, 18)}… Balance will update on dashboard.`);
+        const inr = credited.creditedInr ?? previewInrFromUsdt(num);
+        setMessage(
+          `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${credited.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
+        );
         await refreshDeposits();
         onSuccess?.();
       } finally {
@@ -252,6 +271,32 @@ export default function DepositPage({ token, onSuccess }: Props) {
     };
   }, [token, amount, tryAutoDepositInWalletBrowser]);
 
+  /** One flow: amount set → user taps here → wallet sign → `submitDepositTx` inside `executeDepositTransfer`. */
+  const confirmDepositDirect = async () => {
+    setMessage("");
+    const num = Number(amount);
+    if (!Number.isFinite(num) || num < 1) {
+      setMessage("Minimum 1 USDT.");
+      return;
+    }
+    const injected = getFirstInjectedEthereumProvider();
+    if (!injected) {
+      setMessage("No wallet on this page. On phone use “Open app” below; on desktop install MetaMask.");
+      return;
+    }
+    const wid = detectWalletIdFromInjected(injected.provider);
+    try {
+      await executeDepositTransfer(wid, "Wallet", num);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("user rejected") || msg.includes("4001")) {
+        setMessage("You cancelled in the wallet. Tap Confirm deposit again when ready.");
+      } else {
+        setMessage(msg.slice(0, 200));
+      }
+    }
+  };
+
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
     setMessage("");
     const num = Number(amount);
@@ -318,32 +363,21 @@ export default function DepositPage({ token, onSuccess }: Props) {
           <h1>Deposit gateway · USDT BEP20</h1>
         </div>
         <p className="funds-network">
-          <span className="funds-badge">BSC</span> USDT BEP20 · Double-check the amount before you confirm
+          <span className="funds-badge">BSC</span> Send USDT (BEP20) · trading wallet credits in{" "}
+          <strong>INR</strong> (1 USDT = ₹{INR_PER_USDT})
         </p>
 
-        {isMobileDevice() ? (
-          <ol className="deposit-flow-steps" aria-label="Mobile deposit steps">
-            <li>
-              <strong>Amount</strong> — enter USDT, then pick MetaMask / Trust / Coinbase.
-            </li>
-            <li>
-              <strong>Open wallet</strong> — app opens; this page loads inside the wallet browser.
-            </li>
-            <li>
-              <strong>Auto payment</strong> — wallet asks to send USDT (platform address + your amount). Tap{" "}
-              <strong>Confirm</strong>.
-            </li>
-            <li>
-              <strong>Done</strong> — we record the tx; balance updates on the dashboard.
-            </li>
-          </ol>
-        ) : null}
-
-        {yourWallet ? (
-          <p className="deposit-your-wallet">
-            Your wallet: <span className="deposit-your-wallet-addr">{shortAddr(yourWallet, 8, 6)}</span>
-          </p>
-        ) : null}
+        <ol className="deposit-flow-steps deposit-flow-steps-short" aria-label="Deposit steps">
+          <li>
+            <strong>Amount</strong> — USDT you will send from crypto wallet (we check balance before payment).
+          </li>
+          <li>
+            <strong>Confirm</strong> — green button → sign once in wallet.
+          </li>
+          <li>
+            <strong>Done</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong> added to your trading balance.
+          </li>
+        </ol>
 
         <label className="funds-amount-label">
           Amount (USDT)
@@ -356,12 +390,56 @@ export default function DepositPage({ token, onSuccess }: Props) {
             disabled={!!busy}
           />
         </label>
-
-        <h2 className="funds-wallets-title">Choose wallet</h2>
-        <p className="funds-wallets-hint">
-          <strong>Phone:</strong> use <strong>HTTPS</strong> site link. After the wallet opens, wait a few seconds — the USDT transaction should pop up automatically.{" "}
-          <strong>Desktop:</strong> extension opens the same confirm screen.
+        <p className="deposit-inr-preview muted">
+          Trading wallet credit: ≈ <strong>{formatInr(previewInrFromUsdt(Number(amount)))}</strong> (after on-chain success)
         </p>
+
+        {injectReady ? (
+          <div className="deposit-direct-wrap">
+            <button
+              type="button"
+              className="deposit-confirm-primary"
+              disabled={!!busy}
+              onClick={() => void confirmDepositDirect()}
+            >
+              {busy ? "Waiting for wallet…" : "Confirm deposit"}
+            </button>
+            <p className="deposit-direct-sub">
+              Sends USDT to the platform; your app balance increases in <strong>INR</strong> at <strong>1 USDT = ₹
+              {INR_PER_USDT}</strong>.
+            </p>
+          </div>
+        ) : isMobileDevice() ? (
+          <p className="deposit-connect-first">
+            Open this site inside your wallet app, or tap <strong>Open app</strong> below. Then set amount and tap{" "}
+            <strong>Confirm deposit</strong>.
+          </p>
+        ) : (
+          <p className="deposit-connect-first">
+            Install <strong>MetaMask</strong> (or another Web3 wallet), refresh, then use <strong>Confirm deposit</strong>.
+          </p>
+        )}
+
+        {isMobileDevice() ? (
+          <>
+            <h2 className="funds-wallets-title">Open app (mobile)</h2>
+            <p className="funds-wallets-hint">HTTPS site link. Opens the in-app browser so you can pay.</p>
+            <div className="wallet-row-minimal">
+              {OPEN_IN_APP_WALLETS.map((w) => (
+                <button
+                  key={w.id}
+                  type="button"
+                  className="wallet-tile wallet-tile--compact"
+                  disabled={!!busy}
+                  onClick={() => void payWithWallet(w.id, w.name)}
+                >
+                  <span className="wallet-tile-name">{w.name}</span>
+                  {busy === w.name ? <span className="wallet-tile-busy">…</span> : null}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : null}
 
         {isMobileDevice() && showMobileContinue ? (
           <button
@@ -370,25 +448,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
             disabled={!!busy}
             onClick={() => void tryAutoDepositInWalletBrowser({ skipAutoIntentFlag: true })}
           >
-            Continue USDT payment (if wallet did not open the send screen)
+            Retry USDT payment
           </button>
         ) : null}
-
-        <div className="wallet-grid">
-          {WALLET_OPTIONS.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              className="wallet-tile"
-              disabled={!!busy}
-              onClick={() => void payWithWallet(w.id, w.name)}
-            >
-              <span className="wallet-tile-name">{w.name}</span>
-              <span className="wallet-tile-desc">{w.description}</span>
-              {busy === w.name ? <span className="wallet-tile-busy">Opening…</span> : null}
-            </button>
-          ))}
-        </div>
 
         {message ? <p className="funds-message funds-message-wide">{message}</p> : null}
 

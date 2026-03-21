@@ -8,6 +8,7 @@ import path from "node:path";
 import { WebSocketServer } from "ws";
 import cron from "node-cron";
 import { env } from "./config/env";
+import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
 import { getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
@@ -313,7 +314,8 @@ app.get("/api/deposits/public-info", (_req, res) => {
     treasuryAddress: env.USDT_BEP20_DEPOSIT_ADDRESS,
     tokenContract: env.BSC_USDT_CONTRACT,
     chainId: env.BSC_CHAIN_ID,
-    networkName: "BNB Smart Chain (BEP20)"
+    networkName: "BNB Smart Chain (BEP20)",
+    inrPerUsdt: INR_PER_USDT
   });
 });
 
@@ -346,7 +348,9 @@ app.post("/api/deposits/intent", (req, res) => {
       tokenAddress: env.BSC_USDT_CONTRACT,
       toAddress: env.USDT_BEP20_DEPOSIT_ADDRESS,
       amount,
-      decimals: 18
+      decimals: 18,
+      inrPerUsdt: INR_PER_USDT,
+      walletCreditInr: usdtToInrCredit(amount)
     });
   })().catch((error) => {
     const message = error instanceof Error ? error.message : "Deposit intent failed";
@@ -385,17 +389,20 @@ app.post("/api/deposits/submit-tx", (req, res) => {
       });
     }
 
-    const creditedAmount = await finalizeDepositCredit(depositId, user.id);
-    if (creditedAmount == null) {
+    const usdtDeposited = await finalizeDepositCredit(depositId, user.id);
+    if (usdtDeposited == null) {
       return res.status(400).json({ message: "Deposit already credited or invalid state" });
     }
-    await applyLedger(user.id, creditedAmount, "deposit_credited", depositId);
+    const creditedInr = usdtToInrCredit(usdtDeposited);
+    await applyLedger(user.id, creditedInr, "deposit_credited", depositId);
     await hydrateLiveAccountFromWallet(user.id);
 
     return res.json({
       ok: true,
       deposit: { ...updated, status: "credited" as const },
-      creditedUsdt: creditedAmount
+      creditedUsdt: usdtDeposited,
+      creditedInr,
+      inrPerUsdt: INR_PER_USDT
     });
   })().catch((error) => {
     const message = error instanceof Error ? error.message : "Submit failed";
@@ -785,10 +792,13 @@ app.post("/api/withdrawals", (req, res) => {
       return res.status(400).json({ message: "Valid BEP20 (0x...) address required" });
     }
 
+    const inrHold = inrDebitForUsdtWithdraw(amount);
     try {
-      await applyLedger(user.id, -amount, "withdrawal_pending", null);
+      await applyLedger(user.id, -inrHold, "withdrawal_pending", null);
     } catch {
-      return res.status(400).json({ message: "Insufficient balance" });
+      return res.status(400).json({
+        message: `Insufficient balance — need ₹${inrHold.toFixed(2)} (${amount} USDT × ₹${INR_PER_USDT})`
+      });
     }
 
     try {
@@ -799,9 +809,9 @@ app.post("/api/withdrawals", (req, res) => {
         toAddress
       });
       await hydrateLiveAccountFromWallet(user.id);
-      return res.status(201).json({ withdrawal });
+      return res.status(201).json({ withdrawal, inrDebited: inrHold, inrPerUsdt: INR_PER_USDT });
     } catch (err) {
-      await applyLedger(user.id, amount, "withdrawal_create_failed_refund", null).catch(() => {});
+      await applyLedger(user.id, inrHold, "withdrawal_create_failed_refund", null).catch(() => {});
       await hydrateLiveAccountFromWallet(user.id);
       throw err;
     }

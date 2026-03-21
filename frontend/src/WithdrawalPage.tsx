@@ -2,9 +2,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { loadMyWithdrawals, submitWithdrawalRequest } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import { formatInr, INR_PER_USDT, previewInrFromUsdt } from "./fundsConfig";
 
-const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-const MIN_WITHDRAW = 20;
+const MIN_WITHDRAW_USDT = 20;
+const MIN_BALANCE_INR = MIN_WITHDRAW_USDT * INR_PER_USDT;
 
 type Props = {
   token: string;
@@ -33,12 +34,15 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
     setMessage("");
 
     const num = Number(amount);
-    if (!Number.isFinite(num) || num < MIN_WITHDRAW) {
-      setMessage(`Minimum withdrawal is ${MIN_WITHDRAW} USDT.`);
+    if (!Number.isFinite(num) || num < MIN_WITHDRAW_USDT) {
+      setMessage(`Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT (need at least ${formatInr(MIN_BALANCE_INR)} in wallet).`);
       return;
     }
-    if (num > balance) {
-      setMessage("Amount exceeds available balance.");
+    const inrNeeded = previewInrFromUsdt(num);
+    if (inrNeeded > balance + 1e-6) {
+      setMessage(
+        `Not enough balance. ${num} USDT needs ${formatInr(inrNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`
+      );
       return;
     }
     const trimmed = address.trim();
@@ -49,8 +53,11 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
 
     setBusy(true);
     try {
-      await submitWithdrawalRequest(token, num, trimmed);
-      setMessage("Withdrawal submitted. USDT is held until processing.");
+      const res = await submitWithdrawalRequest(token, num, trimmed);
+      const debited = res.inrDebited ?? inrNeeded;
+      setMessage(
+        `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`
+      );
       setAmount("");
       setAddress("");
       onSuccess();
@@ -75,20 +82,21 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
           <h1>Withdraw USDT</h1>
         </div>
         <p className="funds-network">
-          <span className="funds-badge">BEP20</span> Withdrawals are sent to your BEP20 address only
+          <span className="funds-badge">BEP20</span> You receive <strong>USDT</strong> on-chain; trading wallet is debited in{" "}
+          <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT)
         </p>
 
         <div className="funds-balance">
-          <span>Available</span>
-          <strong>{currency.format(balance)}</strong>
+          <span>Available (trading wallet)</span>
+          <strong>{formatInr(balance)}</strong>
         </div>
 
         <form className="funds-form" onSubmit={(e) => void handleSubmit(e)}>
           <label>
-            Amount (USDT)
+            Amount to receive (USDT)
             <input
               type="number"
-              min={MIN_WITHDRAW}
+              min={MIN_WITHDRAW_USDT}
               step="0.01"
               placeholder="20.00"
               value={amount}
@@ -96,9 +104,12 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
               disabled={busy}
             />
           </label>
+          <p className="muted withdrawal-inr-line">
+            Deducted from balance: ≈ <strong>{formatInr(previewInrFromUsdt(Number(amount) || 0))}</strong>
+          </p>
 
           <label>
-            Withdrawal address (USDT BEP20)
+            Your USDT address (BEP20)
             <input
               type="text"
               placeholder="0x..."
@@ -121,7 +132,7 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
             <ul className="funds-history-list">
               {withdrawals.map((w) => (
                 <li key={w.id}>
-                  <span>{currency.format(w.amount)}</span>
+                  <span>{w.amount} USDT</span>
                   <span className="funds-history-status">{w.status}</span>
                   <span className="funds-history-meta">
                     {w.to_address.slice(0, 10)}… · {new Date(w.created_at).toLocaleString()}
@@ -136,15 +147,13 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
           <strong>Note</strong>
           <ul>
             <li>
-              Minimum withdrawal: <strong>{MIN_WITHDRAW} USDT</strong>. Balance is reserved when you submit.
+              Minimum: <strong>{MIN_WITHDRAW_USDT} USDT</strong> (≈ {formatInr(MIN_BALANCE_INR)} balance). Funds are reserved when you submit.
             </li>
-            <li>Double-check the BEP20 address. Wrong address may cause permanent loss.</li>
+            <li>Wrong BEP20 address can mean permanent loss — double-check.</li>
           </ul>
         </div>
 
-        <p className="funds-note">
-          Demo / app-side ledger — integrate custody for real on-chain payouts.
-        </p>
+        <p className="funds-note">Demo ledger — integrate custody for real on-chain payouts.</p>
       </div>
     </div>
   );

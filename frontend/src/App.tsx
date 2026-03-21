@@ -36,6 +36,7 @@ import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import { APP_NAME, SESSION_STORAGE_KEY } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
+import { formatInr } from "./fundsConfig";
 import {
   DockIconDeposit,
   DockIconInvest,
@@ -569,7 +570,7 @@ export default function App() {
       setTrades((current) => [trade, ...current]);
       showOrderPlacedPopup(
         "live",
-        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
+        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`
       );
       await refresh();
     } catch (error) {
@@ -678,6 +679,7 @@ export default function App() {
 
   const isGuestDemo = session.mode === "guest";
   const isLoggedIn = session.mode === "user";
+  const fmtWallet = (n: number) => (isLoggedIn ? formatInr(n) : currency.format(n));
 
   return (
     <div
@@ -811,7 +813,7 @@ export default function App() {
           ) : null}
           <div className="app-nav-right">
             <span className="app-nav-balance-pill" title="Balance">
-              {currency.format(account?.balance ?? 0)}
+              {fmtWallet(account?.balance ?? 0)}
             </span>
             {!isPhone ? (
               <button type="button" className="app-nav-text-btn" onClick={logout}>
@@ -1139,7 +1141,7 @@ export default function App() {
 
             <div className="mobile-amount-block">
               <label className="mobile-field-label" htmlFor="mob-amt">
-                Amount, USD
+                {isLoggedIn ? "Amount (₹)" : "Amount, USD"}
               </label>
               <div className="mobile-input-row">
                 <input
@@ -1180,7 +1182,7 @@ export default function App() {
                     <div key={t.id} className="mobile-open-timer-row">
                       <span>
                         {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
-                        {currency.format(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)}
+                        {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge">{countdownToExpiry(t.expiryAt)}</span>
                     </div>
@@ -1227,8 +1229,8 @@ export default function App() {
           >
             <summary>Account &amp; history</summary>
             <div className="mobile-mini-stats">
-              <span>Bal {currency.format(account?.balance ?? 0)}</span>
-              <span>Eq {currency.format(account?.equity ?? 0)}</span>
+              <span>Bal {fmtWallet(account?.balance ?? 0)}</span>
+              <span>Eq {fmtWallet(account?.equity ?? 0)}</span>
             </div>
             <div className="mobile-history-compact" id="app-mobile-history">
               {trades.length > 0 ? (
@@ -1253,7 +1255,7 @@ export default function App() {
                       >
                         {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
                       </span>
-                      <span title="Stake (USD)">{currency.format(trade.quantity)}</span>
+                      <span title={isLoggedIn ? "Stake (₹)" : "Stake (USD)"}>{fmtWallet(trade.quantity)}</span>
                       <span title="Price when order was placed (execution / entry)">
                         {formatFxPrice(trade.symbol, trade.entryPrice)}
                       </span>
@@ -1273,8 +1275,8 @@ export default function App() {
                       >
                         {trade.status === "closed" && trade.pnl != null
                           ? trade.pnl >= 0
-                            ? `+${currency.format(trade.pnl)}`
-                            : currency.format(trade.pnl)
+                            ? `+${fmtWallet(trade.pnl)}`
+                            : fmtWallet(trade.pnl)
                           : trade.status === "open"
                             ? "Open"
                             : trade.status}
@@ -1315,10 +1317,10 @@ export default function App() {
         <section className="panel" id="app-account-summary">
           <h2>{isLoggedIn ? "Trading account" : "Demo account"}</h2>
           <div className="stats">
-            <Stat label="Balance" value={currency.format(account?.balance ?? 0)} />
-            <Stat label="Equity" value={currency.format(account?.equity ?? 0)} />
-            <Stat label="Realized P&L" value={currency.format(account?.realizedPnl ?? 0)} />
-            <Stat label="Unrealized P&L" value={currency.format(account?.unrealizedPnl ?? 0)} />
+            <Stat label="Balance" value={fmtWallet(account?.balance ?? 0)} />
+            <Stat label="Equity" value={fmtWallet(account?.equity ?? 0)} />
+            <Stat label="Realized P&L" value={fmtWallet(account?.realizedPnl ?? 0)} />
+            <Stat label="Unrealized P&L" value={fmtWallet(account?.unrealizedPnl ?? 0)} />
           </div>
           {isLoggedIn && session.user.selfReferralCode ? (
             <div className="referral-box muted" style={{ marginTop: "0.75rem" }}>
@@ -1506,7 +1508,7 @@ export default function App() {
               <span>Auto cut at 00:00</span>
             </div>
             <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
-              Win: <strong>1.8×</strong> stake back (e.g. $100 → $180). Loss: full stake.
+              Win: <strong>1.8×</strong> stake back (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full stake.
             </p>
             <p className="muted">
               Use the <strong>bottom bar</strong> to place trades (amount, Up/Down).
@@ -1562,7 +1564,9 @@ export default function App() {
                       ? `${trade.direction === "up" ? "↑ Up" : "↓ Down"}${trade.timeframeSeconds ? ` · ${trade.timeframeSeconds}s` : ""}`
                       : `${formatTradeDirectionLabel(trade.direction, trade.side)}${trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}`}
                   </span>
-                  <span title="Stake (USD) at order time">{currency.format(trade.quantity)}</span>
+                  <span title={isLoggedIn ? "Stake (₹) at order time" : "Stake (USD) at order time"}>
+                    {fmtWallet(trade.quantity)}
+                  </span>
                   <span title="Execution / entry price when order was placed">
                     {formatFxPrice(trade.symbol, trade.entryPrice)}
                   </span>
@@ -1581,7 +1585,7 @@ export default function App() {
                     }
                   >
                     {trade.status === "closed" && typeof trade.pnl === "number"
-                      ? (trade.pnl >= 0 ? `+${currency.format(trade.pnl)}` : currency.format(trade.pnl))
+                      ? (trade.pnl >= 0 ? `+${fmtWallet(trade.pnl)}` : fmtWallet(trade.pnl))
                       : "—"}
                   </span>
                 </div>
@@ -1620,7 +1624,7 @@ export default function App() {
               </select>
             </label>
             <label className="desktop-demo-block">
-              <span className="desktop-demo-label">Amount USD</span>
+              <span className="desktop-demo-label">{isLoggedIn ? "Amount (₹)" : "Amount USD"}</span>
               <input
                 type="number"
                 min={1}
@@ -1670,9 +1674,9 @@ export default function App() {
                 <strong>{mobileSide === "buy" ? "Place Up" : "Place Down"}</strong>
                 <small>
                   {" "}
-                  stake $
+                  stake{" "}
                   {Number.isFinite(Number(quantity)) && Number(quantity) > 0
-                    ? Math.max(1, Math.floor(Number(quantity) * mobileMultiplier))
+                    ? fmtWallet(Math.max(1, Math.floor(Number(quantity) * mobileMultiplier)))
                     : "—"}{" "}
                   · {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
                 </small>
@@ -1684,7 +1688,7 @@ export default function App() {
               {openBinaryTrades.map((t) => (
                 <span key={t.id} className="desktop-demo-open-pill">
                   {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
-                  {currency.format(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)} · cut in{" "}
+                  {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)} · cut in{" "}
                   <strong>{countdownToExpiry(t.expiryAt)}</strong>
                 </span>
               ))}
@@ -1849,7 +1853,7 @@ export default function App() {
             <div className="wallet-tx-head">
               <div className="modal-head-titles">
                 <BrandLogo size={28} className="modal-head-logo" />
-                <h2 id="wallet-tx-title">Wallet activity (live USDT)</h2>
+                <h2 id="wallet-tx-title">Wallet activity (live · INR)</h2>
               </div>
               <button
                 type="button"
@@ -1872,11 +1876,11 @@ export default function App() {
                       <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
                       <span className={tx.amount >= 0 ? "wallet-tx-pos" : "wallet-tx-neg"}>
                         {tx.amount >= 0 ? "+" : ""}
-                        {Number(tx.amount).toFixed(4)}
+                        {formatInr(Number(tx.amount))}
                       </span>
                     </div>
                     <div className="wallet-tx-row-sub muted">
-                      Bal {Number(tx.before_balance).toFixed(2)} → {Number(tx.after_balance).toFixed(2)} ·{" "}
+                      Bal {formatInr(Number(tx.before_balance))} → {formatInr(Number(tx.after_balance))} ·{" "}
                       {new Date(tx.created_at).toLocaleString()}
                     </div>
                   </div>

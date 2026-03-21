@@ -312,7 +312,11 @@ export async function submitWithdrawalRequest(
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
     body: JSON.stringify({ amount, toAddress })
   });
-  return parseJson<{ withdrawal: WithdrawalRecord }>(response);
+  return parseJson<{
+    withdrawal: WithdrawalRecord;
+    inrDebited?: number;
+    inrPerUsdt?: number;
+  }>(response);
 }
 
 export async function loadMyWithdrawals(token: string) {
@@ -358,6 +362,8 @@ export async function createDepositIntent(
     toAddress: string;
     amount: number;
     decimals: number;
+    inrPerUsdt?: number;
+    walletCreditInr?: number;
   }>(response);
 }
 
@@ -372,7 +378,12 @@ export async function submitDepositTx(
     headers: { "Content-Type": "application/json", ...requestHeaders(token) },
     body: JSON.stringify({ depositId, txHash, fromAddress })
   });
-  return parseJson<{ ok: boolean; creditedUsdt: number }>(response);
+  return parseJson<{
+    ok: boolean;
+    creditedUsdt: number;
+    creditedInr: number;
+    inrPerUsdt?: number;
+  }>(response);
 }
 
 export async function loadMyDeposits(token: string) {
