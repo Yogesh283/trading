@@ -825,186 +825,190 @@ export default function App() {
             {isGuestDemo ? "Virtual funds · practice Up/Down with timer" : session.user.email}
           </p>
         ) : null}
-
-        {mainNavOpen ? (
-          <div
-            className="app-nav-drawer-backdrop"
-            role="presentation"
-            onClick={() => setMainNavOpen(false)}
-          >
-            <nav
-              className="app-nav-drawer"
-              role="dialog"
-              aria-label="Menu"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="app-nav-drawer-head">
-                <div className="app-nav-drawer-head-left">
-                  <BrandLogo size={26} className="app-nav-drawer-logo" />
-                  <span className="app-nav-drawer-title">Menu</span>
-                </div>
-                <button
-                  type="button"
-                  className="app-nav-drawer-close"
-                  aria-label="Close menu"
-                  onClick={() => setMainNavOpen(false)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="app-nav-drawer-user">
-                <strong>{session.user.name}</strong>
-                <span>{isGuestDemo ? "Guest demo" : session.user.email}</span>
-              </div>
-              <div className="app-nav-drawer-links">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardSection("trading");
-                    setMainNavOpen(false);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
-                >
-                  Trading
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    setAssetPickerOpen(true);
-                  }}
-                >
-                  Markets (pairs)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    if (isPhone) {
-                      setMobileAccountOpen(true);
-                      window.requestAnimationFrame(() =>
-                        document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
-                      );
-                    } else {
-                      document.getElementById("app-account-summary")?.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                >
-                  Account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    if (isPhone) {
-                      setMobileAccountOpen(true);
-                      window.requestAnimationFrame(() =>
-                        document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
-                      );
-                    } else {
-                      document.getElementById("app-trade-history")?.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }}
-                >
-                  Trade history
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  Chart
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    void refresh().catch(() => undefined);
-                    setMessage("Data refreshed.");
-                  }}
-                >
-                  Refresh data
-                </button>
-                {isLoggedIn ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDashboardSection("deposit");
-                        setMainNavOpen(false);
-                      }}
-                    >
-                      Deposit USDT
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDashboardSection("withdrawal");
-                        setMainNavOpen(false);
-                      }}
-                    >
-                      Withdraw USDT
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDashboardSection("investment");
-                        setMainNavOpen(false);
-                      }}
-                    >
-                      Investment
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDashboardSection("referral");
-                        setMainNavOpen(false);
-                      }}
-                    >
-                      Referral &amp; team
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMainNavOpen(false);
-                        setWalletActivityOpen(true);
-                      }}
-                    >
-                      Wallet activity
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMainNavOpen(false);
-                        setMessage("Log in or register to deposit. Exit demo → Register.");
-                      }}
-                    >
-                      Deposit USDT
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMainNavOpen(false);
-                        setMessage("Log in to withdraw. Exit demo → Log in.");
-                      }}
-                    >
-                      Withdraw USDT
-                    </button>
-                  </>
-                )}
-                <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>
-                  {isGuestDemo ? "Exit demo" : "Log out"}
-                </button>
-              </div>
-            </nav>
-          </div>
-        ) : null}
       </header>
+
+      {/*
+        Drawer must NOT live inside <header>: .app-main-nav uses backdrop-filter, which creates a containing
+        block so position:fixed only covers the short header — menu links render “below” and look empty.
+      */}
+      {mainNavOpen ? (
+        <div
+          className="app-nav-drawer-backdrop"
+          role="presentation"
+          onClick={() => setMainNavOpen(false)}
+        >
+          <nav
+            className="app-nav-drawer"
+            role="dialog"
+            aria-label="Menu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="app-nav-drawer-head">
+              <div className="app-nav-drawer-head-left">
+                <BrandLogo size={26} className="app-nav-drawer-logo" />
+                <span className="app-nav-drawer-title">Menu</span>
+              </div>
+              <button
+                type="button"
+                className="app-nav-drawer-close"
+                aria-label="Close menu"
+                onClick={() => setMainNavOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="app-nav-drawer-user">
+              <strong>{session.user.name}</strong>
+              <span>{isGuestDemo ? "Guest demo" : session.user.email}</span>
+            </div>
+            <div className="app-nav-drawer-links">
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("trading");
+                  setMainNavOpen(false);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              >
+                Trading
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainNavOpen(false);
+                  setAssetPickerOpen(true);
+                }}
+              >
+                Markets (pairs)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainNavOpen(false);
+                  if (isPhone) {
+                    setMobileAccountOpen(true);
+                    window.requestAnimationFrame(() =>
+                      document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
+                    );
+                  } else {
+                    document.getElementById("app-account-summary")?.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+              >
+                Account
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainNavOpen(false);
+                  if (isPhone) {
+                    setMobileAccountOpen(true);
+                    window.requestAnimationFrame(() =>
+                      document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
+                    );
+                  } else {
+                    document.getElementById("app-trade-history")?.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+              >
+                Trade history
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainNavOpen(false);
+                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                Chart
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMainNavOpen(false);
+                  void refresh().catch(() => undefined);
+                  setMessage("Data refreshed.");
+                }}
+              >
+                Refresh data
+              </button>
+              {isLoggedIn ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardSection("deposit");
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Deposit USDT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardSection("withdrawal");
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Withdraw USDT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardSection("investment");
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Investment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDashboardSection("referral");
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Referral &amp; team
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainNavOpen(false);
+                      setWalletActivityOpen(true);
+                    }}
+                  >
+                    Wallet activity
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainNavOpen(false);
+                      setMessage("Log in or register to deposit. Exit demo → Register.");
+                    }}
+                  >
+                    Deposit USDT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainNavOpen(false);
+                      setMessage("Log in to withdraw. Exit demo → Log in.");
+                    }}
+                  >
+                    Withdraw USDT
+                  </button>
+                </>
+              )}
+              <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>
+                {isGuestDemo ? "Exit demo" : "Log out"}
+              </button>
+            </div>
+          </nav>
+        </div>
+      ) : null}
 
       {isLoggedIn && dashboardSection === "deposit" ? (
         <DepositPage token={session.token} onSuccess={() => void refresh()} />

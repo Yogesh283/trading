@@ -82,7 +82,7 @@ select {
   opacity: 0.85;
 }
 
-/* Drawer is inside header; without this, fixed bottom dock (z ~220) paints on top and hides last menu items */
+/* Drawer markup lives outside <header> (see App.tsx); this still raises the bar so the sticky bar stays above page content while the drawer is open. */
 .app-main-nav.app-main-nav--drawer-open {
   z-index: 480;
 }
