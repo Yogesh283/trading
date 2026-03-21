@@ -1,5 +1,5 @@
 /**
- * DB mein kisi user ko admin banane ke liye (command line).
+ * Promote a user to admin via the command line.
  *
  * Usage:
  *   npm run promote-admin -- you@example.com
@@ -41,11 +41,11 @@ Uses database from .env (MySQL if MYSQL_DATABASE set, else SQLite data/app.db).
   const email = arg.toLowerCase();
   const result = await dbRun("UPDATE users SET role = 'admin' WHERE LOWER(email) = ?", [email]);
   if (result.affectedRows === 0) {
-    console.error(`No row updated — yeh email DB mein nahi mili: ${arg}`);
-    console.error("(Typo? 1122 vs 1133 — list se exact email copy karein.)\n");
+    console.error(`No row updated — this email was not found in the database: ${arg}`);
+    console.error("(Typo? e.g. 1122 vs 1133 — copy the exact email from the list.)\n");
     const all = await dbAll<{ email: string }>("SELECT email FROM users ORDER BY email");
     if (all.length === 0) {
-      console.error("Koi user nahi — pehle app par Register karein.");
+      console.error("No users yet — register in the app first.");
     } else {
       console.error("Registered emails:");
       for (const r of all) {

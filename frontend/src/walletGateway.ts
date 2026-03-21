@@ -36,11 +36,11 @@ export function isMobileDevice(): boolean {
 }
 
 /** Opens this exact page inside the wallet app browser (where Web3 works on mobile). */
-export function getOpenInWalletDeepLink(walletId: WalletGatewayId): string | null {
+export function getOpenInWalletDeepLink(walletId: WalletGatewayId, pageHref?: string): string | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const page = window.location.href.split("#")[0];
+  const page = pageHref ?? window.location.href.split("#")[0];
   const enc = encodeURIComponent(page);
 
   switch (walletId) {

@@ -2,6 +2,7 @@ import {
   type Dispatch,
   type SetStateAction,
   FormEvent,
+  useCallback,
   useEffect,
   useRef,
   useState
@@ -26,6 +27,7 @@ import {
 } from "./api";
 import { getBackendWsUrl } from "./backendOrigin";
 import { clearCachesAfterRegistration } from "./clearRegistrationCache";
+import { shouldOpenDepositScreenFromUrl } from "./depositStorage";
 import DepositPage from "./DepositPage";
 import LandingPage from "./LandingPage";
 import SplashScreen from "./SplashScreen";
@@ -34,6 +36,14 @@ import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import { APP_NAME, SESSION_STORAGE_KEY } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
+import {
+  DockIconDeposit,
+  DockIconInvest,
+  DockIconMarkets,
+  DockIconMenu,
+  DockIconTradeBars,
+  DockIconWithdraw
+} from "./MobileDockIcons";
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -80,10 +90,15 @@ const FOREX_SYMBOLS_DEFAULT = [
   "USDNOK",
   "USDTRY",
   "USDMXN",
-  "USDZAR"
+  "USDZAR",
+  "XAUUSD"
 ] as const;
 
+/** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for many 5m/10m candles. */
+const CHART_HISTORY_TICKS = 35_000;
+
 const FX_BASE_ICON: Record<string, string> = {
+  XAU: "Au",
   EUR: "€",
   GBP: "£",
   USD: "$",
@@ -196,6 +211,51 @@ export default function App() {
   const [walletTxLoading, setWalletTxLoading] = useState(false);
   const [timerTick, setTimerTick] = useState(0);
   const prevPricesRef = useRef<Record<string, number>>({});
+  const symbolRef = useRef(symbol);
+  symbolRef.current = symbol;
+  const [orderPlacedPopup, setOrderPlacedPopup] = useState<null | { account: "demo" | "live"; summary: string }>(
+    null
+  );
+  /** Browser `window.setTimeout` returns `number` (Node types use `NodeJS.Timeout`). */
+  const orderPopupTimeoutRef = useRef<number | null>(null);
+  /** Ignore stale `refresh()` results so an older in-flight request cannot overwrite trades after a new order. */
+  const refreshSeqRef = useRef(0);
+
+  const dismissOrderPlacedPopup = useCallback(() => {
+    if (orderPopupTimeoutRef.current) {
+      clearTimeout(orderPopupTimeoutRef.current);
+      orderPopupTimeoutRef.current = null;
+    }
+    setOrderPlacedPopup(null);
+  }, []);
+
+  const showOrderPlacedPopup = useCallback((account: "demo" | "live", summary: string) => {
+    if (orderPopupTimeoutRef.current) {
+      clearTimeout(orderPopupTimeoutRef.current);
+    }
+    setOrderPlacedPopup({ account, summary });
+    orderPopupTimeoutRef.current = window.setTimeout(() => {
+      setOrderPlacedPopup(null);
+      orderPopupTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (orderPopupTimeoutRef.current) {
+        clearTimeout(orderPopupTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!orderPlacedPopup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissOrderPlacedPopup();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [orderPlacedPopup, dismissOrderPlacedPopup]);
 
   useEffect(() => {
     if (!session) return;
@@ -236,8 +296,24 @@ export default function App() {
     const id = window.setTimeout(() => setSplashReady(true), SPLASH_MS);
     return () => window.clearTimeout(id);
   }, []);
+
+  /** Wallet in-app browser: ?depositAmount= or #depositAmount= — open Deposit tab. */
+  useEffect(() => {
+    if (session?.mode !== "user") return;
+    try {
+      if (shouldOpenDepositScreenFromUrl()) {
+        setDashboardSection("deposit");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [session]);
+
   const sessionToken = session?.mode === "user" ? session.token : undefined;
   const accountWallet = session?.mode === "user" ? ("live" as const) : ("demo" as const);
+  /** Re-run chart history when user logs in / guest starts so we retry fetch (deps were only booting+symbol before). */
+  const chartSessionKey =
+    session == null ? "" : session.mode === "user" ? `u:${session.user.id}` : `g:${session.user.id}`;
 
   useEffect(() => {
     const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -288,30 +364,70 @@ export default function App() {
     window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
   }, [booting, session]);
 
-  const refresh = async () => {
-    const [marketData, accountData, tradeData] = await Promise.all([
-      loadMarkets(),
-      loadAccount(sessionToken, accountWallet),
-      loadTrades(sessionToken, accountWallet)
-    ]);
+  /** Deep history per symbol; only after we have a session so login/guest triggers a fresh load. */
+  useEffect(() => {
+    if (booting || !chartSessionKey) {
+      return;
+    }
+    let cancelled = false;
+    const loadChartHistory = () => {
+      const sym = symbolRef.current;
+      void loadMarketsHistory(sym, CHART_HISTORY_TICKS)
+        .then(({ ticks: historyTicks }) => {
+          if (cancelled || historyTicks.length === 0) {
+            return;
+          }
+          setHistory((current) => mergeHistoryTicks(current, historyTicks));
+        })
+        .catch(() => undefined);
+    };
+    loadChartHistory();
+    const interval = window.setInterval(loadChartHistory, 45_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [booting, symbol, chartSessionKey]);
 
-    setMarkets(marketData.ticks);
-    setAccount(accountData);
-    setTrades(tradeData.trades);
-    if (marketData.symbols?.length) {
-      setForexSymbolList([...marketData.symbols]);
-    }
-    if (marketData.pairs?.length) {
-      setPairNames(Object.fromEntries(marketData.pairs.map((p) => [p.symbol, p.name])));
-    }
-    setHistory((current) => mergeSnapshot(current, marketData.ticks));
+  const refresh = async () => {
+    const mySeq = ++refreshSeqRef.current;
     try {
-      const { ticks: historyTicks } = await loadMarketsHistory(undefined, 7200);
-      if (historyTicks.length > 0) {
-        setHistory((current) => mergeHistoryTicks(current, historyTicks));
+      const [marketData, accountData, tradeData] = await Promise.all([
+        loadMarkets(),
+        loadAccount(sessionToken, accountWallet),
+        loadTrades(sessionToken, accountWallet)
+      ]);
+
+      if (mySeq !== refreshSeqRef.current) {
+        return;
       }
-    } catch {
-      // ignore; chart will still work with live ticks only
+
+      setMarkets(marketData.ticks);
+      setAccount(accountData);
+      setTrades(tradeData.trades);
+      if (marketData.symbols?.length) {
+        setForexSymbolList([...marketData.symbols]);
+      }
+      if (marketData.pairs?.length) {
+        setPairNames(Object.fromEntries(marketData.pairs.map((p) => [p.symbol, p.name])));
+      }
+      setHistory((current) => mergeSnapshot(current, marketData.ticks));
+      try {
+        const { ticks: hist } = await loadMarketsHistory(symbolRef.current, CHART_HISTORY_TICKS);
+        if (mySeq !== refreshSeqRef.current) {
+          return;
+        }
+        if (hist.length > 0) {
+          setHistory((current) => mergeHistoryTicks(current, hist));
+        }
+      } catch {
+        // chart still updates from WS
+      }
+    } catch (e) {
+      if (mySeq !== refreshSeqRef.current) {
+        return;
+      }
+      throw e;
     }
   };
 
@@ -337,22 +453,33 @@ export default function App() {
     ws.onerror = () => setStatus("Connection error");
     ws.onmessage = (event) => {
       const payload = JSON.parse(event.data as string) as
-        | { type: "snapshot"; data: { markets: MarketTick[]; account: AccountSnapshot } }
+        | {
+            type: "snapshot";
+            data: {
+              markets: MarketTick[];
+              account: AccountSnapshot;
+              /** Guest demo trades — keeps Account & history in sync on connect. */
+              trades?: Trade[];
+            };
+          }
         | { type: "tick"; data: MarketTick };
 
       if (payload.type === "snapshot") {
         setMarkets(payload.data.markets);
         if (session?.mode !== "user") {
           setAccount(payload.data.account);
+          if (Array.isArray(payload.data.trades)) {
+            setTrades(payload.data.trades);
+          }
         }
         setHistory((current) => mergeSnapshot(current, payload.data.markets));
         return;
       }
 
       setMarkets((current) => {
-        const next = current.filter((item) => item.symbol !== payload.data.symbol);
-        next.unshift(payload.data);
-        return next.slice(0, 20);
+        const bySymbol = new Map(current.map((t) => [t.symbol, t]));
+        bySymbol.set(payload.data.symbol, payload.data);
+        return [...bySymbol.values()].sort((a, b) => a.symbol.localeCompare(b.symbol));
       });
 
       setHistory((current) => appendPoint(current, payload.data));
@@ -407,8 +534,9 @@ export default function App() {
         "demo"
       );
       setTrades((current) => [trade, ...current]);
-      setMessage(
-        `Opened ${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
+      showOrderPlacedPopup(
+        "demo",
+        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
       );
       await refresh();
     } catch (error) {
@@ -439,8 +567,9 @@ export default function App() {
         session.token
       );
       setTrades((current) => [trade, ...current]);
-      setMessage(
-        `Opened ${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
+      showOrderPlacedPopup(
+        "live",
+        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
       );
       await refresh();
     } catch (error) {
@@ -553,8 +682,11 @@ export default function App() {
   return (
     <div
       className={`app-shell${session && isPhone ? " app-mobile-trade" : ""}${session && !isPhone ? " app-guest-desktop-dock" : ""}`}
+      data-dock={
+        session && isPhone ? (isLoggedIn ? "theme" : "contrast") : undefined
+      }
     >
-      <header className="app-main-nav">
+      <header className={`app-main-nav${mainNavOpen ? " app-main-nav--drawer-open" : ""}`}>
         <div className="app-main-nav-row">
           {isPhone ? (
             <button
@@ -875,11 +1007,7 @@ export default function App() {
       </header>
 
       {isLoggedIn && dashboardSection === "deposit" ? (
-        <DepositPage
-          token={session.token}
-          onBack={() => setDashboardSection("trading")}
-          onSuccess={() => void refresh()}
-        />
+        <DepositPage token={session.token} onSuccess={() => void refresh()} />
       ) : isLoggedIn && dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
@@ -1047,7 +1175,8 @@ export default function App() {
                   {openBinaryTrades.map((t) => (
                     <div key={t.id} className="mobile-open-timer-row">
                       <span>
-                        {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"}
+                        {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
+                        {currency.format(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge">{countdownToExpiry(t.expiryAt)}</span>
                     </div>
@@ -1098,24 +1227,80 @@ export default function App() {
               <span>Eq {currency.format(account?.equity ?? 0)}</span>
             </div>
             <div className="mobile-history-compact" id="app-mobile-history">
-              {trades.slice(0, 12).map((trade) => (
-                <div key={trade.id} className="mobile-hist-row">
-                  <span>{formatForexPair(trade.symbol)}</span>
-                  <span>{formatTradeDirectionLabel(trade.direction, trade.side)}</span>
-                  <span>{trade.quantity}</span>
-                  <span
-                    className={
-                      typeof trade.pnl === "number"
-                        ? trade.pnl >= 0
-                          ? "pnl-win"
-                          : "pnl-loss"
-                        : ""
-                    }
-                  >
-                    {trade.status === "closed" && trade.pnl != null ? trade.pnl : trade.status}
-                  </span>
+              {trades.length > 0 ? (
+                <div className="mobile-hist-legend">
+                  <span>Pair</span>
+                  <span>Up / Down</span>
+                  <span>Stake</span>
+                  <span>Entry</span>
+                  <span>Result</span>
                 </div>
-              ))}
+              ) : null}
+              {trades.slice(0, 20).map((trade) => {
+                const dir = formatTradeDirectionLabel(trade.direction, trade.side);
+                const isBinary = trade.direction === "up" || trade.direction === "down";
+                return (
+                  <div key={trade.id} className="mobile-hist-item">
+                    <div className="mobile-hist-row">
+                      <span title={trade.symbol}>{formatForexPair(trade.symbol)}</span>
+                      <span
+                        className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
+                        title={isBinary ? `Direction: ${dir}` : undefined}
+                      >
+                        {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
+                      </span>
+                      <span title="Stake (USD)">{currency.format(trade.quantity)}</span>
+                      <span title="Price when order was placed (execution / entry)">
+                        {formatFxPrice(trade.symbol, trade.entryPrice)}
+                      </span>
+                      <span
+                        className={
+                          typeof trade.pnl === "number"
+                            ? trade.pnl >= 0
+                              ? "pnl-win"
+                              : "pnl-loss"
+                            : ""
+                        }
+                        title={
+                          trade.status === "closed" && trade.closePrice != null
+                            ? `Closed at ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                            : undefined
+                        }
+                      >
+                        {trade.status === "closed" && trade.pnl != null
+                          ? trade.pnl >= 0
+                            ? `+${currency.format(trade.pnl)}`
+                            : currency.format(trade.pnl)
+                          : trade.status === "open"
+                            ? "Open"
+                            : trade.status}
+                      </span>
+                    </div>
+                    <p className="mobile-hist-meta muted">
+                      {isBinary ? (
+                        <>
+                          <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
+                          {formatFxPrice(trade.symbol, trade.entryPrice)}
+                          {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
+                          {trade.status === "closed" && trade.closePrice != null ? (
+                            <>
+                              {" "}
+                              → cut @ {formatFxPrice(trade.symbol, trade.closePrice)}
+                            </>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          Open @ {formatFxPrice(trade.symbol, trade.entryPrice)}
+                          {trade.status === "closed" && trade.closePrice != null
+                            ? ` → closed @ ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                            : null}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
               {trades.length === 0 ? <p className="muted">No trades yet.</p> : null}
             </div>
           </details>
@@ -1291,8 +1476,8 @@ export default function App() {
                   {openBinaryTrades.map((t) => (
                     <li key={t.id}>
                       <span>
-                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · $
-                        {t.quantity}
+                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · stake{" "}
+                        {currency.format(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge" aria-live="polite">
                         {countdownToExpiry(t.expiryAt)}
@@ -1334,7 +1519,10 @@ export default function App() {
           <h2>Symbol Snapshot</h2>
           <div className="stats">
             <Stat label="Selected Symbol" value={symbol} />
-            <Stat label="Live Price" value={selectedTick ? selectedTick.price.toFixed(4) : "Waiting..."} />
+            <Stat
+              label="Live Price"
+              value={selectedTick ? formatFxPrice(symbol, selectedTick.price) : "Waiting..."}
+            />
             <Stat label="Open Trades" value={String(symbolTrades.filter((trade) => trade.status === "open").length)} />
             <Stat label="Total Trades" value={String(symbolTrades.length)} />
           </div>
@@ -1346,9 +1534,9 @@ export default function App() {
           <div className="table">
             <div className="table-head">
               <span>Symbol</span>
-              <span>Dir</span>
-              <span>Amount</span>
-              <span>Entry</span>
+              <span>Up / Down</span>
+              <span>Stake</span>
+              <span>Entry @ price</span>
               <span>Status</span>
               <span>Cut in</span>
               <span>P&L</span>
@@ -1359,21 +1547,37 @@ export default function App() {
               trades.map((trade) => (
                 <div key={trade.id} className="table-row" data-tick={timerTick}>
                   <span>{trade.symbol}</span>
-                  <span>
-                    {formatTradeDirectionLabel(trade.direction, trade.side)}
-                    {trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}
+                  <span
+                    title={
+                      trade.direction === "up" || trade.direction === "down"
+                        ? `Binary: ${trade.direction === "up" ? "Up" : "Down"} @ ${formatFxPrice(trade.symbol, trade.entryPrice)}`
+                        : undefined
+                    }
+                  >
+                    {trade.direction === "up" || trade.direction === "down"
+                      ? `${trade.direction === "up" ? "↑ Up" : "↓ Down"}${trade.timeframeSeconds ? ` · ${trade.timeframeSeconds}s` : ""}`
+                      : `${formatTradeDirectionLabel(trade.direction, trade.side)}${trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}`}
                   </span>
-                  <span>{trade.quantity}</span>
-                  <span>{trade.entryPrice.toFixed(4)}</span>
+                  <span title="Stake (USD) at order time">{currency.format(trade.quantity)}</span>
+                  <span title="Execution / entry price when order was placed">
+                    {formatFxPrice(trade.symbol, trade.entryPrice)}
+                  </span>
                   <span>{trade.status}</span>
                   <span className="table-cut-in">
                     {trade.status === "open" && trade.expiryAt != null
                       ? countdownToExpiry(trade.expiryAt)
                       : "—"}
                   </span>
-                  <span className={typeof trade.pnl === "number" ? (trade.pnl >= 0 ? "pnl-win" : "pnl-loss") : ""}>
+                  <span
+                    className={typeof trade.pnl === "number" ? (trade.pnl >= 0 ? "pnl-win" : "pnl-loss") : ""}
+                    title={
+                      trade.status === "closed" && trade.closePrice != null
+                        ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                        : undefined
+                    }
+                  >
                     {trade.status === "closed" && typeof trade.pnl === "number"
-                      ? (trade.pnl >= 0 ? `+${trade.pnl}` : `${trade.pnl}`)
+                      ? (trade.pnl >= 0 ? `+${currency.format(trade.pnl)}` : currency.format(trade.pnl))
                       : "—"}
                   </span>
                 </div>
@@ -1475,7 +1679,8 @@ export default function App() {
             <div className="desktop-demo-open-strip">
               {openBinaryTrades.map((t) => (
                 <span key={t.id} className="desktop-demo-open-pill">
-                  {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} · cut in{" "}
+                  {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
+                  {currency.format(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)} · cut in{" "}
                   <strong>{countdownToExpiry(t.expiryAt)}</strong>
                 </span>
               ))}
@@ -1542,70 +1747,86 @@ export default function App() {
       </>
       )}
       {session && isPhone ? (
-        <nav className="mobile-bottom-nav" aria-label="Bottom menu">
+        <nav
+          className={`mobile-bottom-dock${isLoggedIn ? " mobile-bottom-dock--theme" : ""}`}
+          aria-label="Bottom menu"
+        >
           <button
             type="button"
-            className={`mobile-bottom-nav-item ${dashboardSection === "trading" ? "active" : ""}`}
-            onClick={() => setDashboardSection("trading")}
-            aria-current={dashboardSection === "trading" ? "page" : undefined}
-          >
-            <span className="mobile-bottom-nav-icon" aria-hidden>📊</span>
-            <span className="mobile-bottom-nav-label">Trade</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-bottom-nav-item ${dashboardSection === "deposit" ? "active" : ""}`}
+            className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "deposit" ? "active" : ""}`}
             onClick={() => {
               if (isLoggedIn) setDashboardSection("deposit");
               else setMessage("Log in to deposit.");
             }}
             aria-current={dashboardSection === "deposit" ? "page" : undefined}
           >
-            <span className="mobile-bottom-nav-icon" aria-hidden>💳</span>
-            <span className="mobile-bottom-nav-label">Deposit</span>
+            <span className="mobile-dock-icon-slot" aria-hidden>
+              <DockIconDeposit />
+            </span>
+            <span className="mobile-dock-label">Deposit</span>
           </button>
           <button
             type="button"
-            className={`mobile-bottom-nav-item ${dashboardSection === "withdrawal" ? "active" : ""}`}
+            className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "withdrawal" ? "active" : ""}`}
             onClick={() => {
               if (isLoggedIn) setDashboardSection("withdrawal");
               else setMessage("Log in to withdraw.");
             }}
             aria-current={dashboardSection === "withdrawal" ? "page" : undefined}
           >
-            <span className="mobile-bottom-nav-icon" aria-hidden>↗</span>
-            <span className="mobile-bottom-nav-label">Withdraw</span>
+            <span className="mobile-dock-icon-slot" aria-hidden>
+              <DockIconWithdraw />
+            </span>
+            <span className="mobile-dock-label">Withdraw</span>
           </button>
+
+          <button
+            type="button"
+            className={`mobile-dock-trade mobile-dock-cell ${dashboardSection === "trading" ? "is-active" : ""}`}
+            onClick={() => {
+              setDashboardSection("trading");
+              window.requestAnimationFrame(() =>
+                document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              );
+            }}
+            aria-current={dashboardSection === "trading" ? "page" : undefined}
+          >
+            <span className="mobile-dock-trade-inner">
+              <DockIconTradeBars />
+            </span>
+            <span className="mobile-dock-trade-text">Trade</span>
+          </button>
+
           {isLoggedIn ? (
             <button
               type="button"
-              className={`mobile-bottom-nav-item ${dashboardSection === "investment" ? "active" : ""}`}
+              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "investment" ? "active" : ""}`}
               onClick={() => setDashboardSection("investment")}
               aria-current={dashboardSection === "investment" ? "page" : undefined}
             >
-              <span className="mobile-bottom-nav-icon" aria-hidden>📈</span>
-              <span className="mobile-bottom-nav-label">Invest</span>
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconInvest />
+              </span>
+              <span className="mobile-dock-label">Invest</span>
             </button>
-          ) : null}
-          {isLoggedIn ? (
-            <button
-              type="button"
-              className={`mobile-bottom-nav-item ${dashboardSection === "referral" ? "active" : ""}`}
-              onClick={() => setDashboardSection("referral")}
-              aria-current={dashboardSection === "referral" ? "page" : undefined}
-            >
-              <span className="mobile-bottom-nav-icon" aria-hidden>👥</span>
-              <span className="mobile-bottom-nav-label">Team</span>
+          ) : (
+            <button type="button" className="mobile-dock-item mobile-dock-cell" onClick={() => setAssetPickerOpen(true)}>
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconMarkets />
+              </span>
+              <span className="mobile-dock-label">Markets</span>
             </button>
-          ) : null}
+          )}
           <button
             type="button"
-            className="mobile-bottom-nav-item"
+            className="mobile-dock-item mobile-dock-cell"
             onClick={() => setMainNavOpen(true)}
             aria-label="Account and menu"
           >
-            <span className="mobile-bottom-nav-icon" aria-hidden>☰</span>
-            <span className="mobile-bottom-nav-label">Account</span>
+            <span className="mobile-dock-icon-slot" aria-hidden>
+              <DockIconMenu />
+            </span>
+            <span className="mobile-dock-label">Account</span>
           </button>
         </nav>
       ) : null}
@@ -1658,6 +1879,37 @@ export default function App() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      ) : null}
+      {orderPlacedPopup ? (
+        <div
+          className="order-placed-backdrop"
+          role="presentation"
+          onClick={dismissOrderPlacedPopup}
+        >
+          <div
+            className="order-placed-modal"
+            role="alertdialog"
+            aria-labelledby="order-placed-title"
+            aria-describedby="order-placed-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="order-placed-icon" aria-hidden>
+              ✓
+            </div>
+            <p className={`order-placed-badge ${orderPlacedPopup.account}`}>
+              {orderPlacedPopup.account === "demo" ? "Demo account" : "Live account"}
+            </p>
+            <h2 id="order-placed-title" className="order-placed-title">
+              Order created
+            </h2>
+            <p id="order-placed-desc" className="order-placed-summary">
+              {orderPlacedPopup.summary}
+            </p>
+            <button type="button" className="order-placed-ok" onClick={dismissOrderPlacedPopup}>
+              OK
+            </button>
           </div>
         </div>
       ) : null}
@@ -2101,21 +2353,19 @@ function LiveChart({
   const W = 960;
   const H = 420;
   const padL = 8;
-  const padR = 100;
+  const padR = isMobileChart ? 128 : 122;
   const padT = 12;
-  const padB = 38;
+  const padB = isMobileChart ? 44 : 38;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  /** Max candle width so 10m (and other TFs) don't show only 2 giant candles; show many normal-sized ones. */
+  /** Max candle body width; zoom caps how wide each slot may get when there are few candles. */
   const MAX_CANDLE_WIDTH_PX = 36;
-  const slotW = SLOT_WIDTHS_PX[Math.min(zoomIndex, SLOT_WIDTHS_PX.length - 1)];
-  const maxVisible = Math.max(1, Math.floor(plotW / Math.min(slotW, MAX_CANDLE_WIDTH_PX)));
-  const candles = allCandles.slice(-maxVisible);
+  const zoomCap = SLOT_WIDTHS_PX[Math.min(zoomIndex, SLOT_WIDTHS_PX.length - 1)];
+  /** Show every loaded candle; squeeze to fit plot width (zoom still limits max width per candle). */
+  const candles = allCandles;
   const n = candles.length;
-
-  /** Slot width: fill width when many candles; cap when few so we don't get 2 huge candles (e.g. 10m). */
-  const slotWActual = n > 0 ? Math.min(plotW / n, MAX_CANDLE_WIDTH_PX) : slotW;
+  const slotWActual = n > 0 ? Math.min(plotW / n, MAX_CANDLE_WIDTH_PX, zoomCap) : zoomCap;
   const bodyW = Math.max(1.2, slotWActual * CANDLE_STYLE.slotBodyRatio);
   /** Right-align: latest candle at right edge so all timeframes show candles in a consistent way. */
   const cxAt = (index: number) => padL + plotW - (n - 1 - index) * slotWActual - slotWActual / 2;
@@ -2155,8 +2405,8 @@ function LiveChart({
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
 
   const tagX = padL + plotW + 4;
-  const priceTagW = 88;
-  const priceTagH = 36;
+  const priceTagW = isMobileChart ? 104 : 88;
+  const priceTagH = isMobileChart ? 42 : 36;
   const priceTagY = Math.min(Math.max(padT + 4, lastY - priceTagH / 2), padT + plotH - priceTagH - 4);
 
   const lastCx = n > 0 ? cxAt(n - 1) : padL + plotW;
@@ -2175,11 +2425,18 @@ function LiveChart({
               minute: "2-digit",
               hour12: false
             })
-          : new Date(candles[i].timestamp).toLocaleTimeString("en-GB", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false
-            })
+          : timeframeSec < 60
+            ? new Date(candles[i].timestamp).toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false
+              })
+            : new Date(candles[i].timestamp).toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false
+              })
     }));
   const timeLabelFontSize = isMobileChart ? 24 : 10;
   const timeLabelY = padT + plotH + (isMobileChart ? 20 : 14);
@@ -2223,7 +2480,17 @@ function LiveChart({
             return (
               <g key={`h-${i}`}>
                 <line x1={padL} y1={y} x2={padL + plotW} y2={y} className="tv-grid-h" />
-                <text x={padL + plotW + 6} y={y + 4} className="tv-price-label">
+                <text
+                  x={W - 6}
+                  y={y + (isMobileChart ? 6 : 5)}
+                  textAnchor="end"
+                  className="tv-price-label"
+                  style={{
+                    fontSize: isMobileChart ? 17 : 14,
+                    fontWeight: isMobileChart ? 700 : 600,
+                    fill: isMobileChart ? "#e4e7ec" : "#c8ccd4"
+                  }}
+                >
                   {fmtPrice(price)}
                 </text>
               </g>
@@ -2273,7 +2540,14 @@ function LiveChart({
               rx={4}
               className="tv-tag-price-bg-white"
             />
-            <text x={tagX + 8} y={priceTagY + 22} className="tv-tag-price-val-white">
+            <text
+              x={tagX + priceTagW / 2}
+              y={priceTagY + priceTagH / 2 + (isMobileChart ? 1 : 0)}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="tv-tag-price-val-white"
+              style={isMobileChart ? { fontSize: 19, fontWeight: 800 } : { fontSize: 15, fontWeight: 800 }}
+            >
               {fmtPrice(current.close)}
             </text>
           </g>

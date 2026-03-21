@@ -108,7 +108,7 @@ export function UserEdit() {
           source="new_password"
           type="password"
           label="Naya password (optional)"
-          helperText="Purana password kabhi show nahi hota (security: sirf hash DB mein). Yahan naya likho to set ho jayega; khali = change nahi."
+          helperText="The old password is never shown (only a hash is stored). Enter a new password here to update; leave blank to keep the current password."
           fullWidth
           autoComplete="new-password"
         />

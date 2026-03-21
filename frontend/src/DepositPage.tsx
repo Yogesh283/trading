@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { ethers } from "ethers";
 import { createDepositIntent, loadMyDeposits, submitDepositTx, type DepositRecord } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import {
+  appendDepositAmountToPageUrl,
+  consumeDepositAmountFromNavigation,
+  DEPOSIT_AMOUNT_LOCAL_KEY,
+  DEPOSIT_AMOUNT_SESSION_KEY
+} from "./depositStorage";
 import {
   ensureBscChain,
   getEthereumProvider,
@@ -14,17 +20,22 @@ import {
 
 type Props = {
   token: string;
-  onBack: () => void;
   onSuccess?: () => void;
 };
 
 const ERC20_TRANSFER = "function transfer(address to, uint256 amount) returns (bool)";
 
-export default function DepositPage({ token, onBack, onSuccess }: Props) {
+function shortAddr(addr: string, left = 6, right = 4) {
+  if (!addr || addr.length < left + right + 2) return addr;
+  return `${addr.slice(0, left)}…${addr.slice(-right)}`;
+}
+
+export default function DepositPage({ token, onSuccess }: Props) {
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [yourWallet, setYourWallet] = useState<string | null>(null);
   const refreshDeposits = useCallback(async () => {
     try {
       const { deposits: rows } = await loadMyDeposits(token);
@@ -37,6 +48,44 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
   useEffect(() => {
     void refreshDeposits();
   }, [refreshDeposits]);
+
+  /** Injected wallet address (MetaMask in-app) — no prompt. */
+  useEffect(() => {
+    const eth = (window as unknown as { ethereum?: { request?: (a: { method: string }) => Promise<string[]> } })
+      .ethereum;
+    if (!eth?.request) return;
+    void eth
+      .request({ method: "eth_accounts" })
+      .then((accs) => {
+        if (accs?.[0]) setYourWallet(accs[0]);
+        else setYourWallet(null);
+      })
+      .catch(() => setYourWallet(null));
+  }, [token, busy, message]);
+
+  /** MetaMask WebView ≠ Chrome: use query + hash + localStorage; retry for slow loads. */
+  useLayoutEffect(() => {
+    consumeDepositAmountFromNavigation(setAmount);
+  }, []);
+
+  useEffect(() => {
+    const run = () => consumeDepositAmountFromNavigation(setAmount);
+    run();
+    const t1 = window.setTimeout(run, 350);
+    const t2 = window.setTimeout(run, 1200);
+    const onVis = () => {
+      if (document.visibilityState === "visible") run();
+    };
+    const onShow = () => run();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onShow);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onShow);
+    };
+  }, [token]);
 
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
     setMessage("");
@@ -52,12 +101,20 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
     }
     if (!provider) {
       if (isMobileDevice()) {
+        const base = window.location.href.split("#")[0];
+        const pageWithAmount = appendDepositAmountToPageUrl(base, String(num));
+        try {
+          sessionStorage.setItem(DEPOSIT_AMOUNT_SESSION_KEY, String(num));
+          localStorage.setItem(DEPOSIT_AMOUNT_LOCAL_KEY, String(num));
+        } catch {
+          /* ignore */
+        }
         const deep =
-          getOpenInWalletDeepLink(walletId) ??
-          getOpenInWalletDeepLink("metamask");
+          getOpenInWalletDeepLink(walletId, pageWithAmount) ??
+          getOpenInWalletDeepLink("metamask", pageWithAmount);
         if (deep) {
           setMessage(
-            "App khul rahi hai. Wahan Browser se yahi site kholen, login karein, phir amount set karke dubara isi wallet par tap karein (USDT BSC + thoda BNB gas)."
+            "Opening the app — amount is saved. When this page opens in the wallet browser, the amount should auto-fill; then choose the same wallet again to pay."
           );
           window.setTimeout(() => {
             window.location.href = deep;
@@ -107,6 +164,12 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
       });
 
       await submitDepositTx(token, deposit.id, txHash, from);
+      try {
+        sessionStorage.removeItem(DEPOSIT_AMOUNT_SESSION_KEY);
+        localStorage.removeItem(DEPOSIT_AMOUNT_LOCAL_KEY);
+      } catch {
+        /* ignore */
+      }
       setMessage(`Success: ${num} USDT sent. Tx: ${txHash.slice(0, 18)}… Balance will update on dashboard.`);
       await refreshDeposits();
       onSuccess?.();
@@ -124,29 +187,19 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
 
   return (
     <div className="funds-page funds-gateway">
-      <button type="button" className="funds-back" onClick={onBack}>
-        ← Dashboard
-      </button>
-
       <div className="funds-card">
         <div className="funds-title-row">
           <BrandLogo size={44} />
           <h1>Deposit gateway · USDT BEP20</h1>
         </div>
         <p className="funds-network">
-          <span className="funds-badge">BSC</span> Payment goes directly to admin wallet · Same amount shows in your
-          wallet before you confirm
+          <span className="funds-badge">BSC</span> USDT BEP20 · Double-check the amount before you confirm
         </p>
 
-        {isMobileDevice() ? (
-          <div className="funds-mobile-tip">
-            <strong>Mobile</strong>
-            <p>
-              Pehle amount set karein. Agar Chrome/Safari mein wallet dikhe na, wallet tile dabayein — MetaMask / Trust /
-              Coinbase app khulegi; wahan <strong>Browser</strong> se yahi link kholen (same Wi‑Fi par PC ka IP use
-              karein, jaise <code>http://192.168.x.x:5173</code>). Phir dubara deposit wallet chunein.
-            </p>
-          </div>
+        {yourWallet ? (
+          <p className="deposit-your-wallet">
+            Your wallet: <span className="deposit-your-wallet-addr">{shortAddr(yourWallet, 8, 6)}</span>
+          </p>
         ) : null}
 
         <label className="funds-amount-label">
@@ -237,17 +290,7 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
         )}
       </div>
 
-      <div className="funds-card funds-admin">
-        <h2>Admin panel (React-Admin)</h2>
-        <p className="funds-note">
-          Deposits / withdrawals / users: <strong>React-Admin</strong>{" "}
-          <a href="/admin.html" target="_blank" rel="noopener noreferrer">
-            /admin.html
-          </a>{" "}
-          — <strong>email + password</strong> se login; user ka DB mein <code>role = admin</code> hona chahiye (
-          <code>ADMIN_PROMOTE_EMAIL</code> se promote ya SQL <code>UPDATE users SET role=&apos;admin&apos;</code>).
-        </p>
-      </div>
+
     </div>
   );
 }

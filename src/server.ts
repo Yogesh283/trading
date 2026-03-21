@@ -221,10 +221,12 @@ app.get("/api/markets", (_req, res) => {
 app.get("/api/markets/history", (req, res) => {
   void (async () => {
     const symbol = typeof req.query.symbol === "string" ? req.query.symbol.trim().toUpperCase() : undefined;
-    const limit = Math.min(10000, Math.max(1, Number(req.query.limit) || 2000));
+    const limit = Math.min(50000, Math.max(1, Number(req.query.limit) || 2000));
     await initAppDb();
     const fromDb = await getMarketTicks(symbol, limit);
-    const fromMemory = forexFeed.getHistory(symbol, 800);
+    /** Match client depth so merged history fills long TFs (5m/10m candles), not just the latest bucket. */
+    const memCap = Math.min(limit, 20000);
+    const fromMemory = forexFeed.getHistory(symbol, memCap);
     const byKey = new Map<string, { symbol: string; price: number; timestamp: number }>();
     for (const t of fromDb) byKey.set(`${t.symbol}:${t.timestamp}`, t);
     for (const t of fromMemory) byKey.set(`${t.symbol}:${t.timestamp}`, { symbol: t.symbol, price: t.price, timestamp: t.timestamp });
@@ -271,6 +273,16 @@ app.get("/api/trades", (_req, res) => {
 
 const MIN_DEPOSIT_USDT = 1;
 const MAX_DEPOSIT_USDT = 1_000_000;
+
+/** No auth — UI can show where USDT must be sent (MetaMask shows token contract, not this address directly). */
+app.get("/api/deposits/public-info", (_req, res) => {
+  res.json({
+    treasuryAddress: env.USDT_BEP20_DEPOSIT_ADDRESS,
+    tokenContract: env.BSC_USDT_CONTRACT,
+    chainId: env.BSC_CHAIN_ID,
+    networkName: "BNB Smart Chain (BEP20)"
+  });
+});
 
 app.post("/api/deposits/intent", (req, res) => {
   void (async () => {
@@ -383,7 +395,7 @@ app.get("/api/deposits/admin-all", (req, res) => {
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
       if (m === "Forbidden") {
-        return res.status(403).json({ message: "Admin role required — DB mein users.role = 'admin'" });
+        return res.status(403).json({ message: "Admin role required — users.role must be 'admin' in the database" });
       }
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -566,7 +578,10 @@ app.get("/api/admin/ra/users/:id", (req, res) => {
 
     const row = await getUserForAdminById(id);
     if (!row) {
-      logger.warn({ pathId: id }, "Admin GET user — DB mein row nahi mili (galat DB / purana server / id mismatch?)");
+      logger.warn(
+        { pathId: id },
+        "Admin GET user — no row in DB (wrong database / stale server / id mismatch?)"
+      );
       return res.status(404).json({ message: "Not found" });
     }
     return res.json(row);
@@ -659,7 +674,7 @@ app.get("/api/admin/ra/:resource/:id", (req, res) => {
     if (!resource || !id) {
       return res.status(400).json({ message: "Bad request" });
     }
-    /** Express 5 kabhi pehle yahi route match kar leta hai (`:resource` = users) — yahan bhi load karo. */
+    /** Express 5 may match this route first (`:resource` = users) — load here too. */
     if (resource === "users") {
       const row = await getUserForAdminById(id);
       if (!row) {
@@ -1127,12 +1142,14 @@ async function attachViteDevMiddleware(): Promise<void> {
 }
 
 wsServer.on("connection", (socket) => {
+  const guestDemo = getAccountForWallet(getGuestUser().id, "demo");
   socket.send(
     JSON.stringify({
       type: "snapshot",
       data: {
         markets: forexFeed.snapshot(),
-        account: getAccountForWallet(getGuestUser().id, "demo").snapshot(forexFeed.snapshot())
+        account: guestDemo.snapshot(forexFeed.snapshot()),
+        trades: guestDemo.listTrades()
       }
     })
   );

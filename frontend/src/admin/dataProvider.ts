@@ -26,7 +26,7 @@ const adminApiRoot = (): string => {
  */
 const baseAdminDataProvider = simpleRestProvider(adminApiRoot(), httpClient, "X-Total-Count");
 
-/** Edit click: id kabhi number/space aata hai — URL + server lookup stable rahe. */
+/** Normalize id on edit (may arrive as number/with spaces) so URL + server stay consistent. */
 export const adminDataProvider: DataProvider = {
   ...baseAdminDataProvider,
   getOne: async (resource: string, params: GetOneParams) => {
@@ -38,7 +38,7 @@ export const adminDataProvider: DataProvider = {
           ? String(raw)
           : String(raw).trim();
     if (!id) {
-      throw new Error("Missing record id — list refresh karke dubara try karein.");
+      throw new Error("Missing record id — refresh the list and try again.");
     }
     return baseAdminDataProvider.getOne(resource, { ...params, id });
   }

@@ -81,10 +81,10 @@ CREATE TABLE IF NOT EXISTS user_investments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
--- Pehle se bani hui `users` table (purana import): agar #1054 Unknown column 'role'
--- aaye to phpMyAdmin SQL mein yeh ek baar chalao:
+-- If you already imported an older `users` table and get #1054 Unknown column 'role',
+-- run once in phpMyAdmin SQL:
 --   SOURCE mysql/migrate_add_user_role.sql
--- ya manually:
+-- or manually:
 --   ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'user' AFTER referral_code;
 -- ---------------------------------------------------------------------------
 

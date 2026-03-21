@@ -746,7 +746,7 @@ function mapRawAdminUserRow(
   childrenByParentId: Map<string, string[]>
 ): AdminUserListRow {
   return {
-    /** React-Admin URL + getOne ke liye hamesha string (number/BIGINT JSON mismatch se bachne ke liye). */
+    /** Always string for React-Admin URL + getOne (avoids number/BIGINT JSON mismatch). */
     id: String(row.id ?? "").trim(),
     name: row.name,
     email: row.email,

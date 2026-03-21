@@ -1,5 +1,5 @@
--- Purani database jisme `users` table pehle se hai lekin `role` column nahi:
--- phpMyAdmin → apni database select karein → SQL tab → yeh run karein (sirf ek baar).
+-- Existing database with a `users` table but no `role` column yet:
+-- In phpMyAdmin → select your database → SQL tab → run this once.
 
 USE tradeing;
 
@@ -7,8 +7,8 @@ ALTER TABLE users
   ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'user'
   AFTER referral_code;
 
--- Agar upar wala error de (referral_code missing / order issue), yeh try karein:
+-- If the above errors (referral_code missing / column order), try:
 -- ALTER TABLE users ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'user';
 
--- Phir admin banayein (apna email likhein):
--- UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER('jo@email.com');
+-- Then promote an admin (replace with your email):
+-- UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER('you@email.com');

@@ -5,8 +5,8 @@
  *       Do not use :3000 on public domains — that port is usually closed.
  */
 /**
- * Admin panel: localhost par hamesha same-origin API (local DB).
- * Warna production `VITE_API_URL` build ke andar ho to admin galat server ko hit karta hai.
+ * Admin panel: on localhost always use same-origin API (local DB).
+ * Otherwise a production `VITE_API_URL` baked into the build can point the admin UI at the wrong server.
  */
 export function getBackendHttpOriginLocalAdmin(): string {
   if (typeof window !== "undefined") {

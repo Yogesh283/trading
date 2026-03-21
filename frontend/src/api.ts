@@ -322,6 +322,24 @@ export async function loadMyWithdrawals(token: string) {
   return parseJson<{ withdrawals: WithdrawalRecord[] }>(response);
 }
 
+export type DepositPublicInfo = {
+  treasuryAddress: string;
+  tokenContract: string;
+  chainId: number;
+  networkName: string;
+};
+
+/** No login — show platform receive address on deposit screen. */
+export async function loadDepositPublicInfo(): Promise<DepositPublicInfo | null> {
+  try {
+    const response = await fetch(`${apiBase()}/api/deposits/public-info`);
+    if (!response.ok) return null;
+    return (await response.json()) as DepositPublicInfo;
+  } catch {
+    return null;
+  }
+}
+
 export async function createDepositIntent(
   token: string,
   amount: number,
@@ -375,9 +393,10 @@ export async function loadAdminDeposits(adminToken: string) {
   return (await response.json()) as { deposits: DepositRecord[]; total: number };
 }
 
-/** Chart + binary: same list (5s, 1m, 2m, 3m, 5m, 10m). */
+/** Chart + binary: sub-minute + minute candles (matches server TRADE_TIMEFRAMES_SEC). */
 export const TIMEFRAME_OPTIONS = [
   { value: 5, label: "5s" },
+  { value: 10, label: "10s" },
   { value: 60, label: "1m" },
   { value: 120, label: "2m" },
   { value: 180, label: "3m" },

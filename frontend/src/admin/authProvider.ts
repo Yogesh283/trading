@@ -16,7 +16,7 @@ export const adminAuthProvider = {
     const email = String(username ?? "").trim().toLowerCase();
     const pw = String(password ?? "");
     if (!email || !pw) {
-      throw new Error("Email aur password dono daalein");
+      throw new Error("Enter both email and password.");
     }
     const res = await fetch(apiUrl("/api/auth/login"), {
       method: "POST",
@@ -32,9 +32,9 @@ export const adminAuthProvider = {
       throw new Error(data?.message ?? "Login failed");
     }
     if (!data?.token) {
-      throw new Error("Server ne token nahi diya");
+      throw new Error("Server did not return a token.");
     }
-    /** DB se fresh role (login body purane server par role na bheje to bhi theek) */
+    /** Fresh role from DB (login body may omit role on older servers). */
     const meRes = await fetch(apiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${data.token}`, Accept: "application/json" }
     });
@@ -42,7 +42,7 @@ export const adminAuthProvider = {
     if (!meRes.ok) {
       throw new Error(
         `/api/auth/me failed (${meRes.status}). Local test: npm run dev → http://localhost:3000/admin.html — ` +
-          "VITE_API_URL wali build localhost par live server ko mat bulao."
+          "do not point a production VITE_API_URL build at a live server from localhost."
       );
     }
     if (!isAdminRole(me?.user?.role)) {
@@ -50,17 +50,17 @@ export const adminAuthProvider = {
       const current = me?.user?.role ?? "(missing)";
       throw new Error(
         [
-          `Server ne role='${current}' bheja — admin ke liye 'admin' chahiye.`,
+          `Server returned role='${current}' — admin login requires role 'admin'.`,
           "",
-          "1) Exact email DB se (typo mat):",
+          "1) Use the exact email from the database (watch typos):",
           `   npm run promote-admin -- ${email}`,
-          "   npm run promote-admin -- --list   → role=admin dikhe",
+          "   npm run promote-admin -- --list   → should show role=admin",
           "",
           "2) phpMyAdmin:",
           "   UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER(" + safeEmail + ");",
           "",
-          "Local: admin panel hamesha isi machine ki API use karega (localhost fix). " +
-            "Phir bhi user nahi mile to pehle Register karo usi email se."
+          "The admin panel on this machine always uses the local API (localhost). " +
+            "If the user still does not exist, register in the app with that email first."
         ].join("\n")
       );
     }

@@ -733,3 +733,76 @@
   margin: 8px 0 0;
   font-size: 14px;
 }
+
+/* Deposit: platform treasury + MetaMask clarity */
+.deposit-address-card {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(0, 200, 120, 0.1), rgba(8, 24, 20, 0.95));
+  border: 1px solid rgba(0, 230, 118, 0.28);
+}
+
+.deposit-address-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #b8f5ce;
+}
+
+.deposit-address-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+  color: #e8f0ff;
+  margin: 0 0 12px;
+}
+
+.deposit-address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.deposit-copy-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.deposit-copy-btn:active {
+  transform: scale(0.98);
+}
+
+.deposit-scan-link {
+  color: #7ecbff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.deposit-mm-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #9aacbf;
+}
+
+.deposit-your-wallet {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #8da2c0;
+}
+
+.deposit-your-wallet-addr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #c5d4e8;
+  font-weight: 600;
+}
