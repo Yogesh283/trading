@@ -1053,20 +1053,43 @@ select {
 }
 
 .tv-chart-mobile .tv-time-label {
-  font-size: 18px;
-  font-weight: 600;
-  fill: #9aa0a6;
+  font-size: 36px;
+  font-weight: 700;
+  fill: #b8bdc4;
 }
 
 .tv-chart-mobile .tv-price-label {
-  font-size: 17px;
+  font-size: 26px;
   font-weight: 700;
-  fill: #d8dce3;
+  fill: #e8eaed;
 }
 
 .tv-chart-mobile .tv-tag-price-val-white {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 800;
+}
+
+/* Mobile: asset row above chart (pair + OHLC + %) */
+.tv-chart-mobile .tv-chart-toolbar .tv-symbol {
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.tv-chart-mobile .tv-ohlc {
+  font-size: 16px;
+  color: #9aa0a6;
+  line-height: 1.4;
+}
+
+.tv-chart-mobile .tv-change.up,
+.tv-chart-mobile .tv-change.down {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tv-chart-mobile .tv-timer-badge-text {
+  font-size: 25px;
+  font-weight: 700;
 }
 
 .tv-tag-price-bg-white {

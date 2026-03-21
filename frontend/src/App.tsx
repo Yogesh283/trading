@@ -2365,9 +2365,9 @@ function LiveChart({
   const W = 960;
   const H = 420;
   const padL = 8;
-  const padR = isMobileChart ? 128 : 122;
+  const padR = isMobileChart ? 158 : 122;
   const padT = 12;
-  const padB = isMobileChart ? 44 : 38;
+  const padB = isMobileChart ? 66 : 38;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -2417,8 +2417,8 @@ function LiveChart({
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
 
   const tagX = padL + plotW + 4;
-  const priceTagW = isMobileChart ? 104 : 88;
-  const priceTagH = isMobileChart ? 42 : 36;
+  const priceTagW = isMobileChart ? 140 : 88;
+  const priceTagH = isMobileChart ? 56 : 36;
   const priceTagY = Math.min(Math.max(padT + 4, lastY - priceTagH / 2), padT + plotH - priceTagH - 4);
 
   const lastCx = n > 0 ? cxAt(n - 1) : padL + plotW;
@@ -2450,14 +2450,14 @@ function LiveChart({
                 hour12: false
               })
     }));
-  const timeLabelFontSize = isMobileChart ? 24 : 10;
-  const timeLabelY = padT + plotH + (isMobileChart ? 20 : 14);
+  const timeLabelFontSize = isMobileChart ? 36 : 10;
+  const timeLabelY = padT + plotH + (isMobileChart ? 30 : 14);
   const timerZoomed = isMobileChart && timerTextZoomed;
-  const timerBadgeW = timerZoomed ? 72 : isMobileChart ? 58 : 36;
-  const timerBadgeH = timerZoomed ? 36 : isMobileChart ? 28 : 20;
-  const timerBadgeRx = isMobileChart ? 8 : 3;
-  const timerTextSize = timerZoomed ? 22 : isMobileChart ? 16 : 10;
-  const timerTextY = lastY + (timerZoomed ? 6 : isMobileChart ? 4 : 2);
+  const timerBadgeW = timerZoomed ? 96 : isMobileChart ? 78 : 36;
+  const timerBadgeH = timerZoomed ? 48 : isMobileChart ? 40 : 20;
+  const timerBadgeRx = isMobileChart ? 10 : 3;
+  const timerTextSize = timerZoomed ? 32 : isMobileChart ? 25 : 10;
+  const timerTextY = lastY + (timerZoomed ? 8 : isMobileChart ? 6 : 2);
 
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
@@ -2498,7 +2498,7 @@ function LiveChart({
                   textAnchor="end"
                   className="tv-price-label"
                   style={{
-                    fontSize: isMobileChart ? 17 : 14,
+                    fontSize: isMobileChart ? 26 : 14,
                     fontWeight: isMobileChart ? 700 : 600,
                     fill: isMobileChart ? "#e4e7ec" : "#c8ccd4"
                   }}
@@ -2558,7 +2558,7 @@ function LiveChart({
               textAnchor="middle"
               dominantBaseline="middle"
               className="tv-tag-price-val-white"
-              style={isMobileChart ? { fontSize: 19, fontWeight: 800 } : { fontSize: 15, fontWeight: 800 }}
+              style={isMobileChart ? { fontSize: 28, fontWeight: 800 } : { fontSize: 15, fontWeight: 800 }}
             >
               {fmtPrice(current.close)}
             </text>

@@ -157,7 +157,7 @@
   border-radius: 12px;
   background: linear-gradient(180deg, #2f2818 0%, #1c1810 100%);
   color: #e8c76b;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   flex: 1;
@@ -167,7 +167,7 @@
 }
 
 .mobile-asset-pill-icon {
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
 }
 
@@ -272,18 +272,18 @@
 }
 
 .mobile-asset-chip-icon {
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .mobile-asset-chip-pair {
   font-weight: 800;
-  font-size: 13px;
+  font-size: 17px;
   letter-spacing: 0.02em;
 }
 
 .mobile-asset-chip-price {
-  font-size: 12px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
   min-width: 4.8em;
@@ -376,8 +376,8 @@
 }
 
 .mobile-chart-wrap .tv-chart-svg {
-  min-height: 220px;
-  max-height: 40vh;
+  min-height: 240px;
+  max-height: 42vh;
 }
 
 /* Mobile chart: full look + touch zoom area */

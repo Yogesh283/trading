@@ -105,6 +105,32 @@ npm run build:all
 pm2 restart updowanfx
 ```
 
+### `git pull` error: `tsconfig.tsbuildinfo` would be overwritten
+
+Yeh file **`tsc -b` / frontend build** se banti hai — server par local change ho jata hai, phir pull block ho jata hai.
+
+**Turant fix (server par):**
+
+```bash
+cd /home/updowanfx/htdocs/updowanfx.com   # apna path
+git checkout -- frontend/tsconfig.tsbuildinfo
+git pull origin main
+npm ci
+npm run build:all
+pm2 restart updowanfx
+```
+
+Ya file hata kar pull:
+
+```bash
+rm -f frontend/tsconfig.tsbuildinfo
+git pull origin main
+```
+
+Repo mein ab `*.tsbuildinfo` **`.gitignore`** mein hai — ek baar ye change **push** ho jaye, aur agar pehle Git ne is file ko track kiya ho to local PC par:
+
+`git rm --cached frontend/tsconfig.tsbuildinfo` → commit → push.
+
 ### Verify: server commit = GitHub
 
 ```bash
@@ -286,3 +312,45 @@ Naya frontend ke baad: **Ctrl+F5** (hard refresh) ya incognito — purana JS cac
 ---
 
 *Is file ko update rakho jab server path, PM2 name, ya CloudPanel steps badlen.*
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////// server//
+
+
+cd /home/updowanfx/htdocs/updowanfx.com
+
+# is generated file ko discard karo (safe)
+git checkout -- frontend/tsconfig.tsbuildinfo
+
+git pull origin main
+npm ci
+npm run build:all
+pm2 restart updowanfx
