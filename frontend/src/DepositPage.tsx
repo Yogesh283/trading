@@ -36,13 +36,15 @@ const OPEN_IN_APP_WALLETS: { id: WalletGatewayId; name: string }[] = [
 
 type Props = {
   token: string;
+  /** Back to trading (same as Withdraw / Invest). */
+  onBack?: () => void;
   onSuccess?: () => void;
 };
 
 const ERC20_TRANSFER = "function transfer(address to, uint256 amount) returns (bool)";
 const ERC20_BALANCE_OF = "function balanceOf(address) view returns (uint256)";
 
-export default function DepositPage({ token, onSuccess }: Props) {
+export default function DepositPage({ token, onBack, onSuccess }: Props) {
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -223,7 +225,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
         clearAutoDepositLocal();
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("user rejected") || msg.includes("4001")) {
-          setMessage("Cancelled. Tap a wallet below or “Continue USDT payment” to try again.");
+          setMessage("Cancelled. Open app below or tap “Retry USDT payment” to try again.");
         } else {
           setMessage(msg.slice(0, 220));
         }
@@ -355,8 +357,16 @@ export default function DepositPage({ token, onSuccess }: Props) {
     }
   };
 
+  const amountUsdt = Number(amount);
+  const amountValid = Number.isFinite(amountUsdt) && amountUsdt >= 1;
+
   return (
     <div className="funds-page funds-gateway">
+      {onBack ? (
+        <button type="button" className="funds-back" onClick={onBack}>
+          ← Dashboard
+        </button>
+      ) : null}
       <div className="funds-card">
         <div className="funds-title-row">
           <BrandLogo size={44} />
@@ -372,7 +382,17 @@ export default function DepositPage({ token, onSuccess }: Props) {
             <strong>Amount</strong> — USDT you will send from crypto wallet (we check balance before payment).
           </li>
           <li>
-            <strong>Confirm</strong> — green button → sign once in wallet.
+            <strong>Confirm</strong> —{" "}
+            {injectReady ? (
+              <>green button → sign once in wallet.</>
+            ) : isMobileDevice() ? (
+              <>
+                use <strong>Open app</strong> below so this page opens inside the wallet; then{" "}
+                <strong>Confirm deposit</strong> appears and you sign once.
+              </>
+            ) : (
+              <>install a Web3 wallet, refresh this page, then use the green button and sign once.</>
+            )}
           </li>
           <li>
             <strong>Done</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong> added to your trading balance.
@@ -391,7 +411,11 @@ export default function DepositPage({ token, onSuccess }: Props) {
           />
         </label>
         <p className="deposit-inr-preview muted">
-          Trading wallet credit: ≈ <strong>{formatInr(previewInrFromUsdt(Number(amount)))}</strong> (after on-chain success)
+          Trading wallet credit: ≈{" "}
+          <strong>
+            {amountValid ? formatInr(previewInrFromUsdt(amountUsdt)) : "—"}
+          </strong>{" "}
+          (after on-chain success; min 1 USDT)
         </p>
 
         {injectReady ? (
@@ -434,7 +458,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
                   onClick={() => void payWithWallet(w.id, w.name)}
                 >
                   <span className="wallet-tile-name">{w.name}</span>
-                  {busy === w.name ? <span className="wallet-tile-busy">…</span> : null}
+                  {busy != null && (busy === w.name || busy === "Wallet") ? (
+                    <span className="wallet-tile-busy">…</span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -484,7 +510,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
                   <tr key={d.id}>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
                     <td>{d.amount} USDT</td>
-                    <td>{d.wallet_provider.replace(/_/g, " ")}</td>
+                    <td>{(d.wallet_provider ?? "—").replace(/_/g, " ")}</td>
                     <td>
                       <span className={`dep-status dep-${d.status}`}>{d.status}</span>
                     </td>

@@ -1013,7 +1013,11 @@ export default function App() {
       ) : null}
 
       {isLoggedIn && dashboardSection === "deposit" ? (
-        <DepositPage token={session.token} onSuccess={() => void refresh()} />
+        <DepositPage
+          token={session.token}
+          onBack={() => setDashboardSection("trading")}
+          onSuccess={() => void refresh()}
+        />
       ) : isLoggedIn && dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
