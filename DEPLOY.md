@@ -169,6 +169,20 @@ find "$SITE" -type f -exec chmod 644 {} \;
 
 PM2 ab bhi `root` se chala sakte ho; isse File Manager / future non-root runs theek rehte hain.
 
+### PM2 `errored` + `ZodError` / `USDT_BEP20_DEPOSIT_ADDRESS`
+
+Agar **`updowanfx-error.log`** mein **`USDT_BEP20_DEPOSIT_ADDRESS`** regex error ho:
+
+- `.env` mein value **exactly** `0x` + **40 hex** (total 42 chars), **bina** extra space / quotes.
+- Galat paste ho to **line hata do** ya **khali** chhodo → default address use hoga (latest code mein quotes/BOM/spaces strip bhi hota hai).
+- Fix ke baad: `pm2 restart updowanfx` → **`pm2 status`** = **online**.
+
+```bash
+grep USDT_BEP20 /home/updowanfx/htdocs/updowanfx.com/.env
+```
+
+---
+
 ### `500 Internal Server Error` — pehle yeh check (server par)
 
 ```bash
