@@ -1,3 +1,6 @@
+# Accidental nested clone of this repo — never commit as submodule
+trading/
+
 node_modules
 dist
 logs
