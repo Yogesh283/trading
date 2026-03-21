@@ -21,8 +21,7 @@
     "react": "^19.1.1",
     "react-admin": "^5.14.4",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.13.1",
-    "updownfx": "file:.."
+    "react-router-dom": "^7.13.1"
   },
   "devDependencies": {
     "@types/react": "^19.1.14",
