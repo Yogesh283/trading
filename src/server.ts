@@ -74,22 +74,15 @@ const projectRoot = path.resolve(__dirname, "..");
 const frontendDist = path.join(projectRoot, "frontend", "dist");
 
 const app = express();
-/**
- * Liveness before helmet/cors/body-parser — some stacks (Express 5 + Helmet + Node 18) can error in middleware
- * before route handlers run; PM2 stays "online" but every request returns 500 HTML.
- */
-app.get("/api/ping", (_req, res) => {
-  res.type("text/plain").send("pong");
-});
-app.get("/api/health", (_req, res) => {
-  res.setHeader("Cache-Control", "no-store");
-  res.json({
-    ok: true,
-    service: "updownfx",
-    symbols: FOREX_SYMBOLS,
-    forexPairs: FOREX_SYMBOLS.length
-  });
-});
+
+function pathOnlyFromUrl(url: string | undefined): string {
+  const u = url ?? "/";
+  const q = u.indexOf("?");
+  let p = q >= 0 ? u.slice(0, q) : u;
+  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  return p;
+}
+
 app.use(
   useUnifiedDevPort
     ? helmet({ contentSecurityPolicy: false })
@@ -103,7 +96,41 @@ app.use(express.json());
 
 let viteDevServer: { close: () => Promise<void> } | null = null;
 
-const server = http.createServer(app);
+/**
+ * Handle liveness **outside** Express — if `/api/ping` still returns 500 HTML here, traffic is not reaching this
+ * Node process (wrong port, proxy, or stale binary). Skip WebSocket upgrades (`GET` + `Upgrade` header).
+ */
+const server = http.createServer((req, res) => {
+  /** WebSocket handshake — `ws` handles `server.on("upgrade", …)`; do not `res.end()` here. */
+  if (req.headers.upgrade) {
+    return;
+  }
+  const pathOnly = pathOnlyFromUrl(req.url);
+  if (req.method === "GET" && pathOnly === "/api/ping") {
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Served-By": "updownfx-raw"
+    });
+    res.end("pong");
+    return;
+  }
+  if (req.method === "GET" && pathOnly === "/api/health") {
+    const body = JSON.stringify({
+      ok: true,
+      service: "updownfx",
+      symbols: FOREX_SYMBOLS,
+      forexPairs: FOREX_SYMBOLS.length
+    });
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Served-By": "updownfx-raw"
+    });
+    res.end(body);
+    return;
+  }
+  app(req, res);
+});
 const wsServer = new WebSocketServer({ server, path: "/ws" });
 const forexFeed = new ForexFeed();
 

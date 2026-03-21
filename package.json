@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:api-only": "cross-env SEPARATE_FRONTEND=1 tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm run verify:dist",
+    "verify:dist": "node -e \"const fs=require('fs');const p='dist/server.js';if(!fs.existsSync(p)){console.error('missing dist/server.js');process.exit(1)}const s=fs.readFileSync(p,'utf8');if(!s.includes('updownfx-raw')){console.error('dist/server.js missing raw handler — pull latest src from GitHub then npm run build');process.exit(1)}console.log('verify:dist OK');\"",
     "frontend:ci": "npm ci --include=dev --prefix frontend",
     "build:all": "npm run build && npm run frontend:ci && npm run frontend:build",
     "start": "node dist/index.js",
