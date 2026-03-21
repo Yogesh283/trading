@@ -82,8 +82,15 @@ app.use(
 app.use(cors());
 app.use(express.json());
 
+/** Never run `express.static` for `/api/*` — avoids 500s if `frontend/dist/api` exists or static throws on those paths (Express 5). */
 if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
+  const staticMw = express.static(frontendDist);
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    staticMw(req, res, next);
+  });
 }
 
 let viteDevServer: { close: () => Promise<void> } | null = null;
@@ -1115,11 +1122,36 @@ if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
     }
     const adminHtml = path.join(frontendDist, "admin.html");
     if ((req.path === "/admin" || req.path === "/admin.html") && fs.existsSync(adminHtml)) {
-      return res.sendFile(adminHtml);
+      return res.sendFile(adminHtml, (err) => {
+        if (err) {
+          logger.error({ err, path: adminHtml }, "sendFile admin.html failed (check permissions / path)");
+          next(err);
+        }
+      });
     }
-    return res.sendFile(path.join(frontendDist, "index.html"));
+    const indexHtml = path.join(frontendDist, "index.html");
+    return res.sendFile(indexHtml, (err) => {
+      if (err) {
+        logger.error({ err, path: indexHtml }, "sendFile index.html failed (check permissions / path)");
+        next(err);
+      }
+    });
   });
 }
+
+/** Log real cause of HTML/500 (shows in `pm2 logs` when sendFile or middleware fails). */
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  logger.error({ err: message, stack, path: req.path, method: req.method }, "express unhandled error");
+  if (res.headersSent) {
+    return next(err);
+  }
+  if (req.path.startsWith("/api")) {
+    return res.status(500).json({ message: "Internal server error", error: env.NODE_ENV === "development" ? message : undefined });
+  }
+  res.status(500).type("html").send("<pre>Internal Server Error</pre>");
+});
 
 async function attachViteDevMiddleware(): Promise<void> {
   if (!useUnifiedDevPort) {
