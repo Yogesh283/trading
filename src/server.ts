@@ -82,17 +82,6 @@ app.use(
 app.use(cors());
 app.use(express.json());
 
-/** Never run `express.static` for `/api/*` — avoids 500s if `frontend/dist/api` exists or static throws on those paths (Express 5). */
-if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
-  const staticMw = express.static(frontendDist);
-  app.use((req, res, next) => {
-    if (req.path.startsWith("/api")) {
-      return next();
-    }
-    staticMw(req, res, next);
-  });
-}
-
 let viteDevServer: { close: () => Promise<void> } | null = null;
 
 const server = http.createServer(app);
@@ -1115,7 +1104,18 @@ app.get("/api/wallet/transactions", (req, res) => {
   });
 });
 
+/**
+ * Static + SPA AFTER all `/api` routes (Express 5: `express.static` before routes can prevent API handlers from running → 500 HTML).
+ * Still skip `/api` in static if an unknown path falls through.
+ */
 if (!useUnifiedDevPort && fs.existsSync(frontendDist)) {
+  const staticMw = express.static(frontendDist);
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    staticMw(req, res, next);
+  });
   app.use((req, res, next) => {
     if (req.path.startsWith("/api") || req.method !== "GET") {
       return next();
