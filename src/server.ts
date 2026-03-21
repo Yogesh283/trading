@@ -74,10 +74,29 @@ const projectRoot = path.resolve(__dirname, "..");
 const frontendDist = path.join(projectRoot, "frontend", "dist");
 
 const app = express();
+/**
+ * Liveness before helmet/cors/body-parser — some stacks (Express 5 + Helmet + Node 18) can error in middleware
+ * before route handlers run; PM2 stays "online" but every request returns 500 HTML.
+ */
+app.get("/api/ping", (_req, res) => {
+  res.type("text/plain").send("pong");
+});
+app.get("/api/health", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    service: "updownfx",
+    symbols: FOREX_SYMBOLS,
+    forexPairs: FOREX_SYMBOLS.length
+  });
+});
 app.use(
   useUnifiedDevPort
     ? helmet({ contentSecurityPolicy: false })
-    : helmet()
+    : helmet({
+        contentSecurityPolicy: false,
+        crossOriginEmbedderPolicy: false
+      })
 );
 app.use(cors());
 app.use(express.json());
@@ -195,15 +214,6 @@ app.get("/api/referrals/summary", (req, res) => {
       return res.status(500).json({ message: "Failed to load referrals" });
     }
   })();
-});
-
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    service: "updownfx",
-    symbols: FOREX_SYMBOLS,
-    forexPairs: FOREX_SYMBOLS.length
-  });
 });
 
 app.get("/api/markets", (_req, res) => {
