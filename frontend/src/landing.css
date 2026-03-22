@@ -409,6 +409,26 @@
   text-align: center;
 }
 
+.landing-footer-about {
+  margin-top: 14px !important;
+}
+
+.landing-footer-about-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: #38bdf8;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.landing-footer-about-link:hover {
+  color: #7dd3fc;
+}
+
 .landing-menu-btn {
   display: none;
   align-items: center;

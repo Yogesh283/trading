@@ -564,6 +564,14 @@
   opacity: 1;
 }
 
+/* Markets: keep 4-color grid icon vivid (inactive dock filter was washing it out) */
+.mobile-bottom-dock .mobile-dock-item.mobile-dock-cell.mobile-dock-markets .mobile-dock-fg-icon {
+  width: 26px;
+  height: 26px;
+  filter: none;
+  opacity: 1;
+}
+
 /* Center column: TRADE — FAB (grid col 3) */
 .mobile-dock-trade.mobile-dock-cell {
   position: relative;
@@ -863,6 +871,34 @@
   line-height: 1.15;
 }
 
+@keyframes binary-created-pulse-up {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.45);
+  }
+  45% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.12), 0 12px 32px rgba(44, 218, 117, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes binary-created-pulse-down {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+  }
+  45% {
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 12px 32px rgba(239, 83, 80, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.mobile-cta.cta-buy.binary-created-flash {
+  animation: binary-created-pulse-up 0.85s ease-out 1;
+}
+
 .mobile-cta.cta-sell.binary-created-flash {
   animation: binary-created-pulse-down 0.85s ease-out 1;
 }
@@ -926,6 +962,26 @@
   border-radius: 12px;
 }
 
+.mobile-account-history-panel {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 10px 10px 12px;
+}
+
+.mobile-account-history-heading {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #e8eef7;
+}
+
+.mobile-account-history-hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Legacy: <details> summary (if used elsewhere) */
 .mobile-more-panel summary {
   font-weight: 700;
   font-size: 14px;

@@ -80,9 +80,10 @@ type Props = {
   onTryDemo: () => void;
   onLogin: () => void;
   onRegister: () => void;
+  onAbout: () => void;
 };
 
-export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
+export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
 
@@ -150,6 +151,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
             <button type="button" className="landing-link" onClick={() => scrollTo("ot-reviews")}>
               Reviews
             </button>
+            <button type="button" className="landing-link" onClick={() => go(onAbout)}>
+              About
+            </button>
             <button type="button" className="landing-link landing-cta-highlight landing-cta-highlight--login" onClick={onLogin}>
               Log in
             </button>
@@ -205,6 +209,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
                 </button>
                 <button type="button" onClick={() => { scrollTo("ot-reviews"); }}>
                   Reviews
+                </button>
+                <button type="button" onClick={() => go(onAbout)}>
+                  About
                 </button>
                 <button type="button" className="landing-cta-highlight landing-cta-highlight--login" onClick={() => go(onLogin)}>
                   Log in
@@ -495,6 +502,11 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
         <p>
           {APP_NAME} — forex-style charts with binary Up / Down trades. Markets are risky; you may lose your stake.
           Practice on demo first — not financial advice.
+        </p>
+        <p className="landing-footer-about">
+          <button type="button" className="landing-footer-about-link" onClick={onAbout}>
+            About this project
+          </button>
         </p>
       </footer>
     </div>

@@ -6,6 +6,7 @@ Full-stack trading platform (Node.js, TypeScript, Express, React, WebSockets).
 
 - `src/` backend API, market feed, wallets & trading
 - `frontend/` React: splash → landing → login / register / demo
+- `mobile-apk/` optional **Android APK** shell (loads your live site in WebView; see **`mobile-apk/README.md`**)
 
 ## Database
 

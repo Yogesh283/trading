@@ -2604,6 +2604,14 @@ button.desktop-demo-cta:disabled,
   box-shadow: 0 20px 56px rgba(0, 0, 0, 0.5);
 }
 
+.order-placed-modal--up {
+  border-color: rgba(46, 204, 113, 0.45);
+}
+
+.order-placed-modal--down {
+  border-color: rgba(239, 83, 80, 0.45);
+}
+
 .order-placed-icon {
   width: 56px;
   height: 56px;
@@ -2638,6 +2646,21 @@ button.desktop-demo-cta:disabled,
   background: rgba(0, 230, 118, 0.15);
   color: #69f0ae;
   border: 1px solid rgba(0, 230, 118, 0.35);
+}
+
+.order-placed-direction {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.order-placed-direction--up {
+  color: #69f0ae;
+}
+
+.order-placed-direction--down {
+  color: #ff8a80;
 }
 
 .order-placed-title {

@@ -34,22 +34,17 @@ import SplashScreen from "./SplashScreen";
 import WithdrawalPage from "./WithdrawalPage";
 import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
+import AboutPage from "./AboutPage";
 import { APP_NAME, SESSION_STORAGE_KEY } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 import { formatInr } from "./fundsConfig";
 import {
   DockIconDeposit,
-  DockIconInvest,
   DockIconMarkets,
   DockIconMenu,
   DockIconTradeBars,
   DockIconWithdraw
 } from "./MobileDockIcons";
-
-const currency = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD"
-});
 
 type SessionState =
   | {
@@ -64,9 +59,9 @@ type SessionState =
 
 type AuthView = "login" | "register";
 
-type PublicScreen = "landing" | "auth";
+type PublicScreen = "landing" | "auth" | "about";
 
-type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral";
+type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral" | "about";
 
 const SPLASH_MS = 2000;
 
@@ -203,7 +198,6 @@ export default function App() {
   const [dashboardSection, setDashboardSection] = useState<DashboardSection>("trading");
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [mainNavOpen, setMainNavOpen] = useState(false);
-  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
   const [mobileSide, setMobileSide] = useState<"buy" | "sell">("buy");
   const [mobileMultiplier] = useState(1); /* multiplier UI hidden — stake = amount */
@@ -214,9 +208,9 @@ export default function App() {
   const prevPricesRef = useRef<Record<string, number>>({});
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
-  const [orderPlacedPopup, setOrderPlacedPopup] = useState<null | { account: "demo" | "live"; summary: string }>(
-    null
-  );
+  const [orderPlacedPopup, setOrderPlacedPopup] = useState<
+    null | { account: "demo" | "live"; summary: string; direction: "up" | "down" }
+  >(null);
   /** Browser `window.setTimeout` returns `number` (Node types use `NodeJS.Timeout`). */
   const orderPopupTimeoutRef = useRef<number | null>(null);
   /** Brief “Up · Created” / “Down · Created” on direction buttons after order success. */
@@ -233,16 +227,19 @@ export default function App() {
     setOrderPlacedPopup(null);
   }, []);
 
-  const showOrderPlacedPopup = useCallback((account: "demo" | "live", summary: string) => {
+  const showOrderPlacedPopup = useCallback(
+    (account: "demo" | "live", summary: string, direction: "up" | "down") => {
     if (orderPopupTimeoutRef.current) {
       clearTimeout(orderPopupTimeoutRef.current);
     }
-    setOrderPlacedPopup({ account, summary });
+    setOrderPlacedPopup({ account, summary, direction });
     orderPopupTimeoutRef.current = window.setTimeout(() => {
       setOrderPlacedPopup(null);
       orderPopupTimeoutRef.current = null;
     }, 5000);
-  }, []);
+  },
+  []
+);
 
   useEffect(() => {
     return () => {
@@ -253,6 +250,15 @@ export default function App() {
         window.clearTimeout(binaryCreatedTimerRef.current);
       }
     };
+  }, []);
+
+  const scrollMobileTradeHistoryIntoView = useCallback(() => {
+    if (typeof window === "undefined" || !window.matchMedia("(max-width: 768px)").matches) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   }, []);
 
   const flashBinaryCreated = useCallback((direction: "up" | "down") => {
@@ -567,9 +573,11 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
+      scrollMobileTradeHistoryIntoView();
       showOrderPlacedPopup(
         "demo",
-        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
+        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
+        direction
       );
       await refresh();
     } catch (error) {
@@ -601,9 +609,11 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
+      scrollMobileTradeHistoryIntoView();
       showOrderPlacedPopup(
         "live",
-        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`
+        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
+        direction
       );
       await refresh();
     } catch (error) {
@@ -678,6 +688,7 @@ export default function App() {
       return (
         <LandingPage
           onTryDemo={enterGuestDemo}
+          onAbout={() => setPublicScreen("about")}
           onLogin={() => {
             setAuthView("login");
             setPublicScreen("auth");
@@ -686,6 +697,23 @@ export default function App() {
             setAuthView("register");
             setPublicScreen("auth");
           }}
+        />
+      );
+    }
+
+    if (publicScreen === "about") {
+      return (
+        <AboutPage
+          onBack={() => setPublicScreen("landing")}
+          onLogin={() => {
+            setAuthView("login");
+            setPublicScreen("auth");
+          }}
+          onRegister={() => {
+            setAuthView("register");
+            setPublicScreen("auth");
+          }}
+          onTryDemo={enterGuestDemo}
         />
       );
     }
@@ -700,6 +728,7 @@ export default function App() {
         markets={markets}
         onAuthSubmit={handleAuth}
         onBackToLanding={() => setPublicScreen("landing")}
+        onNavigateToAbout={() => setPublicScreen("about")}
         onDemoAccess={enterGuestDemo}
         onLoginFormChange={setLoginForm}
         onRegisterFormChange={setRegisterForm}
@@ -712,7 +741,8 @@ export default function App() {
 
   const isGuestDemo = session.mode === "guest";
   const isLoggedIn = session.mode === "user";
-  const fmtWallet = (n: number) => (isLoggedIn ? formatInr(n) : currency.format(n));
+  /** Demo + live: stake and wallet shown in INR (same numeric units as server demo/live wallets). */
+  const fmtWallet = (n: number) => formatInr(n);
 
   return (
     <div
@@ -782,6 +812,13 @@ export default function App() {
                 }}
               >
                 Refresh
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "about" ? "active" : ""}
+                onClick={() => setDashboardSection("about")}
+              >
+                About
               </button>
               {isLoggedIn ? (
                 <>
@@ -921,9 +958,8 @@ export default function App() {
                 onClick={() => {
                   setMainNavOpen(false);
                   if (isPhone) {
-                    setMobileAccountOpen(true);
                     window.requestAnimationFrame(() =>
-                      document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
+                      document.getElementById("app-mobile-account")?.scrollIntoView({ behavior: "smooth" })
                     );
                   } else {
                     document.getElementById("app-account-summary")?.scrollIntoView({ behavior: "smooth" });
@@ -937,7 +973,6 @@ export default function App() {
                 onClick={() => {
                   setMainNavOpen(false);
                   if (isPhone) {
-                    setMobileAccountOpen(true);
                     window.requestAnimationFrame(() =>
                       document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
                     );
@@ -966,6 +1001,15 @@ export default function App() {
                 }}
               >
                 Refresh data
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("about");
+                  setMainNavOpen(false);
+                }}
+              >
+                About
               </button>
               {isLoggedIn ? (
                 <>
@@ -1045,7 +1089,9 @@ export default function App() {
         </div>
       ) : null}
 
-      {isLoggedIn && dashboardSection === "deposit" ? (
+      {dashboardSection === "about" ? (
+        <AboutPage embeddedInApp onBack={() => setDashboardSection("trading")} />
+      ) : isLoggedIn && dashboardSection === "deposit" ? (
         <DepositPage
           token={session.token}
           onBack={() => setDashboardSection("trading")}
@@ -1176,7 +1222,7 @@ export default function App() {
 
             <div className="mobile-amount-block">
               <label className="mobile-field-label" htmlFor="mob-amt">
-                {isLoggedIn ? "Amount (₹)" : "Amount, USD"}
+                Amount (₹)
               </label>
               <div className="mobile-input-row">
                 <input
@@ -1254,8 +1300,8 @@ export default function App() {
                       ? "Up · Created"
                       : "Down · Created"
                     : mobileSide === "buy"
-                      ? "Up Created"
-                      : "Down Created"}
+                      ? "Create Order Up"
+                      : "Create Order Down"}
                 </strong>
                 <small>
                   {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
@@ -1268,13 +1314,11 @@ export default function App() {
             {message ? <p className="message mobile-trade-msg">{message}</p> : null}
           </div>
 
-          <details
-            className="mobile-more-panel"
-            id="app-mobile-account"
-            open={mobileAccountOpen}
-            onToggle={(e) => setMobileAccountOpen(e.currentTarget.open)}
-          >
-            <summary>Account &amp; history</summary>
+          <section className="mobile-more-panel mobile-account-history-panel" id="app-mobile-account">
+            <h2 className="mobile-account-history-heading">Account &amp; history</h2>
+            <p className="mobile-account-history-hint muted">
+              Latest trades stay here while open and after they settle.
+            </p>
             <div className="mobile-mini-stats">
               <span>Bal {fmtWallet(account?.balance ?? 0)}</span>
               <span>Eq {fmtWallet(account?.equity ?? 0)}</span>
@@ -1302,7 +1346,7 @@ export default function App() {
                       >
                         {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
                       </span>
-                      <span title={isLoggedIn ? "Stake (₹)" : "Stake (USD)"}>{fmtWallet(trade.quantity)}</span>
+                      <span title="Stake (₹)">{fmtWallet(trade.quantity)}</span>
                       <span title="Price when order was placed (execution / entry)">
                         {formatFxPrice(trade.symbol, trade.entryPrice)}
                       </span>
@@ -1356,7 +1400,7 @@ export default function App() {
               })}
               {trades.length === 0 ? <p className="muted">No trades yet.</p> : null}
             </div>
-          </details>
+          </section>
         </main>
       ) : (
       <>
@@ -1491,7 +1535,8 @@ export default function App() {
               </span>
             </div>
             <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
-              Win: wallet gets <strong>1.8×</strong> stake (e.g. $100 → $180). Loss: full stake already taken.
+              Win: wallet gets <strong>1.8×</strong> stake (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full stake
+              already taken.
             </p>
             <div className="trade-form binary-trade-form binary-trade-form-inline">
               <label>
@@ -1530,7 +1575,7 @@ export default function App() {
                     <li key={t.id}>
                       <span>
                         {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · stake{" "}
-                        {currency.format(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
+                        {formatInr(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge" aria-live="polite">
                         {countdownToExpiry(t.expiryAt)}
@@ -1611,7 +1656,7 @@ export default function App() {
                       ? `${trade.direction === "up" ? "↑ Up" : "↓ Down"}${trade.timeframeSeconds ? ` · ${trade.timeframeSeconds}s` : ""}`
                       : `${formatTradeDirectionLabel(trade.direction, trade.side)}${trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}`}
                   </span>
-                  <span title={isLoggedIn ? "Stake (₹) at order time" : "Stake (USD) at order time"}>
+                  <span title="Stake (₹) at order time">
                     {fmtWallet(trade.quantity)}
                   </span>
                   <span title="Execution / entry price when order was placed">
@@ -1671,7 +1716,7 @@ export default function App() {
               </select>
             </label>
             <label className="desktop-demo-block">
-              <span className="desktop-demo-label">{isLoggedIn ? "Amount (₹)" : "Amount USD"}</span>
+              <span className="desktop-demo-label">Amount (₹)</span>
               <input
                 type="number"
                 min={1}
@@ -1689,7 +1734,7 @@ export default function App() {
                   className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
                   onClick={() => setMobileSide("buy")}
                 >
-                  {binaryCreatedFlash === "up" ? "Up · Created" : "Up Created"}
+                  {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
                 </button>
                 <button
                   type="button"
@@ -1864,26 +1909,17 @@ export default function App() {
             <span className="mobile-dock-trade-text">Trade</span>
           </button>
 
-          {isLoggedIn ? (
-            <button
-              type="button"
-              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "investment" ? "active" : ""}`}
-              onClick={() => setDashboardSection("investment")}
-              aria-current={dashboardSection === "investment" ? "page" : undefined}
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconInvest />
-              </span>
-              <span className="mobile-dock-label">Invest</span>
-            </button>
-          ) : (
-            <button type="button" className="mobile-dock-item mobile-dock-cell" onClick={() => setAssetPickerOpen(true)}>
-              <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconMarkets />
-              </span>
-              <span className="mobile-dock-label">Markets</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className={`mobile-dock-item mobile-dock-cell mobile-dock-markets${assetPickerOpen ? " active" : ""}`}
+            onClick={() => setAssetPickerOpen(true)}
+            aria-current={assetPickerOpen ? "page" : undefined}
+          >
+            <span className="mobile-dock-icon-slot" aria-hidden>
+              <DockIconMarkets />
+            </span>
+            <span className="mobile-dock-label">Markets</span>
+          </button>
           <button
             type="button"
             className="mobile-dock-item mobile-dock-cell"
@@ -1956,7 +1992,7 @@ export default function App() {
           onClick={dismissOrderPlacedPopup}
         >
           <div
-            className="order-placed-modal"
+            className={`order-placed-modal order-placed-modal--${orderPlacedPopup.direction}`}
             role="alertdialog"
             aria-labelledby="order-placed-title"
             aria-describedby="order-placed-desc"
@@ -1967,6 +2003,9 @@ export default function App() {
             </div>
             <p className={`order-placed-badge ${orderPlacedPopup.account}`}>
               {orderPlacedPopup.account === "demo" ? "Demo account" : "Live account"}
+            </p>
+            <p className={`order-placed-direction order-placed-direction--${orderPlacedPopup.direction}`}>
+              {orderPlacedPopup.direction === "up" ? "↑ Up" : "↓ Down"}
             </p>
             <h2 id="order-placed-title" className="order-placed-title">
               Order created
@@ -1993,6 +2032,7 @@ function AuthScreen({
   markets,
   onAuthSubmit,
   onBackToLanding,
+  onNavigateToAbout,
   onDemoAccess,
   onLoginFormChange,
   onRegisterFormChange,
@@ -2008,6 +2048,7 @@ function AuthScreen({
   markets: MarketTick[];
   onAuthSubmit: (event: FormEvent) => void;
   onBackToLanding: () => void;
+  onNavigateToAbout: () => void;
   onDemoAccess: () => void;
   onLoginFormChange: Dispatch<SetStateAction<{ email: string; password: string }>>;
   onRegisterFormChange: Dispatch<
@@ -2041,8 +2082,8 @@ function AuthScreen({
   }, [authMenuOpen]);
 
   const demoMetrics = [
-    { label: "Demo balance", value: currency.format(account?.balance ?? 0) },
-    { label: "Demo equity", value: currency.format(account?.equity ?? 0) },
+    { label: "Demo balance", value: formatInr(account?.balance ?? 0) },
+    { label: "Demo equity", value: formatInr(account?.equity ?? 0) },
     { label: "Market feed", value: status }
   ];
 
@@ -2055,6 +2096,9 @@ function AuthScreen({
             {APP_NAME}
           </span>
           <nav className="auth-nav-links-desktop" aria-label="Auth menu">
+            <button type="button" className="auth-nav-link" onClick={onNavigateToAbout}>
+              About
+            </button>
             <button type="button" className="auth-nav-link" onClick={() => onViewChange("login")}>
               Log in
             </button>
@@ -2103,6 +2147,9 @@ function AuthScreen({
               <div className="landing-drawer-links">
                 <button type="button" onClick={() => { setAuthMenuOpen(false); onBackToLanding(); }}>
                   Home
+                </button>
+                <button type="button" onClick={() => { setAuthMenuOpen(false); onNavigateToAbout(); }}>
+                  About
                 </button>
                 <button type="button" onClick={() => { setAuthMenuOpen(false); onViewChange("login"); }}>
                   Log in
@@ -2522,7 +2569,16 @@ function LiveChart({
   const timerBadgeH = timerZoomed ? 48 : isMobileChart ? 40 : 20;
   const timerBadgeRx = isMobileChart ? 10 : 3;
   const timerTextSize = timerZoomed ? 32 : isMobileChart ? 25 : 10;
-  const timerTextY = lastY + (timerZoomed ? 8 : isMobileChart ? 6 : 2);
+  /** Keep countdown clear of the white price tag & right-axis tick at `lastY` (was overlapping). */
+  const timerGap = isMobileChart ? 10 : 6;
+  const priceTagBottom = priceTagY + priceTagH;
+  const plotBottom = padT + plotH;
+  let timerBadgeTop = priceTagBottom + timerGap;
+  if (timerBadgeTop + timerBadgeH > plotBottom - 4) {
+    timerBadgeTop = priceTagY - timerBadgeH - timerGap;
+  }
+  timerBadgeTop = Math.min(Math.max(timerBadgeTop, padT + 4), plotBottom - timerBadgeH - 4);
+  const timerTextY = timerBadgeTop + timerBadgeH / 2 + (timerZoomed ? 8 : isMobileChart ? 6 : 2);
 
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
@@ -2639,7 +2695,7 @@ function LiveChart({
           >
             <rect
               x={lastCx + bodyW / 2 + 4}
-              y={lastY - timerBadgeH / 2}
+              y={timerBadgeTop}
               width={timerBadgeW}
               height={timerBadgeH}
               rx={timerBadgeRx}

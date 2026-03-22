@@ -1,0 +1,9 @@
+{
+  "appId": "com.updowanfx.app",
+  "appName": "UpDown FX",
+  "webDir": "www",
+  "server": {
+    "url": "https://updowanfx.com",
+    "androidScheme": "https"
+  }
+}

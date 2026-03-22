@@ -1,0 +1,5 @@
+node_modules/
+*.log
+.DS_Store
+# Uncomment if you do not want to commit generated Android project:
+# android/

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">UpDown FX</string>
+    <string name="title_activity_main">UpDown FX</string>
+    <string name="package_name">com.updowanfx.app</string>
+    <string name="custom_url_scheme">com.updowanfx.app</string>
+</resources>
