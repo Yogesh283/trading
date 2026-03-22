@@ -1,17 +1,17 @@
 # Deploy: local → GitHub → live server
 
-Yeh flow **UpDown FX / trading** repo ke liye hai. Code **direct paste** se server par nahi jata — **Git push → server par `git pull` + build** se jata hai.
+This guide covers the **UpDown FX / trading** repo. Code does **not** reach the server by pasting files — use **Git push → `git pull` on the server + build**.
 
 ---
 
 ## 1) Local (Windows — Git Bash)
 
-### Project folder (galti mat karna)
+### Project folder (avoid this mistake)
 
-- Asli project: **`d:\xampp\htdocs\tradeing`** (root jahan `package.json` hai).
-- Is root ke **andar** dubara `git clone ... trading` **mat karo** — nested repo / submodule ban jata hai.
+- Real project root: **`d:\xampp\htdocs\tradeing`** (where root `package.json` lives).
+- Do **not** run `git clone ... trading` **inside** that root again — you get a nested repo / submodule mess.
 
-### Har change ke baad GitHub par bhejna
+### Push every change to GitHub
 
 ```bash
 cd /d/xampp/htdocs/tradeing
@@ -21,7 +21,7 @@ git commit -m "describe your change"
 git push origin main
 ```
 
-### SSH push ke liye (naya Git Bash har baar)
+### SSH push (new Git Bash session)
 
 ```bash
 eval "$(ssh-agent -s)"
@@ -29,7 +29,7 @@ ssh-add ~/.ssh/id_ed25519
 git push origin main
 ```
 
-### Local aur GitHub same commit?
+### Local and GitHub on the same commit?
 
 ```bash
 cd /d/xampp/htdocs/tradeing
@@ -40,27 +40,27 @@ git log -1 --oneline
 
 ## 2) GitHub
 
-- Remote: `git@github.com:Yogesh283/trading.git` (SSH) ya HTTPS.
+- Remote: `git@github.com:Yogesh283/trading.git` (SSH) or HTTPS.
 - Branch: **`main`**.
 
 ---
 
 ## 3) Live server (Ubuntu / CloudPanel VPS)
 
-### Server par app kahan hai (example)
+### Where the app lives on the server (example)
 
-Aksar clone yahan hota hai:
+Clone is often here:
 
 ```text
 /home/updowanfx/htdocs/updowanfx-app
 ```
 
-**`updowanfx.com`** folder = CloudPanel ka **document root** ho sakta hai. Agar domain **sirf is folder se static** chala raha ho to **naya Node app nahi dikhega**.  
-**Zaroori:** Domain **`updowanfx.com` → reverse proxy → `http://127.0.0.1:3000`** (jahan PM2 Node chala raha ho). Details neeche §5 mein.
+The **`updowanfx.com`** folder may be CloudPanel’s **document root**. If the domain only serves **static files** from that folder, the **new Node app will not show**.  
+**Required:** Point **`updowanfx.com` → reverse proxy → `http://127.0.0.1:3000`** (where PM2 runs Node). Details in §5.
 
-**Tumhara setup:** Agar repo **`/home/updowanfx/htdocs/updowanfx.com`** mein hai (document root = hi app folder), to **theek hai** — bas har jagah `cd` isi path par karo, `updowanfx-app` optional hai.
+**Your setup:** If the repo is in **`/home/updowanfx/htdocs/updowanfx.com`** (document root = app folder), that is fine — always `cd` to that path; `updowanfx-app` is optional.
 
-### Pehli baar: GitHub se clone (HTTPS — server par SSH key optional)
+### First time: clone from GitHub (HTTPS — SSH key on server optional)
 
 ```bash
 cd /home/updowanfx/htdocs
@@ -68,7 +68,7 @@ git clone https://github.com/Yogesh283/trading.git updowanfx-app
 cd updowanfx-app
 ```
 
-### Pehli baar: env + install + build
+### First time: env + install + build
 
 ```bash
 cd /home/updowanfx/htdocs/updowanfx-app
@@ -76,14 +76,14 @@ cp .env.example .env
 nano .env
 ```
 
-`.env` mein `PORT`, DB (`MYSQL_*` ya SQLite), secrets bharo.
+Fill `PORT`, DB (`MYSQL_*` or SQLite), secrets in `.env`.
 
 ```bash
 npm ci
 npm run build:all
 ```
 
-### PM2 se chalana
+### Run with PM2
 
 ```bash
 npm install -g pm2
@@ -93,9 +93,9 @@ pm2 save
 pm2 startup
 ```
 
-`pm2 startup` jo **`sudo` command** print kare, woh **ek baar** chalao.
+Run the **`sudo` command** that `pm2 startup` prints **once**.
 
-### Har deploy (local push ke baad)
+### Every deploy (after local push)
 
 ```bash
 cd /home/updowanfx/htdocs/updowanfx-app
@@ -107,12 +107,12 @@ pm2 restart updowanfx
 
 ### `git pull` error: `tsconfig.tsbuildinfo` would be overwritten
 
-Yeh file **`tsc -b` / frontend build** se banti hai — server par local change ho jata hai, phir pull block ho jata hai.
+This file is produced by **`tsc -b` / frontend build**. If it changes on the server, `git pull` can block.
 
-**Turant fix (server par):**
+**Quick fix (on server):**
 
 ```bash
-cd /home/updowanfx/htdocs/updowanfx.com   # apna path
+cd /home/updowanfx/htdocs/updowanfx.com   # your path
 git checkout -- frontend/tsconfig.tsbuildinfo
 git pull origin main
 npm ci
@@ -120,18 +120,18 @@ npm run build:all
 pm2 restart updowanfx
 ```
 
-Ya file hata kar pull:
+Or remove the file and pull:
 
 ```bash
 rm -f frontend/tsconfig.tsbuildinfo
 git pull origin main
 ```
 
-Repo mein ab `*.tsbuildinfo` **`.gitignore`** mein hai — ek baar ye change **push** ho jaye, aur agar pehle Git ne is file ko track kiya ho to local PC par:
+`*.tsbuildinfo` is in **`.gitignore`** in the repo — after that change is pushed, if Git was tracking the file before, on your PC run:
 
 `git rm --cached frontend/tsconfig.tsbuildinfo` → commit → push.
 
-### Verify: server commit = GitHub
+### Verify: server commit matches GitHub
 
 ```bash
 cd /home/updowanfx/htdocs/updowanfx-app
@@ -139,19 +139,19 @@ git fetch origin
 git log -1 --oneline
 ```
 
-Local `git log -1` se **hash match** karna chahiye.
+The hash should match local `git log -1`.
 
 ---
 
 ## 4) Node.js version
 
-Project **`engines`: Node >= 20** maangta hai. Server par check:
+The project expects **Node >= 20** (`engines`). On the server:
 
 ```bash
 node -v
 ```
 
-Agar **v18** hai to upgrade (Ubuntu example):
+If you have **v18**, upgrade (Ubuntu example):
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -160,7 +160,7 @@ apt-get install -y nodejs
 node -v
 ```
 
-Phir:
+Then:
 
 ```bash
 cd /home/updowanfx/htdocs/updowanfx-app
@@ -174,17 +174,17 @@ pm2 restart updowanfx
 
 ## 5) Domain `updowanfx.com` — CloudPanel / Nginx
 
-**Sirf `updowanfx.com` folder mein files copy karne se poora app nahi chalega** — `/api` aur `/ws` **Node** par chahiye.
+**Copying files only into the `updowanfx.com` folder does not run the full app** — `/api` and `/ws` need **Node**.
 
-1. CloudPanel → **Site `updowanfx.com`** → **Vhost / Reverse Proxy / Nginx** (PHP-only site se **reverse proxy** par badlo).
-2. Traffic **`http://127.0.0.1:3000`** par proxy karo (`.env` ka `PORT` jaisa ho — mismatch = 502/500).
-3. **WebSocket** path **`/ws`** bhi isi backend ko jaye (Nginx: `Upgrade`, `Connection` headers).
+1. CloudPanel → **Site `updowanfx.com`** → **Vhost / Reverse Proxy / Nginx** (switch from PHP-only to **reverse proxy**).
+2. Proxy traffic to **`http://127.0.0.1:3000`** (match `.env` `PORT` — wrong port → 502/500).
+3. **WebSocket** path **`/ws`** must hit the same backend (Nginx: `Upgrade`, `Connection` headers).
 
-Jab tak yeh proxy set nahi, **purana static UI** dikhega chahe build sahi ho.
+Until this proxy is set, you may see the **old static UI** even if the build is correct.
 
-### Folder permissions (File Manager mein `0600` / `root:root` dikh raha ho)
+### Folder permissions (File Manager shows `0600` / `root:root`)
 
-Agar site folder **`root:root`** aur **`0600`** hai to **site user `updowanfx`** / Nginx ko problem ho sakti hai. SSH (root) par:
+If the site folder is **`root:root`** and **`0600`**, user **`updowanfx`** / Nginx may break. On SSH (root):
 
 ```bash
 SITE=/home/updowanfx/htdocs/updowanfx.com
@@ -193,15 +193,15 @@ find "$SITE" -type d -exec chmod 755 {} \;
 find "$SITE" -type f -exec chmod 644 {} \;
 ```
 
-PM2 ab bhi `root` se chala sakte ho; isse File Manager / future non-root runs theek rehte hain.
+You can still run PM2 as `root`; this keeps File Manager / future non-root runs sane.
 
 ### PM2 `errored` + `ZodError` / `USDT_BEP20_DEPOSIT_ADDRESS`
 
-Agar **`updowanfx-error.log`** mein **`USDT_BEP20_DEPOSIT_ADDRESS`** regex error ho:
+If **`updowanfx-error.log`** shows **`USDT_BEP20_DEPOSIT_ADDRESS`** regex errors:
 
-- `.env` mein value **exactly** `0x` + **40 hex** (total 42 chars), **bina** extra space / quotes.
-- Galat paste ho to **line hata do** ya **khali** chhodo → default address use hoga (latest code mein quotes/BOM/spaces strip bhi hota hai).
-- Fix ke baad: `pm2 restart updowanfx` → **`pm2 status`** = **online**.
+- In `.env`, value must be exactly `0x` + **40 hex** (42 chars total), **no** extra spaces / quotes.
+- If paste is wrong, **remove the line** or leave it **empty** → default address is used (latest code strips quotes/BOM/spaces).
+- After fix: `pm2 restart updowanfx` → **`pm2 status`** = **online**.
 
 ```bash
 grep USDT_BEP20 /home/updowanfx/htdocs/updowanfx.com/.env
@@ -209,40 +209,40 @@ grep USDT_BEP20 /home/updowanfx/htdocs/updowanfx.com/.env
 
 ---
 
-### `500 Internal Server Error` — pehle yeh check (server par)
+### `500 Internal Server Error` — check this first (on server)
 
 ```bash
-# .env ka PORT dekho (example 3000)
+# Check PORT in .env (example 3000)
 grep ^PORT= /home/updowanfx/htdocs/updowanfx.com/.env
 
-# Seedha Node se response (Nginx ke bina)
+# Response directly from Node (bypass Nginx)
 curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/
 curl -sS http://127.0.0.1:3000/api/health
 ```
 
-- Agar **`curl` = 200** lekin browser mein **500** → **Nginx / CloudPanel** config (galat port, PHP handler, proxy off).
-- Agar **`curl` bhi 500** → **`pm2 logs updowanfx --lines 80`** aur error fix karo (DB, `.env`, missing `frontend/dist`).
-- **`/api/ping`** / **`/api/health`** par header **`X-Served-By: updownfx-raw`** dikhna chahiye (Node `http` layer, Express se pehle).  
-  - **Header hai + `pong` / JSON** → Node sahi; agar sirf **`/`** 500 ho to Express/static dekhna.  
-  - **Header nahi + purana HTML Error** → **3000 par yeh PM2 process nahi** — chalao: `ss -tlnp | grep ':3000'` aur PM2 `script path` verify karo.
+- If **`curl` = 200** but the browser shows **500** → **Nginx / CloudPanel** config (wrong port, PHP handler, proxy off).
+- If **`curl` is also 500** → **`pm2 logs updowanfx --lines 80`** and fix the error (DB, `.env`, missing `frontend/dist`).
+- **`/api/ping`** / **`/api/health`** should show header **`X-Served-By: updownfx-raw`** (Node `http` layer, before Express).  
+  - **Header present + `pong` / JSON** → Node is OK; if only **`/`** is 500, check Express/static.  
+  - **No header + old HTML error** → **wrong process on 3000** — run: `ss -tlnp | grep ':3000'` and verify PM2 `script path`.
 
 ```bash
 curl -sSI http://127.0.0.1:3000/api/ping | head -20
 ```
 
-**`/api/ping` par Helmet / CSP headers dikh rahe hon aur `X-Served-By: updownfx-raw` na ho** → server par **purana `dist`** ya **GitHub par purana `src/server.ts`** (Windows se **push** nahi hua).  
-`dist/` repo mein **gitignore** hai — sirf **`src`** pull hota hai; **`npm run build`** se `dist` banta hai.
+**Helmet / CSP on `/api/ping` but no `X-Served-By: updownfx-raw`** → server has **old `dist`** or GitHub still has old `src/server.ts` (**not pushed** from Windows).  
+`dist/` is **gitignored** — only **`src`** is pulled; **`npm run build`** creates `dist`.
 
 ```bash
-# Server par — latest code aaya?
+# On server — did latest code arrive?
 grep -n updownfx-raw /home/updowanfx/htdocs/updowanfx.com/src/server.ts
 grep -n updownfx-raw /home/updowanfx/htdocs/updowanfx.com/dist/server.js
 ```
 
-Pehle command mein kuch na aaye → **`git pull` pe naya commit nahi** — local PC se `git push origin main` karo.  
-Dusre mein na aaye → **`npm run build`** chalao (ab `build` ke andar **`verify:dist`** bhi hai; fail ho to `src` update karo).
+If the first command shows nothing → **`git pull` did not get the new commit** — `git push origin main` from your PC.  
+If the second shows nothing → run **`npm run build`** (`verify:dist` inside build; if it fails, update `src`).
 
-Nginx error log (path CloudPanel ke hisaab se badal sakta hai):
+Nginx error log (path may differ for CloudPanel):
 
 ```bash
 tail -50 /home/updowanfx/logs/nginx/error.log 2>/dev/null || tail -50 /var/log/nginx/error.log
@@ -250,26 +250,26 @@ tail -50 /home/updowanfx/logs/nginx/error.log 2>/dev/null || tail -50 /var/log/n
 
 ---
 
-## 6) GitHub known_hosts (server — SSH clone agar use ho)
+## 6) GitHub `known_hosts` (server — if using SSH clone)
 
 ```bash
 mkdir -p ~/.ssh
 ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
 ```
 
-`Are you sure you want to continue connecting (yes/no)?` aaye to **`yes`** likho.
+If prompted `Are you sure you want to continue connecting (yes/no)?`, type **`yes`**.
 
 ---
 
-## 7) Galatiyan jo mat karna
+## 7) Mistakes to avoid
 
-| Galati | Natija |
+| Mistake | Result |
 |--------|--------|
-| Terminal mein **poora log paste** karna | Har line command ban jati hai → errors |
-| `cd d:\xampp\...` Git Bash mein | `\x` break — use: `cd /d/xampp/htdocs/tradeing` |
-| Push bina commit | Server `pull` se naya code nahi aayega |
-| `updowanfx-app` update, domain static `updowanfx.com` | Live purana dikhega — **proxy fix** karo |
-| Nested `trading/` folder root mein add | Submodule bug — `.gitignore` mein `trading/` ignore hai |
+| Pasting the **full terminal log** into the shell | Each line may run as a command → errors |
+| `cd d:\xampp\...` in Git Bash | `\x` breaks — use: `cd /d/xampp/htdocs/tradeing` |
+| Push without commit | Server `pull` will not get new code |
+| Update `updowanfx-app` but domain serves static `updowanfx.com` | Live site stays old — **fix the proxy** |
+| Nested `trading/` folder in project root | Submodule issues — `trading/` is in `.gitignore` |
 
 ---
 
@@ -286,10 +286,10 @@ ssh-add ~/.ssh/id_ed25519
 git push origin main
 ```
 
-**Server → live update** (jo folder use ho — `updowanfx.com` **ya** `updowanfx-app`)
+**Server → live update** (use your folder: `updowanfx.com` **or** `updowanfx-app`)
 
 ```bash
-cd /home/updowanfx/htdocs/updowanfx.com   # ya: updowanfx-app
+cd /home/updowanfx/htdocs/updowanfx.com   # or: updowanfx-app
 git pull origin main
 npm ci
 npm run build:all
@@ -305,52 +305,52 @@ pm2 logs updowanfx
 
 ---
 
-## 9) Browser
+## 8.1) “Market is closed on weekends…” under trades
 
-Naya frontend ke baad: **Ctrl+F5** (hard refresh) ya incognito — purana JS cache se na dikhe.
+That message **does not come from the current API in this repo** — an **old Node backend** (old `dist/` or an old PM2 process) is still returning that JSON error on orders.
+
+- Server: `git pull` → `npm run build:all` → **`pm2 restart updowanfx`** (or your PM2 name).
+- Local: **Ctrl+C** in the terminal → start **`npm run dev`** again (stop the old `tsx`/Node process).
+- New **frontend build** + browser **Ctrl+F5** so the new JS bundle loads (it may also change how API errors display).
 
 ---
 
-*Is file ko update rakho jab server path, PM2 name, ya CloudPanel steps badlen.*
+## 8.2) Windows: EPERM `rollup.win32-x64-msvc.node` (`npm ci`)
 
+**Default `npm run build:all`** uses **`npm install`** in the frontend ( **`not` `npm ci`** ) so Windows hits fewer **EPERM** errors when Rollup/Vite locks `.node` files.
 
+If you run **`npm run build:all:ci`** (old flow, **`npm ci`**), the whole `frontend/node_modules` is removed — **stop `npm run dev`**, then run it; otherwise EPERM.
 
+**If EPERM persists:**
 
+1. **Ctrl+C** — stop all Node/dev processes.
+2. **`npm run build:all:local`** — compile + frontend build only (skips install).
+3. Task Manager / reboot if the file is still locked.
 
+**Linux VPS / clean CI** where you want `npm ci`: use **`npm run build:all:ci`**.
 
+---
 
+## 9) Browser
 
+After a new frontend build: **Ctrl+F5** (hard refresh) or incognito — avoid stale JS from cache.
 
+---
 
+*Update this file when server paths, PM2 name, or CloudPanel steps change.*
 
+---
 
+### Server snippet: discard generated file and redeploy
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-///////// server//
-
-
+```bash
 cd /home/updowanfx/htdocs/updowanfx.com
 
-# is generated file ko discard karo (safe)
+# Discard generated file (safe)
 git checkout -- frontend/tsconfig.tsbuildinfo
 
 git pull origin main
 npm ci
 npm run build:all
 pm2 restart updowanfx
+```

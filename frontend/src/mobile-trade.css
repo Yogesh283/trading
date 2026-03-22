@@ -380,17 +380,22 @@
   max-height: 42vh;
 }
 
-/* Mobile chart: full look + touch zoom area */
+/* Mobile chart: pan/pinch only on chart layer — NOT on zoom buttons (was blocking +/− taps). */
 .tv-chart-mobile .chart-svg-wrap {
-  touch-action: pan-x pan-y;
+  touch-action: auto;
   -webkit-user-select: none;
   user-select: none;
+}
+
+.tv-chart-mobile .chart-touch-layer {
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .tv-chart-mobile .chart-zoom-controls {
   bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: 0;
@@ -401,6 +406,8 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  touch-action: manipulation;
+  isolation: isolate;
 }
 
 .tv-chart-mobile .chart-zoom-controls button {
@@ -411,6 +418,9 @@
   color: #d1d4dc;
   border-radius: 8px;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
 }
 
 .tv-chart-mobile .chart-zoom-controls button:active {
@@ -421,28 +431,6 @@
 .tv-chart-mobile .chart-zoom-divider {
   height: 22px;
   background: rgba(255, 255, 255, 0.2);
-}
-
-/*
- * Weekend lock: on mobile, centering the overlay puts the lock over the bottom dock / FAB.
- * Pin message to upper chart; lighter dim so it doesn’t read as a second “white cap”.
- */
-.tv-chart-mobile .chart-weekend-overlay {
-  align-items: flex-start;
-  justify-content: center;
-  padding: 14px 10px 88px;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.5) 0%,
-    rgba(0, 0, 0, 0.28) 42%,
-    rgba(0, 0, 0, 0.08) 100%
-  );
-}
-
-.tv-chart-mobile .chart-weekend-overlay-inner {
-  margin-top: min(8vh, 56px);
-  padding: 12px 16px;
-  border-radius: 12px;
 }
 
 /*
@@ -469,7 +457,7 @@
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
   border-radius: 32px 32px 0 0;
   border-top: var(--dock-top-edge, none);
-  background-color: var(--dock-bg, #fff);
+  background-color: black;
   background-image: none;
   box-shadow: var(--dock-shadow-up);
   -webkit-tap-highlight-color: transparent;
@@ -861,6 +849,22 @@
   font-weight: 300;
   line-height: 1;
   opacity: 0.95;
+}
+
+/* Big green/red CTA: clear “Up · Created” / “Down · Created” */
+.mobile-cta.mobile-cta--created {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5), 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.mobile-cta.mobile-cta--created .mobile-cta-title {
+  font-size: clamp(17px, 4.5vw, 22px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mobile-cta.cta-sell.binary-created-flash {
+  animation: binary-created-pulse-down 0.85s ease-out 1;
 }
 
 .mobile-trade-msg {

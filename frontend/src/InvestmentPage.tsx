@@ -197,11 +197,6 @@ export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
         </section>
 
         {message ? <p className="funds-message">{message}</p> : null}
-
-        <p className="muted small investment-cron-note">
-          Server runs a daily job at <strong>00:05 UTC</strong>, or use{" "}
-          <code>npm run cron:investment</code> / HTTP POST <code>/api/system/investment-yield</code> with secret.
-        </p>
       </div>
     </main>
   );

@@ -72,10 +72,22 @@ function requestHeaders(token?: string | null, wallet?: WalletType): Record<stri
   return headers;
 }
 
+/** Some older deployments returned this on order POST routes; current API allows trading 7 days/week. */
+function isLegacyWeekendMarketClosedMessage(msg: string): boolean {
+  return (
+    /market\s+is\s+closed\s+on\s+weekends/i.test(msg) &&
+    /\bnew\s+orders\s+are\s+disabled\b/i.test(msg)
+  );
+}
+
 async function parseJson<T>(response: Response) {
   if (!response.ok) {
     const error = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new Error(error?.message ?? "Request failed");
+    const raw = error?.message ?? "Request failed";
+    if (isLegacyWeekendMarketClosedMessage(raw)) {
+      throw new Error("Restart the trading API (npm run dev) — deployed server is an old build that still blocks orders.");
+    }
+    throw new Error(raw);
   }
 
   return (await response.json()) as T;

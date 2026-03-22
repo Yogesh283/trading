@@ -219,6 +219,9 @@ export default function App() {
   );
   /** Browser `window.setTimeout` returns `number` (Node types use `NodeJS.Timeout`). */
   const orderPopupTimeoutRef = useRef<number | null>(null);
+  /** Brief “Up · Created” / “Down · Created” on direction buttons after order success. */
+  const [binaryCreatedFlash, setBinaryCreatedFlash] = useState<null | "up" | "down">(null);
+  const binaryCreatedTimerRef = useRef<number | null>(null);
   /** Ignore stale `refresh()` results so an older in-flight request cannot overwrite trades after a new order. */
   const refreshSeqRef = useRef(0);
 
@@ -246,7 +249,21 @@ export default function App() {
       if (orderPopupTimeoutRef.current) {
         clearTimeout(orderPopupTimeoutRef.current);
       }
+      if (binaryCreatedTimerRef.current != null) {
+        window.clearTimeout(binaryCreatedTimerRef.current);
+      }
     };
+  }, []);
+
+  const flashBinaryCreated = useCallback((direction: "up" | "down") => {
+    if (binaryCreatedTimerRef.current != null) {
+      window.clearTimeout(binaryCreatedTimerRef.current);
+    }
+    setBinaryCreatedFlash(direction);
+    binaryCreatedTimerRef.current = window.setTimeout(() => {
+      setBinaryCreatedFlash(null);
+      binaryCreatedTimerRef.current = null;
+    }, 4500);
   }, []);
 
   useEffect(() => {
@@ -535,6 +552,7 @@ export default function App() {
         "demo"
       );
       setTrades((current) => [trade, ...current]);
+      flashBinaryCreated(direction);
       showOrderPlacedPopup(
         "demo",
         `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · $${amount}`
@@ -568,6 +586,7 @@ export default function App() {
         session.token
       );
       setTrades((current) => [trade, ...current]);
+      flashBinaryCreated(direction);
       showOrderPlacedPopup(
         "live",
         `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`
@@ -1050,9 +1069,7 @@ export default function App() {
               </span>
             </button>
             <div className="mobile-topbar-right">
-              <button type="button" className="mobile-tb-icon" aria-label="Chart tools">
-                ⬡
-              </button>
+            
               <select
                 className="mobile-tf-pill"
                 value={chartTimeframe}
@@ -1129,17 +1146,17 @@ export default function App() {
             <div className="mobile-bs-row">
               <button
                 type="button"
-                className={`mobile-bs-btn buy ${mobileSide === "buy" ? "on" : ""}`}
+                className={`mobile-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
                 onClick={() => setMobileSide("buy")}
               >
-                Up
+                {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
               </button>
               <button
                 type="button"
-                className={`mobile-bs-btn sell ${mobileSide === "sell" ? "on" : ""}`}
+                className={`mobile-bs-btn sell ${mobileSide === "sell" ? "on" : ""}${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
                 onClick={() => setMobileSide("sell")}
               >
-                Down
+                {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
               </button>
             </div>
 
@@ -1158,7 +1175,7 @@ export default function App() {
                   onChange={(e) => setQuantity(e.target.value)}
                 />
                 <div className="mobile-pct-row">
-                  {[10, 20, 50].map((pct) => (
+                  {[10, 20, 50, 100].map((pct) => (
                     <button
                       key={pct}
                       type="button"
@@ -1197,7 +1214,11 @@ export default function App() {
 
             <button
               type="button"
-              className={`mobile-cta ${mobileSide === "buy" ? "cta-buy" : "cta-sell"}`}
+              className={`mobile-cta ${mobileSide === "buy" ? "cta-buy" : "cta-sell"}${
+                binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
+                  ? " mobile-cta--created binary-created-flash"
+                  : ""
+              }`}
               onClick={() => {
                 const base = Number(quantity);
                 if (!Number.isFinite(base) || base <= 0) {
@@ -1213,7 +1234,15 @@ export default function App() {
               }}
             >
               <span className="mobile-cta-text">
-                <strong>{mobileSide === "buy" ? "Up" : "Down"}</strong>
+                <strong className="mobile-cta-title">
+                  {binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
+                    ? mobileSide === "buy"
+                      ? "Up · Created"
+                      : "Down · Created"
+                    : mobileSide === "buy"
+                      ? "Up Created"
+                      : "Down Created"}
+                </strong>
                 <small>
                   {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
                 </small>
@@ -1465,17 +1494,17 @@ export default function App() {
               <div className="binary-buttons binary-buttons-compact">
                 <button
                   type="button"
-                  className="btn-buy-up"
+                  className={`btn-buy-up${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
                   onClick={() => void handleBinaryOrder("up")}
                 >
-                  Up
+                  {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
                 </button>
                 <button
                   type="button"
-                  className="btn-buy-down"
+                  className={`btn-buy-down${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
                   onClick={() => void handleBinaryOrder("down")}
                 >
-                  Down
+                  {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
                 </button>
               </div>
             </div>
@@ -1643,23 +1672,27 @@ export default function App() {
               <div className="desktop-demo-bs-row">
                 <button
                   type="button"
-                  className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}`}
+                  className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
                   onClick={() => setMobileSide("buy")}
                 >
-                  Up
+                  {binaryCreatedFlash === "up" ? "Up · Created" : "Up Created"}
                 </button>
                 <button
                   type="button"
-                  className={`desktop-demo-bs-btn sell ${mobileSide === "sell" ? "on" : ""}`}
+                  className={`desktop-demo-bs-btn sell ${mobileSide === "sell" ? "on" : ""}${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
                   onClick={() => setMobileSide("sell")}
                 >
-                  Down
+                  {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
                 </button>
               </div>
             </div>
             <button
               type="button"
-              className={`desktop-demo-cta ${mobileSide === "buy" ? "cta-buy" : "cta-sell"}`}
+              className={`desktop-demo-cta ${mobileSide === "buy" ? "cta-buy" : "cta-sell"}${
+                binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
+                  ? " desktop-demo-cta--created binary-created-flash"
+                  : ""
+              }`}
               onClick={() => {
                 const base = Number(quantity);
                 if (!Number.isFinite(base) || base <= 0) {
@@ -1675,7 +1708,15 @@ export default function App() {
               }}
             >
               <span>
-                <strong>{mobileSide === "buy" ? "Place Up" : "Place Down"}</strong>
+                <strong>
+                  {binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
+                    ? mobileSide === "buy"
+                      ? "Up · Created"
+                      : "Down · Created"
+                    : mobileSide === "buy"
+                      ? "Place Up"
+                      : "Place Down"}
+                </strong>
                 <small>
                   {" "}
                   stake{" "}
@@ -2256,15 +2297,15 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Zoom = slot width in px (larger = fewer candles = more zoomed in). −/+ steps are clearly visible. */
-const SLOT_WIDTHS_PX = [4, 6, 9, 13, 18, 24, 32, 42];
-const MOBILE_DEFAULT_ZOOM_INDEX = 4; // 18px — balanced start on mobile
+const SLOT_WIDTHS_PX = [4, 6, 9, 13, 18, 24, 32, 42, 52, 64];
+const MOBILE_DEFAULT_ZOOM_INDEX = 3; // ~13px slot — more candles on screen, TV-like density
 const DESKTOP_DEFAULT_ZOOM_INDEX = 2;
 
-/** Full-block candles (solid bar low→high), Olymp / mobile style — matches thick “full” candle look. */
+/** Narrower bodies + thin wicks — closer to TradingView-style candles than “fat” mobile bars. */
 const CANDLE_STYLE = {
-  slotBodyRatio: 0.88,
-  bodyStroke: 0.35,
-  bodyRx: 2,
+  slotBodyRatio: 0.62,
+  bodyStroke: 0.2,
+  bodyRx: 1,
   bull: "rgb(44, 218, 117)",
   bear: "#ef5350"
 } as const;
@@ -2371,14 +2412,23 @@ function LiveChart({
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  /** Max candle body width; zoom caps how wide each slot may get when there are few candles. */
-  const MAX_CANDLE_WIDTH_PX = 36;
+  /** Max candle / slot width at strongest zoom (must be ≥ largest SLOT_WIDTHS_PX or top steps get clamped). */
+  const MAX_CANDLE_WIDTH_PX = 64;
   const zoomCap = SLOT_WIDTHS_PX[Math.min(zoomIndex, SLOT_WIDTHS_PX.length - 1)];
-  /** Show every loaded candle; squeeze to fit plot width (zoom still limits max width per candle). */
-  const candles = allCandles;
+  const maxSlot = Math.min(zoomCap, MAX_CANDLE_WIDTH_PX);
+  /**
+   * When there are many candles, `plotW / n` was always the minimum — zoom buttons did nothing.
+   * Show a right-aligned window: at least ~`maxSlot` px per candle when possible (fewer candles = zoom in).
+   */
+  const nAll = allCandles.length;
+  const maxVisibleByZoom = Math.max(1, Math.floor(plotW / maxSlot));
+  const visibleCount = Math.min(nAll, maxVisibleByZoom);
+  const candles = allCandles.slice(-visibleCount);
   const n = candles.length;
-  const slotWActual = n > 0 ? Math.min(plotW / n, MAX_CANDLE_WIDTH_PX, zoomCap) : zoomCap;
+  const slotWActual = n > 0 ? Math.min(plotW / n, maxSlot) : maxSlot;
   const bodyW = Math.max(1.2, slotWActual * CANDLE_STYLE.slotBodyRatio);
+  /** Index of first candle in `candles` within full `allCandles` (for trade markers when zoomed). */
+  const firstVisibleGlobalIndex = Math.max(0, nAll - n);
   /** Right-align: latest candle at right edge so all timeframes show candles in a consistent way. */
   const cxAt = (index: number) => padL + plotW - (n - 1 - index) * slotWActual - slotWActual / 2;
 
@@ -2398,8 +2448,9 @@ function LiveChart({
   const gridPrices = Array.from({ length: gridLevels }, (_, i) => yMin + (yRange * i) / (gridLevels - 1));
 
   const current = candles[candles.length - 1];
-  const change = candles.length > 1 ? current.close - candles[0].open : 0;
-  const changePct = candles.length > 1 ? (change / candles[0].open) * 100 : 0;
+  const change =
+    allCandles.length > 1 ? current.close - allCandles[0].open : 0;
+  const changePct = allCandles.length > 1 ? (change / allCandles[0].open) * 100 : 0;
   const openTrades = trades.filter((trade) => trade.status === "open");
   const lastY = toY(current.close);
 
@@ -2613,7 +2664,7 @@ function LiveChart({
                   x2={cx}
                   y2={yLow}
                   stroke={stroke}
-                  strokeWidth={1.2}
+                  strokeWidth={isMobileChart ? 0.9 : 1.05}
                 />
                 {/* Body: open to close */}
                 <rect
@@ -2634,8 +2685,11 @@ function LiveChart({
           {trades
             .filter((trade) => trade.symbol === symbol && trade.status === "open")
             .map((trade) => {
-              const markerIndex = findCandleIndex(candles, trade.entryPrice);
-              const cx = cxAt(markerIndex);
+              const tf = trade.timeframeSeconds ?? timeframeSec;
+              const gIdx = globalCandleIndexForOpen(allCandles, trade.openedAt, tf);
+              const localIdx = gIdx - firstVisibleGlobalIndex;
+              if (localIdx < 0 || localIdx >= n) return null;
+              const cx = cxAt(localIdx);
               const cy = toY(trade.entryPrice);
               return (
                 <g key={trade.id}>
@@ -2645,7 +2699,8 @@ function LiveChart({
                   </text>
                 </g>
               );
-            })}
+            })
+            .filter(Boolean)}
           </svg>
         </div>
 
@@ -2798,21 +2853,22 @@ function buildCandles(points: MarketTick[], intervalSeconds = 1): CandlePoint[] 
   return candles;
 }
 
-function findCandleIndex(candles: CandlePoint[], price: number) {
-  if (candles.length === 0) {
-    return 0;
-  }
-
-  let closestIndex = 0;
-  let closestDistance = Number.POSITIVE_INFINITY;
-
-  candles.forEach((candle, index) => {
-    const distance = Math.abs(candle.close - price);
-    if (distance < closestDistance) {
-      closestIndex = index;
-      closestDistance = distance;
+/** Candle bucket index in `allCandles` for when a trade was opened (for markers when chart is zoomed). */
+function globalCandleIndexForOpen(allCandles: CandlePoint[], openedAt: string, intervalSeconds: number) {
+  if (allCandles.length === 0) return 0;
+  const bucketMs = intervalSeconds * 1000;
+  const t = new Date(openedAt).getTime();
+  const bucket = Math.floor(t / bucketMs) * bucketMs;
+  let idx = allCandles.findIndex((c) => c.timestamp === bucket);
+  if (idx >= 0) return idx;
+  let best = 0;
+  let bestD = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < allCandles.length; i++) {
+    const d = Math.abs(allCandles[i].timestamp - bucket);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
     }
-  });
-
-  return closestIndex;
+  }
+  return best;
 }

@@ -66,13 +66,25 @@ import {
 
 /** True when running via `tsx` from `src/` (not compiled `dist/`). */
 const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src";
-/** Dev: API + Vite on PORT. SEPARATE_FRONTEND=1 → API only + `npm run frontend:dev` on 5173. */
-export const useUnifiedDevPort =
-  runningFromSourceTree && String(process.env.SEPARATE_FRONTEND ?? "").trim() !== "1";
 
 /** Repo root — not `process.cwd()` (PM2/systemd often use another cwd). */
 const projectRoot = path.resolve(__dirname, "..");
 const frontendDist = path.join(projectRoot, "frontend", "dist");
+
+/**
+ * Local dev without `npm run frontend:build`: if there is no `frontend/dist`, serve the UI with Vite
+ * middleware (same as `npm run dev` from src). Safe for production: NODE_ENV=production + built dist.
+ */
+const useViteBecauseNoFrontendDist =
+  env.NODE_ENV === "development" && !fs.existsSync(frontendDist);
+
+/**
+ * Dev: API + Vite on PORT. SEPARATE_FRONTEND=1 → API only + `npm run frontend:dev` on 5173.
+ * Also: development + missing frontend/dist → Vite (e.g. `node dist/index.js` without frontend build).
+ */
+export const useUnifiedDevPort =
+  (runningFromSourceTree || useViteBecauseNoFrontendDist) &&
+  String(process.env.SEPARATE_FRONTEND ?? "").trim() !== "1";
 
 const app = express();
 
@@ -96,6 +108,7 @@ app.use(cors());
 app.use(express.json());
 
 let viteDevServer: { close: () => Promise<void> } | null = null;
+let tradingWsUpgradeListenerAttached = false;
 
 /**
  * Handle liveness **outside** Express — if `/api/ping` still returns 500 HTML here, traffic is not reaching this
@@ -132,7 +145,13 @@ const server = http.createServer((req, res) => {
   }
   app(req, res);
 });
-const wsServer = new WebSocketServer({ server, path: "/ws" });
+/**
+ * Do NOT use `WebSocketServer({ server, path: "/ws" })`: that attaches a global `upgrade` listener
+ * that **aborts** every non-`/ws` upgrade with HTTP 400. Vite HMR uses `/?token=…` on the same HTTP
+ * server → HMR breaks and dev assets can misbehave. We use `noServer` and only upgrade `/ws`
+ * (registered in `startServer` **after** Vite attaches its listener).
+ */
+const wsServer = new WebSocketServer({ noServer: true });
 const forexFeed = new ForexFeed();
 
 forexFeed.start();
@@ -1210,8 +1229,17 @@ async function attachViteDevMiddleware(): Promise<void> {
     root: frontendRoot,
     server: {
       middlewareMode: true,
-      /** HMR on same port as API (avoids 24678 and clashes with a second Vite) */
-      hmr: { server }
+      /**
+       * Override `vite.config.ts` `server.port` (5173). If we only set `hmr.server`, the merged
+       * config still advertises port 5173 to the client → WS fails when the browser uses PORT.
+       */
+      port: env.PORT,
+      strictPort: false,
+      hmr: {
+        server,
+        port: env.PORT,
+        clientPort: env.PORT
+      }
     },
     appType: "spa"
   });
@@ -1236,6 +1264,18 @@ wsServer.on("connection", (socket) => {
 
 export async function startServer(): Promise<http.Server> {
   await attachViteDevMiddleware();
+  /** After Vite’s `upgrade` listener so HMR (`/?token=…`) is handled first; we only take `/ws`. */
+  if (!tradingWsUpgradeListenerAttached) {
+    tradingWsUpgradeListenerAttached = true;
+    server.on("upgrade", (req, socket, head) => {
+      if (pathOnlyFromUrl(req.url) !== "/ws") {
+        return;
+      }
+      wsServer.handleUpgrade(req, socket, head, (ws) => {
+        wsServer.emit("connection", ws, req);
+      });
+    });
+  }
   return new Promise((resolve, reject) => {
     const onListenError = (err: NodeJS.ErrnoException) => {
       server.off("error", onListenError);

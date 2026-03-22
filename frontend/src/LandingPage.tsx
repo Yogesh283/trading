@@ -4,6 +4,7 @@ import { APP_NAME } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
 const PILL_ITEMS = [
+  "Up / Down binary trades",
   "Modern platform",
   "Useful features",
   "Easy start",
@@ -15,13 +16,13 @@ const PILL_ITEMS = [
 const DEMO_TILES = [
   {
     title: "Demo account for practice",
-    desc: "Trade with virtual funds. Reset anytime — no card required to try the charts.",
+    desc: "Try Up and Down on live-style charts with virtual funds — no card required.",
     cta: "Try demo",
     action: "demo" as const
   },
   {
     title: "Learn before you risk",
-    desc: "Explore timeframes, stakes, and outcomes in a safe environment.",
+    desc: "Practice binary-style timing: choose direction, stake, and see the result when the candle closes.",
     cta: "Open demo",
     action: "demo" as const
   },
@@ -45,8 +46,8 @@ const SUPPORT_COLS = [
     desc: "Help when you need it — account, deposits, and platform questions."
   },
   {
-    title: "Clear charts",
-    desc: "Live-style price feed and candlesticks so you can read the market."
+    title: "Up / Down on clear charts",
+    desc: "Forex pairs with live-style candles — tap Up if you expect price higher at expiry, Down if lower."
   },
   {
     title: "Strategies & practice",
@@ -136,19 +137,26 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
             <button type="button" className="landing-link" onClick={() => scrollTo("ot-platform")}>
               Platform
             </button>
-            <button type="button" className="landing-link" onClick={() => scrollTo("ot-demo-grid")}>
+            <button type="button" className="landing-link" onClick={() => scrollTo("ot-binary")}>
+              Up / Down
+            </button>
+            <button
+              type="button"
+              className="landing-link landing-cta-highlight landing-cta-highlight--demo"
+              onClick={() => scrollTo("ot-demo-grid")}
+            >
               Demo
             </button>
             <button type="button" className="landing-link" onClick={() => scrollTo("ot-reviews")}>
               Reviews
             </button>
-            <button type="button" className="landing-link" onClick={onLogin}>
+            <button type="button" className="landing-link landing-cta-highlight landing-cta-highlight--login" onClick={onLogin}>
               Log in
             </button>
-            <button type="button" className="landing-btn-outline" onClick={onRegister}>
+            <button type="button" className="landing-btn-outline landing-cta-highlight landing-cta-highlight--register" onClick={onRegister}>
               Register
             </button>
-            <button type="button" className="landing-btn-primary" onClick={onTryDemo}>
+            <button type="button" className="landing-btn-primary landing-cta-highlight landing-cta-highlight--start" onClick={onTryDemo}>
               Start for $0
             </button>
           </nav>
@@ -183,19 +191,28 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
                 <button type="button" onClick={() => { scrollTo("ot-platform"); }}>
                   Platform
                 </button>
-                <button type="button" onClick={() => { scrollTo("ot-demo-grid"); }}>
+                <button type="button" onClick={() => { scrollTo("ot-binary"); }}>
+                  Up / Down
+                </button>
+                <button
+                  type="button"
+                  className="landing-cta-highlight landing-cta-highlight--demo"
+                  onClick={() => {
+                    scrollTo("ot-demo-grid");
+                  }}
+                >
                   Demo
                 </button>
                 <button type="button" onClick={() => { scrollTo("ot-reviews"); }}>
                   Reviews
                 </button>
-                <button type="button" onClick={() => go(onLogin)}>
+                <button type="button" className="landing-cta-highlight landing-cta-highlight--login" onClick={() => go(onLogin)}>
                   Log in
                 </button>
-                <button type="button" onClick={() => go(onRegister)}>
+                <button type="button" className="landing-cta-highlight landing-cta-highlight--register" onClick={() => go(onRegister)}>
                   Register
                 </button>
-                <button type="button" onClick={() => go(onTryDemo)}>
+                <button type="button" className="landing-cta-highlight landing-cta-highlight--start" onClick={() => go(onTryDemo)}>
                   Start for $0
                 </button>
               </div>
@@ -208,14 +225,15 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
       <section className="landing-ot-hero" aria-label="Intro">
         <div className="landing-ot-hero-glow" aria-hidden />
         <div className="landing-ot-hero-inner">
-          <p className="landing-ot-hero-label">Online trading platform</p>
+          <p className="landing-ot-hero-label">Forex charts · binary-style Up / Down</p>
           <h1 className="landing-ot-hero-title">
-            Build confidence
+            Predict direction
             <br />
-            <span className="landing-ot-hero-accent">with every trade</span>
+            <span className="landing-ot-hero-accent">Up or Down — timed trades</span>
           </h1>
           <p className="landing-ot-hero-sub">
-            Practice on a full demo, then fund your live wallet when you are ready. No cost to explore.
+            Choose <strong>Up</strong> if you think price will finish above entry when time runs out, or{" "}
+            <strong>Down</strong> if you expect it below. Practice free on demo; go live when you are ready.
           </p>
           <div className="landing-ot-hero-cta">
             <button type="button" className="landing-ot-btn-main" onClick={onTryDemo}>
@@ -228,14 +246,47 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
         </div>
       </section>
 
-      {/* Horizontal feature pills */}
+      {/* Demo + register/login — high on page (second block after hero) */}
+      <section className="landing-demo-block landing-demo-block--near-top" id="landing-demo-block">
+        <div className="landing-demo-inner">
+          <div>
+            <h2>Demo account — practice Up &amp; Down</h2>
+            <p>
+              Try the same Up / Down flow and chart timing with virtual money. When you are comfortable, register and
+              fund your live wallet.
+            </p>
+          </div>
+          <button type="button" className="landing-btn-primary landing-btn-lg" onClick={onTryDemo}>
+            Start demo now
+          </button>
+        </div>
+      </section>
+
+      <section className="landing-ot-final-cta landing-ot-final-cta--near-top">
+        <h2>Start trading with confidence</h2>
+        <button type="button" className="landing-ot-btn-main landing-ot-btn-xl" onClick={onRegister}>
+          Register free
+        </button>
+        <button type="button" className="landing-ot-btn-ghost" onClick={onLogin}>
+          Already have an account? Log in
+        </button>
+      </section>
+
+      {/* Horizontal feature pills — auto-scroll marquee (duplicate row for seamless loop) */}
       <section className="landing-ot-pills" aria-label="Highlights">
-        <div className="landing-ot-pills-track">
-          {PILL_ITEMS.map((label) => (
-            <span key={label} className="landing-ot-pill">
-              {label}
-            </span>
-          ))}
+        <div className="landing-ot-pills-marquee">
+          <div className="landing-ot-pills-track landing-ot-pills-track--marquee">
+            {PILL_ITEMS.map((label) => (
+              <span key={label} className="landing-ot-pill">
+                {label}
+              </span>
+            ))}
+            {PILL_ITEMS.map((label, i) => (
+              <span key={`marquee-dup-${i}-${label}`} className="landing-ot-pill" aria-hidden="true">
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -244,9 +295,46 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
         <div className="landing-ot-band-inner">
           <h2 className="landing-ot-band-title">Designed for traders who want clarity</h2>
           <p className="landing-ot-band-text">
-            {APP_NAME} combines a simple workflow with live-style charts. Demo first — live when you choose.
+            {APP_NAME} pairs clear candlestick charts with simple <strong>Up / Down</strong> decisions and a visible
+            countdown. Learn the flow on demo — same buttons and timing on live.
           </p>
         </div>
+      </section>
+
+      {/* Binary Up / Down — how it connects to the product */}
+      <section className="landing-ot-binary" id="ot-binary" aria-labelledby="landing-binary-heading">
+        <h2 id="landing-binary-heading" className="landing-ot-h2 landing-ot-center">
+          How binary-style Up / Down works here
+        </h2>
+        <p className="landing-ot-center-text landing-ot-binary-lead">
+          Not sure about complex orders? Here you only connect your view on price to two actions — aligned with the
+          in-app <strong>Up</strong> and <strong>Down</strong> trade buttons.
+        </p>
+        <div className="landing-ot-binary-steps">
+          <article className="landing-ot-binary-card">
+            <span className="landing-ot-binary-step">1</span>
+            <h3>Pick the market</h3>
+            <p>Select a forex pair and timeframe. The chart shows live-style ticks and candles.</p>
+          </article>
+          <article className="landing-ot-binary-card">
+            <span className="landing-ot-binary-step">2</span>
+            <h3>Tap Up or Down</h3>
+            <p>
+              <span className="landing-ot-binary-tag landing-ot-binary-tag--up">Up</span> — you expect the price at
+              close to be <strong>above</strong> your entry.{" "}
+              <span className="landing-ot-binary-tag landing-ot-binary-tag--down">Down</span> — you expect it{" "}
+              <strong>below</strong>.
+            </p>
+          </article>
+          <article className="landing-ot-binary-card">
+            <span className="landing-ot-binary-step">3</span>
+            <h3>Timer decides</h3>
+            <p>When the countdown hits zero, the platform compares price to your entry — win or loss is settled by the rules shown in the app (e.g. payout multiple on wins).</p>
+          </article>
+        </div>
+        <p className="landing-ot-binary-foot">
+          Trading carries risk; you can lose your stake. Use demo to understand Up / Down and timing before depositing.
+        </p>
       </section>
 
       {/* Platform + mock device */}
@@ -255,9 +343,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
           <h2 className="landing-ot-h2">Modern trading platform</h2>
           <p className="landing-ot-lead">Your financial decisions start here — charts, markets, and orders in one view.</p>
           <ul className="landing-ot-checks">
+            <li>Binary-style <strong>Up / Down</strong> on forex pairs — amount, direction, and expiry in one flow</li>
             <li>Web app — responsive on phone and desktop</li>
-            <li>Demo balance to practice without signup friction</li>
-            <li>Register to unlock live wallet & deposits</li>
+            <li>Demo balance to practice without signup friction; live wallet after register</li>
           </ul>
           <div className="landing-ot-split-btns">
             <button type="button" className="landing-ot-btn-main" onClick={onTryDemo}>
@@ -391,7 +479,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
             { icon: "🎓", title: "Learning center", desc: "Grow skills at your pace" },
             { icon: "🛡️", title: "Demo first", desc: "Virtual funds, refillable" },
             { icon: "⚡", title: "Easy start", desc: "Register in minutes" },
-            { icon: "📊", title: "Live prices", desc: "Forex-style pairs & candles" },
+            { icon: "⇅", title: "Up / Down trades", desc: "Binary-style direction + timer on forex candles" },
             { icon: "💳", title: "Live wallet", desc: "Deposit when you are ready" }
           ].map((f) => (
             <div key={f.title} className="landing-feature-card">
@@ -403,34 +491,10 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister }: Props) {
         </div>
       </section>
 
-      <section className="landing-demo-block" id="landing-demo-block">
-        <div className="landing-demo-inner">
-          <div>
-            <h2>Demo account — designed for practice</h2>
-            <p>
-              Try the full flow without risk. When you are comfortable, create an account and fund your live wallet.
-            </p>
-          </div>
-          <button type="button" className="landing-btn-primary landing-btn-lg" onClick={onTryDemo}>
-            Start demo now
-          </button>
-        </div>
-      </section>
-
-      <section className="landing-ot-final-cta">
-        <h2>Start trading with confidence</h2>
-        <button type="button" className="landing-ot-btn-main landing-ot-btn-xl" onClick={onRegister}>
-          Register free
-        </button>
-        <button type="button" className="landing-ot-btn-ghost" onClick={onLogin}>
-          Already have an account? Log in
-        </button>
-      </section>
-
       <footer className="landing-footer">
         <p>
-          {APP_NAME} — educational & trading demo. Financial instruments carry risk. You may lose your stake. Practice
-          on demo first.
+          {APP_NAME} — forex-style charts with binary Up / Down trades. Markets are risky; you may lose your stake.
+          Practice on demo first — not financial advice.
         </p>
       </footer>
     </div>

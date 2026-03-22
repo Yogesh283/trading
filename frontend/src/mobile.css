@@ -75,20 +75,12 @@ body {
 
   .auth-sticky-inner {
     padding: 12px 14px;
-    justify-content: space-between;
   }
 
   .auth-nav-back {
     flex-shrink: 0;
     padding: 8px 4px 8px 0;
     font-size: 14px;
-  }
-
-  .auth-nav-brand {
-    flex: 1;
-    justify-content: flex-start;
-    font-size: 16px;
-    min-width: 0;
   }
 
   .auth-nav-brand .auth-nav-brand-logo {
@@ -111,8 +103,8 @@ body {
 
   .auth-hero {
     order: 2;
-    padding: 20px 16px;
-    border-radius: 18px;
+    padding: 22px 18px;
+    border-radius: 20px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -120,16 +112,25 @@ body {
 
   .auth-card {
     order: 1;
-    padding: 20px 16px;
-    border-radius: 18px;
+    padding: 24px 18px;
+    border-radius: 20px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
   }
 
+  .auth-hero > h1 {
+    font-size: clamp(1.2rem, 5.2vw, 1.55rem);
+  }
+
   .auth-hero h1,
   .auth-hero .subtext {
     max-width: none;
+  }
+
+  .auth-sticky-inner {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
   }
 
   .hero {
@@ -328,6 +329,8 @@ body {
   .secondary-button {
     min-height: 48px;
     width: 100%;
+    background-color: #00e676;
+    color: #fff;
   }
 
   .auth-demo {

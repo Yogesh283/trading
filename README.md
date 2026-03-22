@@ -39,12 +39,26 @@ The `data/` folder is in `.gitignore` (SQLite files are not committed).
 
 ## Scripts
 
-- **`npm run dev`** — **React + API on the same port** (default `PORT` in `.env`, e.g. **http://localhost:3000**). Hot reload for frontend.
+- **`npm run dev`** — **React + API on the same port** (default `PORT` in `.env`, e.g. **http://localhost:3000**). **No `frontend:build` needed** — Vite serves the UI from source.
 - `npm run dev:api-only` — API/WebSocket only on `PORT`; then run **`npm run frontend:dev`** on **5173** (old two-terminal flow).
 - `npm run build` — compile backend; `npm run frontend:build` — build frontend
-- `npm run start` — production: serve **`frontend/dist`** + API on `PORT`
+- **`npm run build:all`** — backend build + **`npm install`** in `frontend/` + frontend production build (default; avoids Windows **EPERM** from `npm ci` deleting locked Rollup `.node` files).
+- **`npm run build:all:ci`** — same as `build:all` but uses **`npm ci`** (strict lockfile; use on Linux CI/VPS when `node_modules` is not locked).
+- **`npm run build:all:local`** — backend + frontend build only (no install; fastest when deps are already OK).
+- `npm run start` — production: serve **`frontend/dist`** + API on `PORT`. **Local tip:** if `NODE_ENV=development` and **`frontend/dist` is missing**, the server still attaches **Vite** so the full app shows without a frontend build.
 - `npm run frontend:dev` — standalone Vite (use with `dev:api-only`)
 - `npm run lint` — type-check backend
+- **`npm run frontend:clear-vite-cache`** — delete `frontend/node_modules/.vite` (fixes Vite **`504 (Outdated Optimize Dep)`** after upgrades or stale pre-bundles)
+
+## Dev troubleshooting
+
+- **`npm run dev`** → open **`http://localhost:<PORT>`** (same as `.env` `PORT`, default **3000**). Do not rely on **5173** unless you use the two-process flow below.
+- **Two terminals:** `npm run dev:api-only` **and** `npm run frontend:dev` → open **`http://localhost:5173`** only (API stays on `PORT`). Opening **`http://localhost:3000`** in that mode will not match Vite HMR and you’ll see WebSocket / “wrong server” errors.
+- **`504 (Outdated Optimize Dep)`** on `/node_modules/.vite/deps/...` → stop the server, run **`npm run frontend:clear-vite-cache`**, start again (hard refresh the browser).
+- **`SES Removing unpermitted intrinsics`** (`lockdown-install.js`) → usually a **browser extension** (e.g. wallet / security); try a private window or disable extensions to confirm.
+- **Port in use:** Node and **Apache/XAMPP** cannot both bind **3000** — change `PORT` in `.env` or stop the other service.
+- **`GET /src/main.tsx` 404** with dev-style HTML: the page must be served by **Node + Vite** (`npm run dev`), not by **Apache** using `frontend/` as document root. Apache will serve `index.html` but cannot compile `.tsx`; use **`http://localhost:<PORT>`** on the Node app only (or proxy **all** paths to Node).
+- **“Node cannot be found in the current page”** — usually a **browser extension** (e.g. devtools / automation); safe to ignore if the app loads.
 
 ## Admin panel (React-Admin)
 

@@ -89,10 +89,20 @@
   font-weight: 600;
   cursor: pointer;
   padding: 8px 12px;
+  border-radius: 10px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
 }
 
 .landing-link:hover {
   color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.landing-link:active {
+  transform: scale(0.98);
 }
 
 .landing-btn-outline {
@@ -104,10 +114,24 @@
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .landing-btn-outline:hover {
-  background: rgba(0, 200, 83, 0.1);
+  background: rgba(0, 200, 83, 0.14);
+  border-color: rgba(0, 230, 118, 0.85);
+  color: #b9f6ca;
+  box-shadow: 0 4px 24px rgba(0, 230, 118, 0.2);
+  transform: translateY(-1px);
+}
+
+.landing-btn-outline:active {
+  transform: translateY(0);
 }
 
 .landing-btn-primary {
@@ -120,10 +144,20 @@
   font-size: 14px;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(0, 200, 83, 0.35);
+  transition:
+    filter 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .landing-btn-primary:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.1);
+  box-shadow: 0 8px 32px rgba(0, 230, 118, 0.5);
+  transform: translateY(-2px);
+}
+
+.landing-btn-primary:active {
+  transform: translateY(0);
 }
 
 .landing-btn-secondary {
@@ -248,12 +282,19 @@
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: border-color 0.2s, transform 0.2s;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+  cursor: default;
 }
 
 .landing-feature-card:hover {
-  border-color: rgba(0, 200, 83, 0.25);
-  transform: translateY(-2px);
+  border-color: rgba(0, 230, 118, 0.35);
+  background: rgba(0, 230, 118, 0.04);
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 230, 118, 0.12);
 }
 
 .landing-feature-icon {
@@ -279,6 +320,16 @@
   padding: 0 20px 64px;
 }
 
+/* Placed right under hero — tighter vertical rhythm before pills */
+.landing-demo-block--near-top {
+  padding: 20px 20px 16px;
+  background: #000;
+}
+
+.landing-ot-final-cta--near-top {
+  padding: 8px 20px 36px;
+}
+
 .landing-demo-inner {
   max-width: 960px;
   margin: 0 auto;
@@ -291,6 +342,20 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.landing-demo-inner:hover {
+  border-color: rgba(0, 230, 118, 0.45);
+  box-shadow: 0 20px 56px rgba(0, 230, 118, 0.12), 0 0 0 1px rgba(0, 230, 118, 0.15);
+  transform: translateY(-2px);
+}
+
+.landing-demo-inner .landing-btn-primary:hover {
+  transform: translateY(-3px) scale(1.02);
 }
 
 .landing-demo-inner h2 {
@@ -322,6 +387,11 @@
 
 .landing-trust-line a {
   color: #7c8a99;
+  transition: color 0.2s ease;
+}
+
+.landing-trust-line a:hover {
+  color: #69f0ae;
 }
 
 .landing-footer {
@@ -353,11 +423,13 @@
   background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .landing-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(0, 230, 118, 0.12);
+  border-color: rgba(0, 230, 118, 0.35);
+  box-shadow: 0 4px 18px rgba(0, 230, 118, 0.15);
 }
 
 .landing-menu-burger {
@@ -435,6 +507,16 @@
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.landing-drawer-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+}
+
+.landing-drawer-close:active {
+  transform: scale(0.95);
 }
 
 .landing-drawer-links {
@@ -454,11 +536,22 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .landing-drawer-links button:hover {
-  background: rgba(0, 200, 83, 0.15);
-  border-color: rgba(0, 200, 83, 0.3);
+  background: rgba(0, 230, 118, 0.12);
+  border-color: rgba(0, 230, 118, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.1);
+  transform: translateX(4px);
+}
+
+.landing-drawer-links button:active {
+  transform: translateX(2px);
 }
 
 @media (min-width: 769px) {
@@ -863,12 +956,20 @@
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 6px 28px rgba(0, 200, 83, 0.4);
-  transition: filter 0.2s, transform 0.15s;
+  transition:
+    filter 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .landing-ot-btn-main:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 230, 118, 0.55);
+}
+
+.landing-ot-btn-main:active {
+  transform: translateY(0);
 }
 
 .landing-ot-btn-xl {
@@ -887,10 +988,167 @@
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 4px;
+  border-radius: 10px;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    text-underline-offset 0.2s ease;
 }
 
 .landing-ot-btn-ghost:hover {
   color: #b9f6ca;
+  background: rgba(0, 230, 118, 0.08);
+  text-underline-offset: 6px;
+}
+
+/* Highlight: Log in, Register, Demo ($0) — nav, hero, demo strip, final CTA */
+.landing-nav-desktop .landing-btn-outline {
+  border-width: 2px;
+  border-color: rgba(0, 230, 118, 0.7);
+  color: #b9f6ca;
+  box-shadow: 0 0 22px rgba(0, 230, 118, 0.22), inset 0 0 24px rgba(0, 230, 118, 0.05);
+}
+
+.landing-nav-desktop .landing-btn-primary {
+  box-shadow:
+    0 4px 26px rgba(0, 230, 118, 0.55),
+    0 0 0 2px rgba(0, 230, 118, 0.38);
+}
+
+/* —— Strong CTA highlight: Demo, Log in, Register, Start for $0 (nav + drawer) —— */
+@keyframes landing-cta-glow-ring {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(0, 230, 118, 0.45),
+      0 0 18px rgba(0, 230, 118, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px rgba(0, 255, 150, 0.65),
+      0 0 28px rgba(0, 230, 118, 0.45);
+  }
+}
+
+@keyframes landing-cta-glow-solid {
+  0%,
+  100% {
+    box-shadow:
+      0 4px 24px rgba(0, 230, 118, 0.5),
+      0 0 0 2px rgba(180, 255, 200, 0.35);
+  }
+  50% {
+    box-shadow:
+      0 6px 36px rgba(0, 255, 150, 0.65),
+      0 0 0 3px rgba(200, 255, 220, 0.55);
+  }
+}
+
+.landing-nav-desktop .landing-cta-highlight--demo.landing-link,
+.landing-nav-desktop .landing-cta-highlight--login.landing-link {
+  color: #e8f5e9;
+  background: rgba(0, 230, 118, 0.14);
+  border: 1px solid rgba(0, 230, 118, 0.5);
+  border-radius: 10px;
+  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
+}
+
+.landing-nav-desktop .landing-cta-highlight--register.landing-btn-outline {
+  border-width: 2px;
+  border-color: rgba(0, 255, 150, 0.85);
+  color: #e8f5e9;
+  background: rgba(0, 230, 118, 0.12);
+  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
+}
+
+.landing-nav-desktop .landing-cta-highlight--start.landing-btn-primary {
+  animation: landing-cta-glow-solid 2.4s ease-in-out infinite;
+}
+
+.landing-nav-desktop .landing-cta-highlight--demo.landing-link:hover,
+.landing-nav-desktop .landing-cta-highlight--login.landing-link:hover {
+  filter: brightness(1.12);
+  background: rgba(0, 230, 118, 0.22);
+}
+
+.landing-nav-desktop .landing-cta-highlight--register.landing-btn-outline:hover {
+  filter: brightness(1.08);
+  background: rgba(0, 230, 118, 0.2);
+}
+
+.landing-nav-desktop .landing-cta-highlight--start.landing-btn-primary:hover {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+}
+
+.landing-drawer-links .landing-cta-highlight--demo,
+.landing-drawer-links .landing-cta-highlight--login {
+  border: 2px solid rgba(0, 230, 118, 0.55) !important;
+  background: linear-gradient(180deg, rgba(0, 230, 118, 0.18), rgba(0, 230, 118, 0.06)) !important;
+  color: #e8f5e9 !important;
+  font-weight: 700 !important;
+  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
+}
+
+.landing-drawer-links .landing-cta-highlight--register {
+  border: 2px solid rgba(0, 255, 150, 0.75) !important;
+  background: rgba(0, 230, 118, 0.12) !important;
+  color: #b9f6ca !important;
+  font-weight: 700 !important;
+  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
+}
+
+.landing-drawer-links .landing-cta-highlight--start {
+  border: 2px solid rgba(200, 255, 220, 0.55) !important;
+  background: linear-gradient(180deg, #00e676, #00c853) !important;
+  color: #04210f !important;
+  font-weight: 800 !important;
+  animation: landing-cta-glow-solid 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-cta-highlight--demo,
+  .landing-cta-highlight--login,
+  .landing-cta-highlight--register,
+  .landing-cta-highlight--start {
+    animation: none !important;
+  }
+}
+
+.landing-ot-hero .landing-ot-btn-main {
+  box-shadow:
+    0 8px 38px rgba(0, 230, 118, 0.52),
+    0 0 0 2px rgba(0, 230, 118, 0.38);
+}
+
+.landing-ot-hero .landing-ot-btn-ghost {
+  border: 1px solid rgba(0, 230, 118, 0.4);
+  border-radius: 10px;
+  padding: 14px 22px;
+  text-decoration: none;
+  background: rgba(0, 230, 118, 0.07);
+  color: #b9f6ca;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.landing-ot-hero .landing-ot-btn-ghost:hover {
+  border-color: rgba(0, 230, 118, 0.75);
+  background: rgba(0, 230, 118, 0.14);
+  box-shadow: 0 6px 28px rgba(0, 230, 118, 0.18);
+  transform: translateY(-2px);
+  color: #e8f5e9;
+}
+
+.landing-demo-inner .landing-btn-primary.landing-btn-lg {
+  box-shadow: 0 6px 30px rgba(0, 230, 118, 0.48), 0 0 0 2px rgba(0, 230, 118, 0.32);
+}
+
+.landing-ot-final-cta .landing-ot-btn-main.landing-ot-btn-xl {
+  box-shadow: 0 8px 38px rgba(0, 230, 118, 0.52), 0 0 0 2px rgba(0, 230, 118, 0.35);
 }
 
 .landing-ot-pills {
@@ -898,6 +1156,37 @@
   background: #060606;
   border-bottom: 1px solid var(--ot-border);
   overflow: hidden;
+}
+
+/* Marquee wrapper: fade edges, hide overflow */
+.landing-ot-pills-marquee {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+@keyframes landing-ot-pills-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Duplicated pill list in JSX → -50% = one full set width */
+.landing-ot-pills-track--marquee {
+  display: flex;
+  width: max-content;
+  gap: 12px;
+  padding: 4px 12px;
+  animation: landing-ot-pills-marquee 42s linear infinite;
+  will-change: transform;
+}
+
+.landing-ot-pills-marquee:hover .landing-ot-pills-track--marquee {
+  animation-play-state: paused;
 }
 
 .landing-ot-pills-track {
@@ -925,6 +1214,148 @@
   color: #c4c7cc;
   font-size: 14px;
   font-weight: 600;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.landing-ot-pill:hover {
+  border-color: rgba(0, 230, 118, 0.4);
+  background: rgba(0, 230, 118, 0.1);
+  color: #e8f5e9;
+  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.15);
+  transform: translateY(-2px) scale(1.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-ot-pills-track--marquee {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100% !important;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+
+  .landing-ot-pills-track--marquee .landing-ot-pill[aria-hidden="true"] {
+    display: none;
+  }
+
+  .landing-ot-pills-marquee {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}
+
+/* Landing: binary Up / Down explainer */
+.landing-ot-binary {
+  padding: clamp(40px, 6vw, 72px) 20px 56px;
+  max-width: 1040px;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--ot-border);
+  background: linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
+}
+
+.landing-ot-binary-lead {
+  margin-top: 12px !important;
+  max-width: 640px !important;
+}
+
+.landing-ot-binary-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+@media (min-width: 768px) {
+  .landing-ot-binary-steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+}
+
+.landing-ot-binary-card {
+  position: relative;
+  padding: 22px 20px 20px;
+  border-radius: 16px;
+  background: var(--ot-card);
+  border: 1px solid var(--ot-border);
+  text-align: left;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.landing-ot-binary-card:hover {
+  border-color: rgba(0, 230, 118, 0.3);
+  background: rgba(17, 19, 24, 0.98);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 230, 118, 0.08);
+}
+
+.landing-ot-binary-card h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.landing-ot-binary-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #9aa0a6;
+}
+
+.landing-ot-binary-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: rgba(0, 230, 118, 0.15);
+  color: var(--ot-green);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.landing-ot-binary-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  margin: 0 2px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.landing-ot-binary-tag--up {
+  background: rgba(0, 230, 118, 0.2);
+  color: #4ade80;
+}
+
+.landing-ot-binary-tag--down {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.landing-ot-binary-foot {
+  margin: 28px auto 0;
+  max-width: 560px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b7280;
 }
 
 .landing-ot-band {
@@ -1024,6 +1455,16 @@
   overflow: hidden;
   border: 1px solid rgba(0, 230, 118, 0.2);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.landing-ot-banner-wrap:hover {
+  border-color: rgba(0, 230, 118, 0.5);
+  box-shadow: 0 20px 56px rgba(0, 230, 118, 0.15), 0 12px 40px rgba(0, 0, 0, 0.45);
+  transform: scale(1.02);
 }
 
 .landing-ot-banner {
@@ -1032,6 +1473,11 @@
   height: auto;
   object-fit: cover;
   aspect-ratio: 16 / 10;
+  transition: transform 0.45s ease;
+}
+
+.landing-ot-banner-wrap:hover .landing-ot-banner {
+  transform: scale(1.05);
 }
 
 .landing-ot-phone {
@@ -1131,11 +1577,18 @@
   border-radius: 16px;
   background: var(--ot-card);
   border: 1px solid var(--ot-border);
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
 }
 
 .landing-ot-demo-card:hover {
-  border-color: rgba(0, 230, 118, 0.25);
+  border-color: rgba(0, 230, 118, 0.45);
+  background: rgba(20, 24, 30, 0.95);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 230, 118, 0.12);
 }
 
 .landing-ot-demo-card h3 {
@@ -1158,12 +1611,22 @@
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 0;
   font-family: inherit;
+  border-radius: 6px;
+  transition:
+    color 0.2s ease,
+    letter-spacing 0.2s ease,
+    text-decoration-color 0.2s ease;
+  text-decoration: underline transparent;
+  text-underline-offset: 4px;
 }
 
 .landing-ot-link-btn:hover {
+  color: #b9f6ca;
   text-decoration: underline;
+  text-decoration-color: var(--ot-green);
+  letter-spacing: 0.02em;
 }
 
 .landing-ot-legal-strip {
@@ -1203,6 +1666,18 @@
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--ot-border);
+  transition:
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.landing-ot-support-card:hover {
+  border-color: rgba(0, 230, 118, 0.25);
+  background: rgba(0, 230, 118, 0.05);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
 }
 
 .landing-ot-support-card h3 {
@@ -1259,6 +1734,19 @@
   padding: 20px 12px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.landing-ot-stat:hover {
+  border-color: rgba(0, 230, 118, 0.2);
+  background: rgba(0, 230, 118, 0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 230, 118, 0.1);
 }
 
 .landing-ot-stat strong {
@@ -1292,6 +1780,16 @@
   background: var(--ot-card);
   border: 1px solid var(--ot-border);
   text-align: center;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+}
+
+.landing-ot-review-card:hover {
+  border-color: rgba(0, 230, 118, 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
 }
 
 .landing-ot-review-avatar {
@@ -1344,11 +1842,24 @@
   color: #fff;
   font-size: 20px;
   cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .landing-ot-review-nav button:hover {
   border-color: var(--ot-green);
+  background: rgba(0, 230, 118, 0.12);
   color: var(--ot-green);
+  transform: scale(1.08);
+  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.25);
+}
+
+.landing-ot-review-nav button:active {
+  transform: scale(1);
 }
 
 .landing-ot-review-nav span {
@@ -1381,5 +1892,36 @@
 
   .landing-ot-split-visual {
     order: -1;
+  }
+}
+
+/* Hover motion off for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .landing-link:hover,
+  .landing-link:active,
+  .landing-btn-outline:hover,
+  .landing-btn-outline:active,
+  .landing-btn-primary:hover,
+  .landing-btn-primary:active,
+  .landing-feature-card:hover,
+  .landing-demo-inner:hover,
+  .landing-demo-inner .landing-btn-primary:hover,
+  .landing-ot-btn-main:hover,
+  .landing-ot-btn-main:active,
+  .landing-ot-pill:hover,
+  .landing-ot-binary-card:hover,
+  .landing-ot-demo-card:hover,
+  .landing-ot-support-card:hover,
+  .landing-ot-stat:hover,
+  .landing-ot-banner-wrap:hover,
+  .landing-ot-banner-wrap:hover .landing-ot-banner,
+  .landing-ot-review-card:hover,
+  .landing-ot-review-nav button:hover,
+  .landing-ot-review-nav button:active,
+  .landing-drawer-links button:hover,
+  .landing-drawer-links button:active,
+  .landing-ot-hero .landing-ot-btn-ghost:hover,
+  .landing-nav-desktop .landing-cta-highlight--start.landing-btn-primary:hover {
+    transform: none !important;
   }
 }

@@ -13,7 +13,10 @@ export default defineConfig({
             }
         }
     },
-    /** Standalone `npm run frontend:dev` only — unified dev uses root `npm run dev` on PORT */
+    /**
+     * Standalone `npm run frontend:dev` only.
+     * Unified `npm run dev` attaches Vite in middleware mode and overrides `port` + HMR to `PORT`.
+     */
     server: {
         host: true,
         port: 5173,
