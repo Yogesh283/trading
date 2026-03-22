@@ -33,9 +33,10 @@ import {
 } from "./services/authService";
 import {
   createDepositIntent,
-  finalizeDepositCredit,
+  getDepositById,
   listAllDeposits,
   listDepositsForUser,
+  markDepositCreditedIfPendingReview,
   markDepositTxSent
 } from "./services/depositStore";
 import { createWithdrawal, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
@@ -387,6 +388,16 @@ app.post("/api/deposits/submit-tx", (req, res) => {
     const depositId = String(req.body?.depositId ?? "").trim();
     const txHash = String(req.body?.txHash ?? "").trim();
     const fromAddress = String(req.body?.fromAddress ?? "").trim();
+    const rawAmt = req.body?.amountUsdt ?? req.body?.amount;
+    let amountUsdt: number | undefined;
+    if (rawAmt !== undefined && rawAmt !== null && rawAmt !== "") {
+      amountUsdt = Number(rawAmt);
+      if (!Number.isFinite(amountUsdt) || amountUsdt < MIN_DEPOSIT_USDT || amountUsdt > MAX_DEPOSIT_USDT) {
+        return res.status(400).json({
+          message: `amountUsdt must be between ${MIN_DEPOSIT_USDT} and ${MAX_DEPOSIT_USDT} USDT`
+        });
+      }
+    }
 
     if (!depositId || !txHash.startsWith("0x") || txHash.length < 10) {
       return res.status(400).json({ message: "depositId and valid txHash required" });
@@ -399,29 +410,22 @@ app.post("/api/deposits/submit-tx", (req, res) => {
       depositId,
       userId: user.id,
       txHash,
-      fromAddress
+      fromAddress,
+      amountUsdt
     });
 
-    if (!updated || updated.status !== "tx_sent") {
+    if (!updated || updated.status !== "pending_review") {
       return res.status(400).json({
         message: "Deposit not found, already submitted, or invalid"
       });
     }
 
-    const usdtDeposited = await finalizeDepositCredit(depositId, user.id);
-    if (usdtDeposited == null) {
-      return res.status(400).json({ message: "Deposit already credited or invalid state" });
-    }
-    const creditedInr = usdtToInrCredit(usdtDeposited);
-    await applyLedger(user.id, creditedInr, "deposit_credited", depositId);
-    await hydrateLiveAccountFromWallet(user.id);
-
     return res.json({
       ok: true,
-      deposit: { ...updated, status: "credited" as const },
-      creditedUsdt: usdtDeposited,
-      creditedInr,
-      inrPerUsdt: INR_PER_USDT
+      pendingReview: true,
+      deposit: updated,
+      message:
+        "Transaction submitted. An admin will verify it on-chain; your INR wallet will be credited after approval."
     });
   })().catch((error) => {
     const message = error instanceof Error ? error.message : "Submit failed";
@@ -463,6 +467,51 @@ app.get("/api/deposits/admin-all", (req, res) => {
   })().catch((error) => {
     logger.error({ error }, "deposits admin");
     res.status(500).json({ message: "Failed" });
+  });
+});
+
+app.post("/api/deposits/admin-approve", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const depositId = String(req.body?.depositId ?? "").trim();
+    if (!depositId) {
+      return res.status(400).json({ message: "depositId required" });
+    }
+    const row = await getDepositById(depositId);
+    if (!row || row.status !== "pending_review") {
+      return res.status(400).json({ message: "Deposit not found or not awaiting approval" });
+    }
+    const creditedInr = usdtToInrCredit(row.amount);
+    await applyLedger(row.user_id, creditedInr, "deposit_credited", depositId);
+    const marked = await markDepositCreditedIfPendingReview(depositId);
+    if (!marked) {
+      logger.error({ depositId }, "deposit admin-approve: ledger applied but status update failed");
+      return res.status(500).json({ message: "Partial failure — check deposit and wallet manually" });
+    }
+    await hydrateLiveAccountFromWallet(row.user_id);
+    return res.json({
+      ok: true,
+      depositId,
+      userId: row.user_id,
+      creditedUsdt: row.amount,
+      creditedInr,
+      inrPerUsdt: INR_PER_USDT
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Approve failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "deposit admin-approve");
+    res.status(500).json({ message });
   });
 });
 

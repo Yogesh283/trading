@@ -17,6 +17,7 @@
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "ethers": "^6.16.0",
+    "qrcode": "^1.5.4",
     "ra-data-simple-rest": "^5.14.4",
     "react": "^19.1.1",
     "react-admin": "^5.14.4",
@@ -25,6 +26,7 @@
     "updownfx": "file:.."
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.14",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",

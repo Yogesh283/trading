@@ -71,6 +71,23 @@ Third-party **[React-Admin](https://marmelab.com/react-admin/)** UI for read-onl
    - **SQL**: `UPDATE users SET role = 'admin' WHERE email = 'you@example.com';`
 3. Open **`/admin.html`** (or **`/admin`**) and sign in with that user’s **email + password** (same as normal login).
 
+**Localhost:** The admin UI uses the **local API** (same host as the page, e.g. `http://localhost:3000`) so it talks to the **same database as your `.env`**. If you promoted a user on the VPS but open admin on your PC, you’ll still see the PC DB — promote that email on the machine whose API you’re using.
+
+### Admin login: `role='user'` (needs `admin`)
+
+1. **Exact email** — typos (e.g. `1122` vs `1133`) mean no match. Copy from the app or DB.
+2. **CLI** (from repo root, same DB as `.env`):
+   ```bash
+   npm run promote-admin -- you@example.com
+   npm run promote-admin -- --list
+   ```
+   Confirm the line shows **`role=admin`** for that email.
+3. **phpMyAdmin** (MySQL) — use **single quotes** for the email string:
+   ```sql
+   UPDATE users SET role = 'admin' WHERE LOWER(email) = LOWER('you@example.com');
+   ```
+4. **User must exist** — if `promote-admin` says no row updated, **register in the app** with that email first, then promote again.
+
 API: **`GET /api/admin/ra/:resource`** and **`GET /api/deposits/admin-all`** require **`Authorization: Bearer <JWT>`** and **`users.role = 'admin'`**.
 
 ## Current Features

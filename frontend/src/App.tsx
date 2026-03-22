@@ -369,6 +369,20 @@ export default function App() {
     })();
   }, []);
 
+  /**
+   * Referral invite: `/?ref=CODE` → after splash + boot, open **Register** directly with code prefilled.
+   * Skip when already logged in or guest demo (`session != null`).
+   */
+  useEffect(() => {
+    if (!splashReady || booting || session != null) return;
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (!ref?.trim()) return;
+    const code = ref.trim().toUpperCase();
+    setRegisterForm((c) => ({ ...c, referralCode: code }));
+    setAuthView("register");
+    setPublicScreen("auth");
+  }, [splashReady, booting, session]);
+
   useEffect(() => {
     if (booting) {
       return;

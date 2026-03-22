@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ethers } from "ethers";
-import { createDepositIntent, loadMyDeposits, submitDepositTx, type DepositRecord } from "./api";
+import QRCode from "qrcode";
+import {
+  createDepositIntent,
+  loadMyDeposits,
+  submitDepositTx,
+  type DepositRecord
+} from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import {
@@ -44,6 +50,26 @@ type Props = {
 const ERC20_TRANSFER = "function transfer(address to, uint256 amount) returns (bool)";
 const ERC20_BALANCE_OF = "function balanceOf(address) view returns (uint256)";
 
+function buildUsdtBep20PaymentUri(
+  tokenAddress: string,
+  chainId: number,
+  toAddress: string,
+  amountUsdt: number,
+  decimals: number
+): string {
+  const token = ethers.getAddress(tokenAddress);
+  const to = ethers.getAddress(toAddress);
+  const uint256 = ethers.parseUnits(String(amountUsdt), decimals).toString();
+  return `ethereum:${token}@${chainId}/transfer?address=${encodeURIComponent(to)}&uint256=${uint256}`;
+}
+
+function depositStatusLabel(status: string): string {
+  if (status === "pending_review") return "Pending admin";
+  if (status === "pending_wallet") return "Pending payment";
+  if (status === "credited") return "Credited";
+  return status.replace(/_/g, " ");
+}
+
 export default function DepositPage({ token, onBack, onSuccess }: Props) {
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
@@ -54,6 +80,16 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
   const [showMobileContinue, setShowMobileContinue] = useState(false);
   /** EIP-1193 provider appeared (extension or in-wallet browser). */
   const [injectReady, setInjectReady] = useState(false);
+  /** QR / external wallet: intent + scannable payment URI. */
+  const [qrPayment, setQrPayment] = useState<{
+    deposit: DepositRecord;
+    paymentUri: string;
+  } | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrAmountUsdt, setQrAmountUsdt] = useState("");
+  const [qrTxHash, setQrTxHash] = useState("");
+  const [qrFrom, setQrFrom] = useState("");
+  const [busyQr, setBusyQr] = useState(false);
 
   const refreshDeposits = useCallback(async () => {
     try {
@@ -67,6 +103,26 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
   useEffect(() => {
     void refreshDeposits();
   }, [refreshDeposits]);
+
+  useEffect(() => {
+    const uri = qrPayment?.paymentUri;
+    if (!uri) {
+      setQrDataUrl("");
+      return;
+    }
+    let cancelled = false;
+    void QRCode.toDataURL(uri, { width: 220, margin: 2, color: { dark: "#0a1628", light: "#ffffff" } }).then(
+      (url) => {
+        if (!cancelled) setQrDataUrl(url);
+      },
+      () => {
+        if (!cancelled) setQrDataUrl("");
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [qrPayment?.paymentUri]);
 
   useEffect(() => {
     const sync = () => setInjectReady(!!getFirstInjectedEthereumProvider());
@@ -165,7 +221,7 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
           ]
         });
 
-        const credited = await submitDepositTx(token, deposit.id, txHash, from);
+        const submitted = await submitDepositTx(token, deposit.id, txHash, from, num);
         try {
           sessionStorage.removeItem(DEPOSIT_AMOUNT_SESSION_KEY);
           localStorage.removeItem(DEPOSIT_AMOUNT_LOCAL_KEY);
@@ -175,10 +231,17 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
         }
         stripAutoDepositFromUrl();
         setShowMobileContinue(false);
-        const inr = credited.creditedInr ?? previewInrFromUsdt(num);
-        setMessage(
-          `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${credited.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
-        );
+        if (submitted.pendingReview) {
+          setMessage(
+            submitted.message ??
+              "Payment submitted for review. After an admin verifies your transaction on BscScan, your INR wallet will be credited."
+          );
+        } else if (submitted.creditedInr != null) {
+          const inr = submitted.creditedInr;
+          setMessage(
+            `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${submitted.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
+          );
+        }
         await refreshDeposits();
         onSuccess?.();
       } finally {
@@ -299,6 +362,78 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
     }
   };
 
+  const generateQrPayment = async () => {
+    setMessage("");
+    const num = Number(amount);
+    if (!Number.isFinite(num) || num < 1) {
+      setMessage("Minimum 1 USDT.");
+      return;
+    }
+    setBusyQr(true);
+    try {
+      const intent = await createDepositIntent(token, num, "qr_scan");
+      const { deposit, tokenAddress, toAddress, chainId, decimals } = intent;
+      const paymentUri = buildUsdtBep20PaymentUri(tokenAddress, chainId, toAddress, num, decimals);
+      setQrPayment({
+        deposit,
+        paymentUri
+      });
+      setQrAmountUsdt(String(num));
+      setQrTxHash("");
+      setQrFrom("");
+      setMessage(
+        "Scan the QR with your wallet, then enter amount, transaction hash, and your sending address."
+      );
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message.slice(0, 200) : "Failed to create deposit");
+      setQrPayment(null);
+    } finally {
+      setBusyQr(false);
+    }
+  };
+
+  const submitQrHash = async () => {
+    if (!qrPayment) return;
+    const hash = qrTxHash.trim();
+    const from = qrFrom.trim();
+    const amt = Number(qrAmountUsdt.trim().replace(",", "."));
+    if (!Number.isFinite(amt) || amt < 1) {
+      setMessage("Enter the USDT amount you sent (minimum 1).");
+      return;
+    }
+    if (!hash.startsWith("0x") || hash.length < 10) {
+      setMessage("Enter full BSC transaction hash (0x…).");
+      return;
+    }
+    if (!from.startsWith("0x") || from.length < 42) {
+      setMessage("Enter the wallet address you sent from (0x…).");
+      return;
+    }
+    setBusyQr(true);
+    setMessage("");
+    try {
+      const submitted = await submitDepositTx(token, qrPayment.deposit.id, hash, from, amt);
+      if (submitted.pendingReview) {
+        setMessage(
+          submitted.message ??
+            "Submitted. An admin will verify on BscScan; your INR wallet updates after approval."
+        );
+        setQrPayment(null);
+        setQrAmountUsdt("");
+        setQrTxHash("");
+        setQrFrom("");
+      } else {
+        setMessage("Check your deposit list below for status.");
+      }
+      await refreshDeposits();
+      onSuccess?.();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message.slice(0, 220) : "Submit failed");
+    } finally {
+      setBusyQr(false);
+    }
+  };
+
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
     setMessage("");
     const num = Number(amount);
@@ -379,23 +514,25 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
 
         <ol className="deposit-flow-steps deposit-flow-steps-short" aria-label="Deposit steps">
           <li>
-            <strong>Amount</strong> — USDT you will send from crypto wallet (we check balance before payment).
+            <strong>Amount</strong> — USDT you will send from crypto wallet (we check balance before in-browser payment).
           </li>
           <li>
-            <strong>Confirm</strong> —{" "}
+            <strong>Pay</strong> —{" "}
             {injectReady ? (
-              <>green button → sign once in wallet.</>
+              <>
+                <strong>Confirm deposit</strong> in wallet, <em>or</em> use <strong>QR / external wallet</strong> below.
+              </>
             ) : isMobileDevice() ? (
               <>
-                use <strong>Open app</strong> below so this page opens inside the wallet; then{" "}
-                <strong>Confirm deposit</strong> appears and you sign once.
+                <strong>Open app</strong> + confirm, <em>or</em> pay via <strong>QR</strong> then submit tx hash.
               </>
             ) : (
-              <>install a Web3 wallet, refresh this page, then use the green button and sign once.</>
+              <>Web3 wallet green button, <em>or</em> QR scan / any wallet then submit hash for admin approval.</>
             )}
           </li>
           <li>
-            <strong>Done</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong> added to your trading balance.
+            <strong>Credit</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong> after on-chain success; QR/hash flow
+            credits after <strong>admin verifies</strong> your transaction.
           </li>
         </ol>
 
@@ -478,6 +615,97 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
           </button>
         ) : null}
 
+        <div className="deposit-qr-section">
+          <h2 className="funds-wallets-title">QR / external wallet</h2>
+          <p className="funds-wallets-hint">
+            Generate a QR your phone wallet can scan (USDT BEP20). After you send, enter amount, BscScan transaction hash,
+            and your sending address. An admin will approve and your INR wallet will be credited.
+          </p>
+          {!qrPayment ? (
+            <button
+              type="button"
+              className="deposit-qr-generate-btn"
+              disabled={!!busy || !!busyQr || !amountValid}
+              onClick={() => void generateQrPayment()}
+            >
+              {busyQr ? "…" : "Generate QR & payment details"}
+            </button>
+          ) : (
+            <div className="deposit-qr-panel">
+              <div className="deposit-qr-visual">
+                {qrDataUrl ? (
+                  <img src={qrDataUrl} width={220} height={220} alt="USDT payment QR" className="deposit-qr-img" />
+                ) : (
+                  <p className="muted">Building QR…</p>
+                )}
+              </div>
+              <label className="funds-amount-label">
+                Amount (USDT) you sent
+                <input
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  inputMode="decimal"
+                  placeholder="e.g. 50"
+                  value={qrAmountUsdt}
+                  onChange={(e) => setQrAmountUsdt(e.target.value)}
+                  disabled={!!busyQr}
+                />
+              </label>
+              <p className="muted deposit-qr-amount-hint">
+                Must match what you sent on-chain. Admin credits your wallet in INR using this amount (1 USDT = ₹
+                {INR_PER_USDT}).
+              </p>
+              <label className="funds-amount-label">
+                Transaction hash (0x…)
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="0x…"
+                  value={qrTxHash}
+                  onChange={(e) => setQrTxHash(e.target.value)}
+                  disabled={!!busyQr}
+                />
+              </label>
+              <label className="funds-amount-label">
+                Your wallet address (sent from)
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="0x…"
+                  value={qrFrom}
+                  onChange={(e) => setQrFrom(e.target.value)}
+                  disabled={!!busyQr}
+                />
+              </label>
+              <div className="deposit-qr-actions">
+                <button
+                  type="button"
+                  className="deposit-confirm-primary"
+                  disabled={!!busy || !!busyQr}
+                  onClick={() => void submitQrHash()}
+                >
+                  {busyQr ? "Submitting…" : "Submit tx for admin review"}
+                </button>
+                <button
+                  type="button"
+                  className="deposit-qr-cancel"
+                  disabled={!!busyQr}
+                  onClick={() => {
+                    setQrPayment(null);
+                    setQrAmountUsdt("");
+                    setQrTxHash("");
+                    setQrFrom("");
+                    setMessage("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {message ? <p className="funds-message funds-message-wide">{message}</p> : null}
 
         <div className="funds-warn">
@@ -512,7 +740,9 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
                     <td>{d.amount} USDT</td>
                     <td>{(d.wallet_provider ?? "—").replace(/_/g, " ")}</td>
                     <td>
-                      <span className={`dep-status dep-${d.status}`}>{d.status}</span>
+                      <span className={`dep-status dep-${d.status}`} title={d.status}>
+                        {depositStatusLabel(d.status)}
+                      </span>
                     </td>
                     <td className="dep-tx">
                       {d.tx_hash ? (

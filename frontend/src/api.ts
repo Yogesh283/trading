@@ -379,23 +379,57 @@ export async function createDepositIntent(
   }>(response);
 }
 
+export type SubmitDepositTxResponse = {
+  ok: boolean;
+  pendingReview?: boolean;
+  deposit: DepositRecord;
+  message?: string;
+  creditedUsdt?: number;
+  creditedInr?: number;
+  inrPerUsdt?: number;
+};
+
 export async function submitDepositTx(
   token: string,
   depositId: string,
   txHash: string,
-  fromAddress: string
+  fromAddress: string,
+  amountUsdt?: number
 ) {
   const response = await fetch(`${apiBase()}/api/deposits/submit-tx`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token) },
-    body: JSON.stringify({ depositId, txHash, fromAddress })
+    body: JSON.stringify({
+      depositId,
+      txHash,
+      fromAddress,
+      ...(amountUsdt != null && Number.isFinite(amountUsdt) ? { amountUsdt } : {})
+    })
   });
-  return parseJson<{
+  return parseJson<SubmitDepositTxResponse>(response);
+}
+
+export async function adminApproveDeposit(adminToken: string, depositId: string) {
+  const response = await fetch(`${apiBase()}/api/deposits/admin-approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ depositId })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Approve failed");
+  }
+  return j as {
     ok: boolean;
+    depositId: string;
+    userId: string;
     creditedUsdt: number;
     creditedInr: number;
     inrPerUsdt?: number;
-  }>(response);
+  };
 }
 
 export async function loadMyDeposits(token: string) {

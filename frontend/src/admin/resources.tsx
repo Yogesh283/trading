@@ -1,3 +1,5 @@
+import { Button } from "@mui/material";
+import { useState } from "react";
 import {
   Datagrid,
   DateField,
@@ -10,8 +12,50 @@ import {
   SelectInput,
   SimpleForm,
   TextField,
-  TextInput
+  TextInput,
+  useNotify,
+  useRefresh
 } from "react-admin";
+import { adminApproveDeposit } from "../api";
+import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
+
+function DepositApproveButton({ record }: { record: { id: string; status: string } }) {
+  const refresh = useRefresh();
+  const notify = useNotify();
+  const [busy, setBusy] = useState(false);
+  if (record.status !== "pending_review") {
+    return <span>—</span>;
+  }
+  return (
+    <Button
+      size="small"
+      variant="contained"
+      color="success"
+      disabled={busy}
+      onClick={() => {
+        const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
+        if (!t) {
+          notify("Admin session missing — log in again", { type: "warning" });
+          return;
+        }
+        setBusy(true);
+        void (async () => {
+          try {
+            await adminApproveDeposit(t, record.id);
+            notify("Approved — user INR wallet credited", { type: "success" });
+            refresh();
+          } catch (e) {
+            notify(e instanceof Error ? e.message : "Approve failed", { type: "error" });
+          } finally {
+            setBusy(false);
+          }
+        })();
+      }}
+    >
+      Approve
+    </Button>
+  );
+}
 
 export function DepositList() {
   return (
@@ -35,6 +79,7 @@ export function DepositList() {
             )
           }
         />
+        <FunctionField label="Action" render={(r) => <DepositApproveButton record={r} />} />
       </Datagrid>
     </List>
   );
