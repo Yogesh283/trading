@@ -3,6 +3,8 @@
 यह **अलग फ़ोल्डर** है। मुख्य `tradeing` वेब प्रोजेक्ट में **कोई बदलाव नहीं**।  
 Capacitor एक **WebView** में आपकी **live website** खोलता है (`server.url`).
 
+**Landing पर APK लिंक:** वेब `frontend` में बिल्ड के बाद APK को `frontend/public/downloads/UpDownFX.apk` नाम से रखें, या `.env` में `VITE_APK_DOWNLOAD_URL` सेट करें — विवरण `frontend/public/downloads/README.txt` में।
+
 ## 1) साइट URL बदलें
 
 `capacitor.config.json` में `server.url` अपना डोमेन लिखें:

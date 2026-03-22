@@ -9,7 +9,8 @@ const outDir = path.join(root, "public", "brand");
 const map = [
   ["logo.png", "logo.png"],
   ["I.JPG.jpeg", "banner1.jpeg"],
-  ["2.jpg.jpeg", "banner2.jpeg"]
+  ["2.jpg.jpeg", "banner2.jpeg"],
+  ["3.jpg", "banner3.jpeg"]
 ];
 
 fs.mkdirSync(outDir, { recursive: true });

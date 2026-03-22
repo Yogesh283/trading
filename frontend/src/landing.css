@@ -105,6 +105,12 @@
   transform: scale(0.98);
 }
 
+a.landing-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
 .landing-btn-outline {
   padding: 10px 18px;
   border-radius: 10px;
@@ -265,7 +271,7 @@
 
 .landing-section-title {
   text-align: center;
-  font-size: 28px;
+  font-size: clamp(30px, 4.5vw, 36px);
   font-weight: 800;
   margin: 0 0 40px;
   color: #fff;
@@ -360,7 +366,8 @@
 
 .landing-demo-inner h2 {
   margin: 0 0 12px;
-  font-size: 24px;
+  font-size: clamp(26px, 4vw, 32px);
+  font-weight: 800;
   color: #fff;
 }
 
@@ -369,6 +376,49 @@
   max-width: 480px;
   color: #b0b8c1;
   line-height: 1.55;
+}
+
+.landing-demo-inner.landing-demo-inner--brand {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 340px);
+  align-items: center;
+  gap: 28px 32px;
+}
+
+.landing-demo-copy {
+  min-width: 0;
+}
+
+.landing-demo-cta {
+  margin-top: 22px;
+}
+
+.landing-demo-brand-visual {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 230, 118, 0.22);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.landing-demo-brand-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+@media (max-width: 720px) {
+  .landing-demo-inner.landing-demo-inner--brand {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-demo-brand-visual {
+    order: -1;
+    max-width: 420px;
+    margin: 0 auto;
+    width: 100%;
+  }
 }
 
 .landing-trust {
@@ -399,6 +449,18 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   max-width: 800px;
   margin: 0 auto;
+}
+
+.landing-footer-brand-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.landing-footer-logo-mark {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  object-fit: cover;
 }
 
 .landing-footer p {
@@ -546,7 +608,8 @@
   padding: 16px 12px;
 }
 
-.landing-drawer-links button {
+.landing-drawer-links button,
+.landing-drawer-links a.landing-drawer-link {
   text-align: left;
   padding: 14px 16px;
   border-radius: 12px;
@@ -561,16 +624,21 @@
     border-color 0.2s ease,
     transform 0.2s ease,
     box-shadow 0.2s ease;
+  text-decoration: none;
+  display: block;
+  box-sizing: border-box;
 }
 
-.landing-drawer-links button:hover {
+.landing-drawer-links button:hover,
+.landing-drawer-links a.landing-drawer-link:hover {
   background: rgba(0, 230, 118, 0.12);
   border-color: rgba(0, 230, 118, 0.4);
   box-shadow: 0 4px 20px rgba(0, 230, 118, 0.1);
   transform: translateX(4px);
 }
 
-.landing-drawer-links button:active {
+.landing-drawer-links button:active,
+.landing-drawer-links a.landing-drawer-link:active {
   transform: translateX(2px);
 }
 
@@ -918,27 +986,41 @@
 
 .landing-ot-hero-inner {
   position: relative;
-  max-width: 720px;
+  max-width: min(820px, 100%);
   margin: 0 auto;
   text-align: center;
 }
 
 .landing-ot-hero-label {
-  margin: 0 0 16px;
-  font-size: 13px;
+  margin: 0 0 18px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ot-green);
 }
 
+.landing-ot-hero-label--with-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.landing-ot-hero-logo {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 230, 118, 0.25);
+  object-fit: cover;
+}
+
 .landing-ot-hero-title {
   margin: 0;
-  font-size: clamp(34px, 7vw, 56px);
+  font-size: clamp(42px, 10vw, 76px);
   font-weight: 800;
-  line-height: 1.08;
+  line-height: 1.06;
   color: #fff;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
 }
 
 .landing-ot-hero-accent {
@@ -949,9 +1031,9 @@
 }
 
 .landing-ot-hero-sub {
-  margin: 24px auto 0;
-  max-width: 520px;
-  font-size: clamp(16px, 2.4vw, 18px);
+  margin: 28px auto 0;
+  max-width: 560px;
+  font-size: clamp(17px, 2.8vw, 20px);
   line-height: 1.55;
   color: #9aa0a6;
 }
@@ -963,6 +1045,175 @@
   gap: 14px;
   justify-content: center;
   align-items: center;
+}
+
+/* Full-bleed mood image + centered glass stack (“Trade” + CTA) */
+.landing-ot-cinematic {
+  padding: 12px 18px 44px;
+  max-width: 1180px;
+  margin: 0 auto;
+  /* When aspect-ratio + max-height shrink the card narrower than this column, center it */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.landing-ot-cinematic-inner {
+  position: relative;
+  width: 100%;
+  /* Match the width that aspect-ratio uses when height is capped — avoids a short card stuck left */
+  max-width: min(100%, calc(min(56vh, 520px) * 16 / 9));
+  margin-inline: auto;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  max-height: min(56vh, 520px);
+  border: 1px solid rgba(0, 230, 118, 0.32);
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 0 100px rgba(0, 230, 118, 0.1);
+}
+
+.landing-ot-cinematic-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  transform: scale(1.03);
+  filter: saturate(1.04) contrast(1.03) brightness(1.02);
+}
+
+.landing-ot-cinematic-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 72% 88% at 50% 50%, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0.5) 52%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(165deg, rgba(13, 27, 42, 0.35) 0%, transparent 45%, rgba(0, 0, 0, 0.4) 100%);
+}
+
+.landing-ot-cinematic-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vw, 36px);
+}
+
+.landing-ot-cinematic-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 36px) clamp(22px, 5vw, 40px);
+  gap: 8px;
+  border-radius: 22px;
+  background: rgba(4, 10, 18, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+
+.landing-ot-cinematic-brand {
+  margin: 0;
+  font-size: clamp(11px, 2vw, 13px);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.8);
+}
+
+.landing-ot-cinematic-word {
+  margin: 0;
+  font-size: clamp(48px, 12vw, 104px);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-align: center;
+  width: 100%;
+  background: linear-gradient(185deg, #e8fff0 0%, #00e676 38%, #00a152 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 20px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 36px rgba(0, 230, 118, 0.28));
+}
+
+.landing-ot-cinematic-tag {
+  margin: 2px 0 0;
+  max-width: 26rem;
+  width: 100%;
+  font-size: clamp(12px, 2.5vw, 15px);
+  font-weight: 600;
+  color: rgba(232, 234, 237, 0.92);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.75);
+  line-height: 1.4;
+}
+
+.landing-ot-cinematic-cta-wrap {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.landing-ot-cinematic-cta {
+  margin: 0;
+  padding: 13px 32px;
+  border-radius: 999px;
+  border: 2px solid rgba(0, 230, 118, 0.65);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8fff0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.landing-ot-cinematic-cta:hover {
+  background: rgba(0, 230, 118, 0.22);
+  border-color: rgba(105, 240, 174, 0.95);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0, 230, 118, 0.2);
+}
+
+@media (max-width: 640px) {
+  .landing-ot-cinematic-inner {
+    aspect-ratio: 4 / 3;
+    max-height: none;
+    max-width: 100%;
+  }
+
+  .landing-ot-cinematic-stack {
+    width: min(100%, 100%);
+    padding: 18px 20px 22px;
+  }
+
+  .landing-ot-cinematic-img {
+    object-position: center 40%;
+  }
 }
 
 .landing-ot-btn-main {
@@ -990,6 +1241,13 @@
 
 .landing-ot-btn-main:active {
   transform: translateY(0);
+}
+
+a.landing-ot-btn-main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .landing-ot-btn-xl {
@@ -1073,6 +1331,19 @@
   animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
 }
 
+.landing-nav-desktop .landing-cta-highlight--apk.landing-link {
+  color: #e0f2fe;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 10px;
+}
+
+.landing-nav-desktop .landing-cta-highlight--apk.landing-link:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(125, 211, 252, 0.75);
+  color: #f0f9ff;
+}
+
 .landing-nav-desktop .landing-cta-highlight--register.landing-btn-outline {
   border-width: 2px;
   border-color: rgba(0, 255, 150, 0.85);
@@ -1126,6 +1397,13 @@
   animation: landing-cta-glow-solid 2.4s ease-in-out infinite;
 }
 
+.landing-drawer-links .landing-cta-highlight--apk {
+  border: 2px solid rgba(56, 189, 248, 0.5) !important;
+  background: rgba(14, 165, 233, 0.14) !important;
+  color: #e0f2fe !important;
+  font-weight: 700 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-cta-highlight--demo,
   .landing-cta-highlight--login,
@@ -1169,6 +1447,39 @@
 
 .landing-ot-final-cta .landing-ot-btn-main.landing-ot-btn-xl {
   box-shadow: 0 8px 38px rgba(0, 230, 118, 0.52), 0 0 0 2px rgba(0, 230, 118, 0.35);
+}
+
+/* Android APK strip (see appBrand APK_DOWNLOAD_URL) */
+.landing-ot-apk-band {
+  padding: clamp(36px, 6vw, 56px) 20px;
+  background: linear-gradient(180deg, #0a1210 0%, #070807 100%);
+  border-top: 1px solid var(--ot-border);
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.landing-ot-apk-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.landing-ot-apk-inner h2 {
+  margin: 0 0 12px;
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.landing-ot-apk-inner p {
+  margin: 0 0 22px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #9aa3ad;
+}
+
+.landing-ot-apk-inner .landing-ot-btn-main {
+  min-height: 48px;
 }
 
 .landing-ot-pills {
@@ -1391,7 +1702,7 @@
 
 .landing-ot-band-title {
   margin: 0;
-  font-size: clamp(24px, 4vw, 34px);
+  font-size: clamp(28px, 4.8vw, 42px);
   font-weight: 800;
   color: #fff;
   line-height: 1.2;
@@ -1406,7 +1717,7 @@
 
 .landing-ot-h2 {
   margin: 0 0 12px;
-  font-size: clamp(22px, 3.5vw, 30px);
+  font-size: clamp(26px, 4.2vw, 38px);
   font-weight: 800;
   color: #fff;
 }
@@ -1895,7 +2206,7 @@
 
 .landing-ot-final-cta h2 {
   margin: 0 0 24px;
-  font-size: clamp(26px, 4vw, 36px);
+  font-size: clamp(30px, 4.8vw, 44px);
   font-weight: 800;
   color: #fff;
 }

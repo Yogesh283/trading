@@ -516,7 +516,8 @@
 .deposit-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .deposit-table th,
@@ -524,15 +525,36 @@
   padding: 10px 8px;
   text-align: left;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.deposit-table td {
+  color: #e8eef4;
 }
 
 .deposit-table th {
-  color: #8da2c0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a8bdd4;
+}
+
+.deposit-table-wallet {
   font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: #f1f5f9;
+  line-height: 1.35;
 }
 
 .deposit-table a {
-  color: #73c8ff;
+  color: #7dd3fc;
+  font-weight: 500;
+}
+
+.deposit-table a:hover {
+  color: #bae6fd;
 }
 
 .dep-status {

@@ -22,6 +22,7 @@ import {
   WalletList,
   WithdrawalList
 } from "./resources";
+import "../site-frame.css";
 
 const darkTheme = createTheme({
   palette: {

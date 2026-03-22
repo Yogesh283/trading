@@ -1,6 +1,7 @@
-/* About page — matches landing dark theme */
+/* About page — matches landing dark theme; brighter text for readability */
 .landing-page.about-page {
   min-height: 100vh;
+  color: #e4e8ec;
 }
 
 /* Full-screen about inside app shell (scrolls with body) */
@@ -27,7 +28,7 @@
 .about-back {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #c4cdd6;
   font-size: 0.95rem;
   cursor: pointer;
   padding: 0.35rem 0.5rem;
@@ -35,8 +36,8 @@
 }
 
 .about-back:hover {
-  color: #e2e8f0;
-  background: rgba(148, 163, 184, 0.1);
+  color: var(--ot-green, #00e676);
+  background: rgba(0, 230, 118, 0.08);
 }
 
 .about-top-brand {
@@ -44,7 +45,7 @@
   align-items: center;
   gap: 0.5rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #ffffff;
   font-size: 1rem;
 }
 
@@ -66,23 +67,28 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #38bdf8;
+  color: var(--ot-green, #00e676);
   margin: 0 0 0.5rem;
 }
 
 .about-title {
   font-size: clamp(1.75rem, 5vw, 2.25rem);
   font-weight: 800;
-  color: #f8fafc;
+  color: #ffffff;
   margin: 0 0 0.75rem;
   line-height: 1.15;
 }
 
 .about-lead {
   margin: 0;
-  color: #cbd5e1;
+  color: #e2e8f0;
   line-height: 1.65;
   font-size: 1.02rem;
+}
+
+.about-lead strong {
+  color: #f8fafc;
+  font-weight: 700;
 }
 
 .about-block {
@@ -96,14 +102,19 @@
 .about-block h2 {
   margin: 0 0 0.85rem;
   font-size: 1.1rem;
-  color: #f1f5f9;
+  color: #ffffff;
 }
 
 .about-list {
   margin: 0;
   padding-left: 1.2rem;
-  color: #cbd5e1;
+  color: #dce2e9;
   line-height: 1.6;
+}
+
+.about-list strong {
+  color: #f1f5f9;
+  font-weight: 700;
 }
 
 .about-list li {
@@ -119,14 +130,18 @@
   background: rgba(0, 0, 0, 0.35);
   padding: 0.1em 0.35em;
   border-radius: 4px;
-  color: #7dd3fc;
+  color: #86efac;
 }
 
 .about-income-intro {
   margin: 0 0 1rem;
-  color: #94a3b8;
+  color: #b8c4ce;
   font-size: 0.92rem;
   line-height: 1.55;
+}
+
+.about-income-intro strong {
+  color: #e8eef4;
 }
 
 .about-cta-row {
@@ -146,7 +161,7 @@
 .about-footer p {
   margin: 0;
   font-size: 0.85rem;
-  color: #64748b;
+  color: #9ca8b4;
   max-width: 36rem;
   margin-inline: auto;
   line-height: 1.5;
@@ -154,5 +169,5 @@
 
 .about-footer code {
   font-size: 0.82em;
-  color: #94a3b8;
+  color: #b4bcc6;
 }

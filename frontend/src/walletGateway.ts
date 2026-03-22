@@ -112,6 +112,35 @@ export function getFirstInjectedEthereumProvider(): { provider: any; walletId: W
   return null;
 }
 
+/**
+ * Human-readable label for deposit history `wallet_provider` (DB stores snake_case ids).
+ */
+export function walletProviderDisplayLabel(provider: string | null | undefined): string {
+  if (provider == null || String(provider).trim() === "") return "—";
+  const id = String(provider).trim();
+  const fromList = WALLET_OPTIONS.find((w) => w.id === id);
+  if (fromList) return fromList.name;
+
+  const extras: Record<string, string> = {
+    qr_scan: "QR payment",
+    qr_payment: "QR payment",
+    browser_wallet: "Web3 wallet"
+  };
+  if (extras[id]) return extras[id];
+
+  return id
+    .split("_")
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (lower === "qr") return "QR";
+      if (lower === "usdt") return "USDT";
+      if (lower === "bep20") return "BEP20";
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
 const BSC_CHAIN = {
   chainId: "0x38",
   chainName: "BNB Smart Chain",

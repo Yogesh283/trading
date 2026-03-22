@@ -30,6 +30,7 @@ import {
   getOpenInWalletDeepLink,
   isMobileDevice,
   WALLET_OPTIONS,
+  walletProviderDisplayLabel,
   type WalletGatewayId
 } from "./walletGateway";
 
@@ -66,6 +67,7 @@ function buildUsdtBep20PaymentUri(
 function depositStatusLabel(status: string): string {
   if (status === "pending_review") return "Pending admin";
   if (status === "pending_wallet") return "Pending payment";
+  if (status === "tx_sent") return "Crediting…";
   if (status === "credited") return "Credited";
   return status.replace(/_/g, " ");
 }
@@ -239,8 +241,11 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
         } else if (submitted.creditedInr != null) {
           const inr = submitted.creditedInr;
           setMessage(
-            `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${submitted.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
+            submitted.message ??
+              `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${submitted.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
           );
+        } else {
+          setMessage(submitted.message ?? "Deposit recorded — check your balance and history below.");
         }
         await refreshDeposits();
         onSuccess?.();
@@ -531,8 +536,9 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
             )}
           </li>
           <li>
-            <strong>Credit</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong> after on-chain success; QR/hash flow
-            credits after <strong>admin verifies</strong> your transaction.
+            <strong>Credit</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong>.{" "}
+            <strong>Confirm deposit</strong> (wallet in this page) adds INR to your trading wallet right after the
+            on-chain tx. <strong>QR / manual hash</strong> needs <strong>admin approval</strong> after BscScan check.
           </li>
         </ol>
 
@@ -566,8 +572,8 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
               {busy ? "Waiting for wallet…" : "Confirm deposit"}
             </button>
             <p className="deposit-direct-sub">
-              Sends USDT to the platform; your app balance increases in <strong>INR</strong> at <strong>1 USDT = ₹
-              {INR_PER_USDT}</strong>.
+              Sends USDT from your connected wallet; trading balance in <strong>INR</strong> updates automatically at{" "}
+              <strong>1 USDT = ₹{INR_PER_USDT}</strong> (no admin step for this path).
             </p>
           </div>
         ) : isMobileDevice() ? (
@@ -738,7 +744,7 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
                   <tr key={d.id}>
                     <td>{new Date(d.created_at).toLocaleString()}</td>
                     <td>{d.amount} USDT</td>
-                    <td>{(d.wallet_provider ?? "—").replace(/_/g, " ")}</td>
+                    <td className="deposit-table-wallet">{walletProviderDisplayLabel(d.wallet_provider)}</td>
                     <td>
                       <span className={`dep-status dep-${d.status}`} title={d.status}>
                         {depositStatusLabel(d.status)}

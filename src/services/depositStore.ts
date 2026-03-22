@@ -72,6 +72,18 @@ export async function markDepositTxSent(input: {
   amountUsdt?: number;
 }): Promise<DepositRow | null> {
   await ensureDepositsReady();
+  const existing = await dbGet<DepositRow>(
+    "SELECT * FROM deposits WHERE id = ? AND user_id = ? AND status = 'pending_wallet'",
+    [input.depositId, input.userId]
+  );
+  if (!existing) {
+    return null;
+  }
+
+  /** QR / manual hash flow → admin verifies on BscScan. In-app Web3 send → auto-credit after submit-tx. */
+  const needsAdminReview = existing.wallet_provider === "qr_scan";
+  const nextStatus: DepositStatus = needsAdminReview ? "pending_review" : "tx_sent";
+
   const now = new Date().toISOString();
   const claimed =
     input.amountUsdt != null &&
@@ -83,21 +95,22 @@ export async function markDepositTxSent(input: {
 
   const { affectedRows } = claimed != null
     ? await dbRun(
-        `UPDATE deposits SET tx_hash = ?, from_address = ?, amount = ?, status = 'pending_review', updated_at = ?
+        `UPDATE deposits SET tx_hash = ?, from_address = ?, amount = ?, status = ?, updated_at = ?
          WHERE id = ? AND user_id = ? AND status = 'pending_wallet'`,
         [
           input.txHash,
           input.fromAddress.toLowerCase(),
           claimed,
+          nextStatus,
           now,
           input.depositId,
           input.userId
         ]
       )
     : await dbRun(
-        `UPDATE deposits SET tx_hash = ?, from_address = ?, status = 'pending_review', updated_at = ?
+        `UPDATE deposits SET tx_hash = ?, from_address = ?, status = ?, updated_at = ?
          WHERE id = ? AND user_id = ? AND status = 'pending_wallet'`,
-        [input.txHash, input.fromAddress.toLowerCase(), now, input.depositId, input.userId]
+        [input.txHash, input.fromAddress.toLowerCase(), nextStatus, now, input.depositId, input.userId]
       );
 
   if (affectedRows !== 1) {
@@ -144,6 +157,17 @@ export async function markDepositCreditedIfPendingReview(depositId: string): Pro
   const { affectedRows } = await dbRun(
     `UPDATE deposits SET status = 'credited', updated_at = ? WHERE id = ? AND status = 'pending_review'`,
     [now, depositId]
+  );
+  return affectedRows === 1;
+}
+
+/** After auto-credit for in-wallet deposit: row was `tx_sent`, now `credited`. */
+export async function markDepositCreditedFromTxSent(depositId: string, userId: string): Promise<boolean> {
+  await ensureDepositsReady();
+  const now = new Date().toISOString();
+  const { affectedRows } = await dbRun(
+    `UPDATE deposits SET status = 'credited', updated_at = ? WHERE id = ? AND user_id = ? AND status = 'tx_sent'`,
+    [now, depositId, userId]
   );
   return affectedRows === 1;
 }

@@ -36,6 +36,7 @@ import {
   getDepositById,
   listAllDeposits,
   listDepositsForUser,
+  markDepositCreditedFromTxSent,
   markDepositCreditedIfPendingReview,
   markDepositTxSent
 } from "./services/depositStore";
@@ -414,18 +415,47 @@ app.post("/api/deposits/submit-tx", (req, res) => {
       amountUsdt
     });
 
-    if (!updated || updated.status !== "pending_review") {
+    if (!updated) {
       return res.status(400).json({
         message: "Deposit not found, already submitted, or invalid"
       });
     }
 
+    /* QR / external scan: admin approves after BscScan check. In-app Web3 send: credit INR wallet immediately. */
+    if (updated.wallet_provider === "qr_scan") {
+      if (updated.status !== "pending_review") {
+        return res.status(400).json({ message: "Deposit not found, already submitted, or invalid" });
+      }
+      return res.json({
+        ok: true,
+        pendingReview: true,
+        deposit: updated,
+        message:
+          "Transaction submitted. An admin will verify it on-chain; your INR wallet will be credited after approval."
+      });
+    }
+
+    if (updated.status !== "tx_sent") {
+      return res.status(400).json({ message: "Deposit not found, already submitted, or invalid" });
+    }
+
+    const creditedInr = usdtToInrCredit(updated.amount);
+    await applyLedger(user.id, creditedInr, "deposit_credited", depositId);
+    const marked = await markDepositCreditedFromTxSent(depositId, user.id);
+    if (!marked) {
+      logger.error({ depositId, userId: user.id }, "deposit submit-tx: ledger applied but status update failed");
+      return res.status(500).json({ message: "Partial failure — check deposit and wallet manually" });
+    }
+    await hydrateLiveAccountFromWallet(user.id);
+
     return res.json({
       ok: true,
-      pendingReview: true,
-      deposit: updated,
-      message:
-        "Transaction submitted. An admin will verify it on-chain; your INR wallet will be credited after approval."
+      pendingReview: false,
+      deposit: { ...updated, status: "credited" as const },
+      creditedUsdt: updated.amount,
+      creditedInr,
+      inrPerUsdt: INR_PER_USDT,
+      message: `Credited ${creditedInr} INR to your trading wallet (${updated.amount} USDT).`
     });
   })().catch((error) => {
     const message = error instanceof Error ? error.message : "Submit failed";

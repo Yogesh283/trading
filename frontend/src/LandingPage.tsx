@@ -1,17 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import "./landing.css";
-import { APP_NAME } from "./appBrand";
+import { APP_NAME, APK_DOWNLOAD_URL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
+import { brandBanner1, brandBanner2, brandBanner3, brandLogo } from "./brandUrls";
 
 const PILL_ITEMS = [
   "Up / Down binary trades",
   "Modern platform",
+  "Android APK",
   "Useful features",
   "Easy start",
   "Learning center",
   "Quick withdrawals",
   "Trusted experience"
 ];
+
+function ApkDownloadLink({ className, children }: { className: string; children: ReactNode }) {
+  const external = /^https?:\/\//i.test(APK_DOWNLOAD_URL);
+  return (
+    <a
+      href={APK_DOWNLOAD_URL}
+      className={className}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : { download: true })}
+    >
+      {children}
+    </a>
+  );
+}
 
 const DEMO_TILES = [
   {
@@ -154,6 +169,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
             <button type="button" className="landing-link" onClick={() => go(onAbout)}>
               About
             </button>
+            <ApkDownloadLink className="landing-link landing-cta-highlight landing-cta-highlight--apk">
+              Download APK
+            </ApkDownloadLink>
             <button type="button" className="landing-link landing-cta-highlight landing-cta-highlight--login" onClick={onLogin}>
               Log in
             </button>
@@ -213,6 +231,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
                 <button type="button" onClick={() => go(onAbout)}>
                   About
                 </button>
+                <ApkDownloadLink className="landing-drawer-link landing-cta-highlight landing-cta-highlight--apk">
+                  Download APK (Android)
+                </ApkDownloadLink>
                 <button type="button" className="landing-cta-highlight landing-cta-highlight--login" onClick={() => go(onLogin)}>
                   Log in
                 </button>
@@ -232,7 +253,10 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
       <section className="landing-ot-hero" aria-label="Intro">
         <div className="landing-ot-hero-glow" aria-hidden />
         <div className="landing-ot-hero-inner">
-          <p className="landing-ot-hero-label">Forex charts · binary-style Up / Down</p>
+          <p className="landing-ot-hero-label landing-ot-hero-label--with-logo">
+            <img src={brandLogo} alt="" width={28} height={28} className="landing-ot-hero-logo" decoding="async" />
+            <span>Forex charts · binary-style Up / Down</span>
+          </p>
           <h1 className="landing-ot-hero-title">
             Predict direction
             <br />
@@ -249,23 +273,55 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
             <button type="button" className="landing-ot-btn-ghost" onClick={() => scrollTo("landing-features")}>
               Learn more
             </button>
+            <ApkDownloadLink className="landing-ot-btn-ghost">Download Android APK</ApkDownloadLink>
+          </div>
+        </div>
+      </section>
+
+      {/* Cinematic — banner1 (I.JPG.jpeg) */}
+      <section className="landing-ot-cinematic" aria-label="Trading workspace">
+        <div className="landing-ot-cinematic-inner">
+          <img
+            src={brandBanner1}
+            alt="Dimly lit desk with laptop showing forex-style charts — focus on trading from anywhere"
+            className="landing-ot-cinematic-img"
+            width={1600}
+            height={900}
+            loading="lazy"
+            decoding="async"
+          />
+          <div className="landing-ot-cinematic-scrim" aria-hidden />
+          <div className="landing-ot-cinematic-copy">
+            <div className="landing-ot-cinematic-stack">
+              <span className="landing-ot-cinematic-brand">{APP_NAME}</span>
+              <p className="landing-ot-cinematic-word">Trade</p>
+              <p className="landing-ot-cinematic-tag">Forex · timed Up / Down · web &amp; mobile</p>
+              <div className="landing-ot-cinematic-cta-wrap">
+                <button type="button" className="landing-ot-cinematic-cta" onClick={onTryDemo}>
+                  Start for $0
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Demo + register/login — high on page (second block after hero) */}
       <section className="landing-demo-block landing-demo-block--near-top" id="landing-demo-block">
-        <div className="landing-demo-inner">
-          <div>
+        <div className="landing-demo-inner landing-demo-inner--brand">
+          <div className="landing-demo-copy">
             <h2>Demo account — practice Up &amp; Down</h2>
             <p>
               Try the same Up / Down flow and chart timing with virtual money. When you are comfortable, register and
               fund your live wallet.
             </p>
+            <button type="button" className="landing-btn-primary landing-btn-lg landing-demo-cta" onClick={onTryDemo}>
+              Start demo now
+            </button>
           </div>
-          <button type="button" className="landing-btn-primary landing-btn-lg" onClick={onTryDemo}>
-            Start demo now
-          </button>
+          <div className="landing-demo-brand-visual">
+            <img src={brandBanner3} alt="" loading="lazy" decoding="async" />
+          </div>
         </div>
       </section>
 
@@ -277,6 +333,18 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
         <button type="button" className="landing-ot-btn-ghost" onClick={onLogin}>
           Already have an account? Log in
         </button>
+      </section>
+
+      <section id="landing-apk" className="landing-ot-apk-band" aria-label="Android app download">
+        <div className="landing-ot-apk-inner">
+          <h2>Get the Android app</h2>
+          <p>
+            Download the {APP_NAME} APK for your phone — same web trading experience in an installable app. If your
+            browser blocks the file, use &quot;Download APK&quot; in the menu above or allow installs from this source
+            in Android settings.
+          </p>
+          <ApkDownloadLink className="landing-ot-btn-main landing-ot-btn-xl">Download APK</ApkDownloadLink>
+        </div>
       </section>
 
       {/* Horizontal feature pills — auto-scroll marquee (duplicate row for seamless loop) */}
@@ -365,7 +433,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
         </div>
         <div className="landing-ot-split-visual" aria-hidden>
           <div className="landing-ot-banner-wrap">
-            <img src="/brand/banner2.jpeg" alt="" className="landing-ot-banner" />
+            <img src={brandBanner2} alt="" className="landing-ot-banner" />
           </div>
         </div>
       </section>
@@ -499,6 +567,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
       </section>
 
       <footer className="landing-footer">
+        <div className="landing-footer-brand-row">
+          <img src={brandLogo} width={44} height={44} alt={APP_NAME} className="landing-footer-logo-mark" decoding="async" />
+        </div>
         <p>
           {APP_NAME} — forex-style charts with binary Up / Down trades. Markets are risky; you may lose your stake.
           Practice on demo first — not financial advice.

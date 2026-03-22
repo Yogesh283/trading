@@ -445,13 +445,20 @@ body {
 
   .deposit-table {
     min-width: 560px;
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .deposit-table th,
   .deposit-table td {
-    padding: 8px 6px;
+    padding: 10px 8px;
     white-space: nowrap;
+  }
+
+  .deposit-table .deposit-table-wallet {
+    white-space: normal;
+    max-width: 6.5rem;
+    line-height: 1.4;
+    word-break: break-word;
   }
 
   .funds-admin-form {

@@ -1,0 +1,35 @@
+/**
+ * Site-wide "prime lock" — premium frame on every surface (main app + admin).
+ * Inset box-shadow on body paints under descendants, so modals/menus stay usable.
+ */
+:root {
+  --prime-lock-cyan: rgba(56, 189, 248, 0.42);
+  --prime-lock-cyan-soft: rgba(125, 211, 252, 0.18);
+  --prime-lock-gold: rgba(255, 209, 102, 0.16);
+  --prime-lock-glow: rgba(56, 189, 248, 0.06);
+  --prime-lock-depth: rgba(0, 0, 0, 0.55);
+}
+
+html {
+  min-height: 100%;
+  background: #000;
+}
+
+body {
+  box-shadow:
+    inset 0 0 0 2px var(--prime-lock-cyan),
+    inset 0 0 0 4px var(--prime-lock-depth),
+    inset 0 0 0 5px var(--prime-lock-gold),
+    inset 0 0 0 6px var(--prime-lock-cyan-soft),
+    inset 0 0 160px var(--prime-lock-glow);
+}
+
+#root,
+#admin-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
