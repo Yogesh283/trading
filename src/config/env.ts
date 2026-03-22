@@ -26,18 +26,28 @@ function normalizeEvmEnvValue(val: unknown): string | undefined {
   return s;
 }
 
-function preprocessEvmAddress() {
-  return (val: unknown) => normalizeEvmEnvValue(val);
+/**
+ * Valid `0x` + 40 hex → keep; empty → undefined (`.default()` applies).
+ * **Invalid / truncated paste** → `undefined` so the app **does not crash** on bad `.env` (VPS PM2 restart loop);
+ * production should still set a correct address when taking real USDT deposits.
+ */
+function preprocessEvmAddressToValidOrUnset(_field: string) {
+  return (val: unknown) => {
+    const n = normalizeEvmEnvValue(val);
+    if (n === undefined) return undefined;
+    if (!/^0x[a-fA-F0-9]{40}$/.test(n)) return undefined;
+    return n;
+  };
 }
 
 const evmAddress = (field: string, defaultHex: string) =>
   z.preprocess(
-    preprocessEvmAddress(),
+    preprocessEvmAddressToValidOrUnset(field),
     z
       .string()
       .regex(
         /^0x[a-fA-F0-9]{40}$/,
-        `${field} must be exactly 0x + 40 hex characters (your BSC wallet for USDT BEP20). Fix .env or leave unset for dev default.`
+        `${field} must be exactly 0x + 40 hex characters. Leave unset for built-in default or fix .env.`
       )
       .default(defaultHex)
   );

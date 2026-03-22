@@ -97,6 +97,8 @@ Run the **`sudo` command** that `pm2 startup` prints **once**.
 
 ### Every deploy (after local push)
 
+**Command must be `git` (not `it`).** If you see `it: command not found`, you typed `it pull` — use **`git pull`**.
+
 ```bash
 cd /home/updowanfx/htdocs/updowanfx-app
 git pull origin main
@@ -145,20 +147,30 @@ The hash should match local `git log -1`.
 
 ## 4) Node.js version
 
-The project expects **Node >= 20** (`engines`). On the server:
+The project expects **Node >= 20** (`engines`). **Vite 7** used for the frontend build wants **Node 20.19+** or **22.12+**.
+
+On **Node 18** you may still see `npm WARN EBADENGINE` and:
+
+`You are using Node.js 18.x. Vite requires Node.js version 20.19+ or 22.12+`
+
+The build can sometimes finish anyway — but **upgrade the server** to avoid random failures and to match production.
+
+On the server:
 
 ```bash
 node -v
 ```
 
-If you have **v18**, upgrade (Ubuntu example):
+If you have **v18** (or &lt; 20.19), upgrade (Ubuntu / Debian — NodeSource 20.x LTS):
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get update
-apt-get install -y nodejs
-node -v
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get update
+sudo apt-get install -y nodejs
+node -v   # should show v20.x or v22.x
 ```
+
+**CloudPanel / multiple Node installs:** If `node -v` stays old after install, use **nvm** or set the system default to the new binary (`which -a node`).
 
 Then:
 
@@ -288,6 +300,9 @@ git push origin main
 
 **Server → live update** (use your folder: `updowanfx.com` **or** `updowanfx-app`)
 
+- **`git pull`** — not `it pull` (`it: command not found` = typo).
+- **`node -v`** — prefer **v20.19+** (see **§4**); v18 shows EBADENGINE / Vite warnings.
+
 ```bash
 cd /home/updowanfx/htdocs/updowanfx.com   # or: updowanfx-app
 git pull origin main
@@ -295,6 +310,16 @@ npm ci
 npm run build:all
 pm2 restart updowanfx
 ```
+
+If **PM2** shows a high **restart count** (↺), the app may be crashing — run **`pm2 logs updowanfx`** and fix errors (often DB `.env`, `PORT`, or Node version).
+
+### PM2 logs: common fixes
+
+| Log / error | What to do |
+|-------------|------------|
+| **`USDT_BEP20_DEPOSIT_ADDRESS` … must be exactly 0x + 40 hex** | In **`.env`**: either **delete** that line, or set a **full** BSC address: `0x` + exactly **40** hex characters (no spaces/quotes). Wrong/truncated values used to crash startup; newer code falls back to default if invalid — still fix for real deposits. |
+| **`ENOENT` … `frontend/dist/index.html`** | Frontend not built or folder removed. On the server run **`npm run build:all`** (creates `frontend/dist/`), then **`pm2 restart updowanfx`**. |
+| **Site old / “git code nahi gaya”** | On VPS: **`cd`** to the **real repo folder** → **`git status`**, **`git fetch origin`**, **`git log -1`** vs GitHub → then **`git pull origin main`**. If pull fails, fix conflicts or `tsconfig.tsbuildinfo` (see above). |
 
 **PM2 status / logs**
 
