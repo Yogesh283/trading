@@ -138,7 +138,8 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | Pehle APK banao, phir **ya to** `npm run copy-apk` (repo root) → `npm run build:all` (file `frontend/public/downloads/UpDownFX.apk` + `dist` mein jayegi) **ya** server par **`releases/UpDownFX.apk`** rakho **ya** `.env` mein **`APK_FILE_PATH=/poora/path/UpDownFX.apk`** — Node **`GET /downloads/UpDownFX.apk`** serve karega |
+| **Site par “Download APK”** | Pehle APK banao, phir **ya to** `npm run copy-apk` (repo root) → `npm run build:all` **ya** server par **`releases/UpDownFX.apk`** **ya** `.env` **`APK_FILE_PATH=...`** — Node **`GET /api/android-app.apk`** (default landing link; Nginx par `/api` proxy ke saath kaam karta hai) aur **`GET /downloads/UpDownFX.apk`** (legacy) dono same file dete hain |
+| Chrome **“File wasn’t available on site”** | Aksar **`/downloads/...`** Nginx/SPA se **HTML** mil raha hai (Node tak nahi ja raha). **Fix:** naya frontend build (default link ab **`/api/android-app.apk`**) + `pm2 restart`; verify: `curl -I https://tumhara-domain/api/android-app.apk` → `200` aur `Content-Type: application/vnd.android.package-archive` |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 

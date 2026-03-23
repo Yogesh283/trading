@@ -10,8 +10,10 @@ const baseWithSlash = viteBase.endsWith("/") ? viteBase : `${viteBase}/`;
 /**
  * Android APK download link for the landing page.
  * - Set `VITE_APK_DOWNLOAD_URL` in `.env` to any full URL (Drive, CDN, your server).
- * - Or build the APK and copy it to `frontend/public/downloads/UpDownFX.apk` (default path below).
+ * - Default: `/api/android-app.apk` — Node serves the file; works when Nginx only proxies `/api` to Node
+ *   (avoids `/downloads/...` being caught by SPA static rules → HTML → Chrome "File wasn't available on site").
+ * - Legacy: `/downloads/UpDownFX.apk` is still served by the server if you need that URL.
  */
 export const APK_DOWNLOAD_URL: string =
   (import.meta.env.VITE_APK_DOWNLOAD_URL as string | undefined)?.trim() ||
-  `${baseWithSlash}downloads/UpDownFX.apk`;
+  `${baseWithSlash}api/android-app.apk`;

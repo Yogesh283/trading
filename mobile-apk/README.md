@@ -127,7 +127,7 @@ android:usesCleartextTraffic="true"
 
 ## वेबसाइट पर “Download APK” बटन
 
-लैंडिंग लिंक: **`/downloads/UpDownFX.apk`** (same origin)।
+लैंडिंग लिंक (default): **`/api/android-app.apk`** (Node serve; Nginx पर `/api` proxy par sahi) — purana **`/downloads/UpDownFX.apk`** bhi server par chalta hai।
 
 1. Android Studio से APK बनाएँ।  
 2. Repo root से: **`npm run copy-apk`** — यह `app-release.apk` / `app-debug.apk` को **`frontend/public/downloads/UpDownFX.apk`** पर कॉपी करता है।  
