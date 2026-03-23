@@ -151,8 +151,11 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | Pehle APK **server disk par** rakho: **`releases/UpDownFX.apk`** (repo root ke bagal) **ya** `.env` **`APK_FILE_PATH=...`** **ya** `npm run copy-apk` → `npm run build:all`. Phir **`pm2 restart`**. Default link: **`GET /api/system/android-apk`** (Node; same `/api/system/*` family as database health). |
-| Download **`mobile-app.html`** / HTML instead of APK | **`/api/...` Node tak nahi ja raha** — static/SPA ne `index.html` de diya. **Fix:** Nginx mein poora **`location /api`** → `proxy_pass` Node (port jo `.env` `PORT` hai) **aur** `try_files` / SPA fallback **sirf `/`** par. Test: `curl -I https://tumhara-domain/api/system/android-apk` → **200** + `Content-Type: application/vnd.android.package-archive`. **`/api/health`** mein **`apkReady:true`** hona chahiye jab file disk par hai. |
+| **Site par “Download APK”** | PC: Studio se APK build → **`npm run apk:sync`** → `releases/UpDownFX.apk` bane; SFTP se VPS **`.../releases/UpDownFX.apk`**. Server: **`pm2 restart`**. (Ya `.env` **`APK_FILE_PATH=/home/.../UpDownFX.apk`**.) Link: **`GET /api/system/android-apk`**. |
+| Download **`mobile-app.html`** / HTML instead of APK | **`/api/...` Node tak nahi ja raha** — static/SPA ne `index.html` de diya. **Fix:** Nginx mein **`location /api/`** → Node, **`location /` se pehle**. |
+| VPS par `curl` → **`Could not resolve host`** | Galat domain spelling (e.g. `updownanfx` vs **`updowanfx`**) ya server DNS — browser wala sahi domain use karo, ya test: `curl -I http://127.0.0.1:PORT/...` |
+| `curl -I http://127.0.0.1:3000/api/system/android-apk` → **404** + chhota HTML | **Purana `dist`** chal raha hai — server par: `grep android-apk dist/server.js` (kuch lines dikhni chahiye). Phir **`npm run build`**, **`npm run build:all`** (agar frontend bhi), **`pm2 restart`**. |
+| APK route live hai? | `curl -I http://127.0.0.1:PORT/api/ping` → header **`X-Served-By: updownfx-raw`**. Phir `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **`application/vnd.android.package-archive`** (file ho to) ya lamba HTML “APK file missing” (file na ho). |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 

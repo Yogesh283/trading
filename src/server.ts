@@ -148,19 +148,11 @@ const ANDROID_APK_MISSING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-
 </ul>
 <p>Working URLs (after file exists): <code>/api/system/android-apk</code> (recommended) · <code>/api/android-app.apk</code> · <code>/downloads/UpDownFX.apk</code> · <code>/api/mobile-app</code></p>
 <p>Check: <code>GET /api/health</code> → <code>apkReady: true</code></p>
+<p>If you see Express &quot;Cannot GET&quot; (tiny 404): run <code>npm run build</code> on the server and <code>pm2 restart</code> — old <code>dist/server.js</code> won&apos;t have APK routes.</p>
 </body></html>`;
 
-/**
- * Served from the raw `http` handler (before Express/Vite) so dev unified port and proxies can’t swallow the route.
- */
-function tryServeAndroidApkFromRaw(
-  req: IncomingMessage,
-  res: ServerResponse,
-  pathOnly: string
-): boolean {
-  if (req.method !== "GET" || !ANDROID_APK_PATHS.has(pathOnly)) {
-    return false;
-  }
+/** Raw HTTP + Express (fallback) — same binary stream. */
+function sendAndroidApkOr404(res: ServerResponse): void {
   const file = resolveAndroidApkPath();
   if (!file) {
     res.writeHead(404, {
@@ -168,7 +160,7 @@ function tryServeAndroidApkFromRaw(
       "Cache-Control": "no-store"
     });
     res.end(ANDROID_APK_MISSING_HTML);
-    return true;
+    return;
   }
   const resolved = path.resolve(file);
   res.writeHead(200, {
@@ -187,6 +179,20 @@ function tryServeAndroidApkFromRaw(
     }
   });
   stream.pipe(res);
+}
+
+/**
+ * Served from the raw `http` handler (before Express/Vite) so dev unified port and proxies can’t swallow the route.
+ */
+function tryServeAndroidApkFromRaw(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathOnly: string
+): boolean {
+  if (req.method !== "GET" || !ANDROID_APK_PATHS.has(pathOnly)) {
+    return false;
+  }
+  sendAndroidApkOr404(res);
   return true;
 }
 
@@ -194,7 +200,20 @@ function pathOnlyFromUrl(url: string | undefined): string {
   const u = url ?? "/";
   const q = u.indexOf("?");
   let p = q >= 0 ? u.slice(0, q) : u;
-  if (p.length > 1 && p.endsWith("/")) p = p.slice(0, -1);
+  if (p.startsWith("http://") || p.startsWith("https://")) {
+    try {
+      p = new URL(p).pathname || "/";
+    } catch {
+      /* keep p */
+    }
+  }
+  if (!p.startsWith("/")) {
+    p = `/${p}`;
+  }
+  p = p.replace(/\/{2,}/g, "/");
+  if (p.length > 1 && p.endsWith("/")) {
+    p = p.slice(0, -1);
+  }
   return p;
 }
 
@@ -290,6 +309,39 @@ forexFeed.on("tick", (tick: ForexTick) => {
 app.get("/api/system/database", (_req, res) => {
   res.json(getDatabaseInfo());
 });
+
+/** Mobile browsers sometimes open `/api/system` (truncated); send them to the real APK URL. */
+app.get("/api/system", (_req, res) => {
+  res.redirect(302, "/api/system/android-apk");
+});
+
+/** Fallback if raw layer is bypassed — use `sendFile` + `res.type` (avoid `writeHead` vs Helmet). */
+function sendAndroidApkViaExpress(res: express.Response): void {
+  const file = resolveAndroidApkPath();
+  if (!file) {
+    res.status(404).type("html").send(ANDROID_APK_MISSING_HTML);
+    return;
+  }
+  const resolved = path.resolve(file);
+  res.setHeader("Content-Disposition", 'attachment; filename="UpDownFX.apk"');
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Served-By", "updownfx-express");
+  res.type("application/vnd.android.package-archive");
+  res.sendFile(resolved, (err) => {
+    if (err) {
+      logger.error({ err, file: resolved }, "Express sendFile APK failed");
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
+    }
+  });
+}
+
+for (const apkPath of ANDROID_APK_PATHS) {
+  app.get(apkPath, (_req, res) => {
+    sendAndroidApkViaExpress(res);
+  });
+}
 
 app.post("/api/auth/register", async (req, res) => {
   try {
