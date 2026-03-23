@@ -1,5 +1,5 @@
 import simpleRestProvider from "ra-data-simple-rest";
-import type { DataProvider, GetOneParams } from "react-admin";
+import type { DataProvider, GetListParams, GetListResult, GetOneParams, GetOneResult, RaRecord } from "react-admin";
 import { fetchUtils } from "react-admin";
 import { getBackendHttpOriginLocalAdmin } from "../backendOrigin";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
@@ -26,10 +26,25 @@ const adminApiRoot = (): string => {
  */
 const baseAdminDataProvider = simpleRestProvider(adminApiRoot(), httpClient, "X-Total-Count");
 
+/** Custom admin pages (no React-Admin REST list backend). */
+const STUB_LIST_RESOURCES = new Set(["user_insights", "referral_level_settings"]);
+
 /** Normalize id on edit (may arrive as number/with spaces) so URL + server stay consistent. */
 export const adminDataProvider: DataProvider = {
   ...baseAdminDataProvider,
-  getOne: async (resource: string, params: GetOneParams) => {
+  getList: async <RecordType extends RaRecord = RaRecord>(
+    resource: string,
+    params: GetListParams & { meta?: Record<string, unknown> }
+  ): Promise<GetListResult<RecordType>> => {
+    if (STUB_LIST_RESOURCES.has(resource)) {
+      return { data: [{ id: "panel" }] as RecordType[], total: 1 };
+    }
+    return baseAdminDataProvider.getList<RecordType>(resource, params);
+  },
+  getOne: async <RecordType extends RaRecord = RaRecord>(
+    resource: string,
+    params: GetOneParams<RecordType>
+  ): Promise<GetOneResult<RecordType>> => {
     const raw = params.id;
     const id =
       raw === undefined || raw === null
@@ -40,6 +55,9 @@ export const adminDataProvider: DataProvider = {
     if (!id) {
       throw new Error("Missing record id — refresh the list and try again.");
     }
-    return baseAdminDataProvider.getOne(resource, { ...params, id });
+    if (STUB_LIST_RESOURCES.has(resource)) {
+      return { data: { id } as RecordType };
+    }
+    return baseAdminDataProvider.getOne<RecordType>(resource, { ...params, id });
   }
 };

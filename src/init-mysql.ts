@@ -35,6 +35,8 @@ async function main() {
       self_referral_code VARCHAR(32) NULL,
       referral_code VARCHAR(32) NULL,
       role VARCHAR(16) NOT NULL DEFAULT 'user',
+      withdrawal_totp_secret VARCHAR(128) NULL,
+      withdrawal_totp_pending VARCHAR(128) NULL,
       UNIQUE KEY uk_users_self_referral (self_referral_code)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
@@ -123,6 +125,33 @@ async function main() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   console.log("Table: market_ticks");
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
+      setting_value TEXT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: app_settings");
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS referral_level_settings (
+      level_num INT NOT NULL PRIMARY KEY,
+      percent_of_stake DOUBLE NOT NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: referral_level_settings");
+
+  await conn.query(
+    `INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('referral_program_enabled', '1')`
+  );
+  for (let lv = 1; lv <= 5; lv++) {
+    await conn.query(
+      `INSERT IGNORE INTO referral_level_settings (level_num, percent_of_stake, enabled) VALUES (?, 0.001, 1)`,
+      [lv]
+    );
+  }
 
   await conn.end();
   console.log("MySQL ready. Add to .env:\n  MYSQL_DATABASE=" + database);

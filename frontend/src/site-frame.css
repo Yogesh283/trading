@@ -33,3 +33,32 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
 }
+
+/**
+ * Android Capacitor WebView often lays out below the status bar already; adding the same inset on
+ * #root creates a black empty band. Drop top root padding and put safe-area on the first nav only.
+ */
+html.cap-native #root,
+html.cap-native #admin-root {
+  padding-top: 0;
+}
+
+html.cap-native .landing-nav-inner,
+html.cap-native .landing-nav-inner--bar {
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+/**
+ * Trading (login ke baad): Android par `env(safe-area-inset-top)` aksar 0 aa jata hai — header
+ * bahut upar chipak jata hai. Thoda neeche lane ke liye minimum top breathing room.
+ */
+html.cap-native .app-mobile-trade .app-main-nav {
+  padding-top: max(22px, calc(env(safe-area-inset-top, 0px) + 10px));
+}
+
+@media (max-width: 768px) {
+  /* Thoda zyada top space taaki header status bar se clear dikhe (default 16px se thoda zyada) */
+  html.cap-native .app-shell.app-mobile-trade {
+    padding-top: 20px;
+  }
+}

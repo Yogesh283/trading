@@ -238,17 +238,25 @@ function isDuplicateEmailError(err: unknown): boolean {
  */
 export async function registerUser(input: {
   name: string;
-  email: string;
+  /** Omit or leave empty for mobile signup — server sets `{userId}@m.updownfx.local`. */
+  email?: string;
   password: string;
   /** Optional inviter's self-referral code */
   referralCode?: string;
 }) {
   await ready;
 
-  const email = input.email.toLowerCase();
-  const existing = await dbGet<UserRow>("SELECT * FROM users WHERE email = ?", [email]);
-  if (existing) {
-    throw new Error("Email already registered");
+  const requestedEmail = String(input.email ?? "")
+    .trim()
+    .toLowerCase();
+  if (requestedEmail) {
+    if (!requestedEmail.includes("@")) {
+      throw new Error("Valid email is required");
+    }
+    const existing = await dbGet<UserRow>("SELECT * FROM users WHERE email = ?", [requestedEmail]);
+    if (existing) {
+      throw new Error("Email already registered");
+    }
   }
 
   let usedReferral: string | null = null;
@@ -268,6 +276,7 @@ export async function registerUser(input: {
 
   for (let attempt = 0; attempt < 25; attempt++) {
     const id = await allocateUniqueFourDigitUserId();
+    const email = requestedEmail || `${id}@m.updownfx.local`;
     const selfCode = await allocateUniqueSelfReferralCode();
     try {
       if (isMysqlMode()) {
@@ -386,12 +395,17 @@ export async function ensureDevChromeUser(): Promise<void> {
 export async function loginUser(input: { email: string; password: string }) {
   await ready;
 
-  const user = await dbGet<UserRow>(
-    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role FROM users WHERE email = ?",
-    [input.email.toLowerCase()]
-  );
+  const raw = input.email.trim();
+  const lowered = raw.toLowerCase();
+  const userSql =
+    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role FROM users WHERE ";
+
+  let user = await dbGet<UserRow>(`${userSql}LOWER(email) = ?`, [lowered]);
+  if (!user && /^\d+$/.test(raw)) {
+    user = await dbGet<UserRow>(`${userSql}id = ?`, [raw]);
+  }
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new Error("Invalid user ID, email, or password");
   }
 
   const { hash } = hashPassword(input.password, user.password_salt);
@@ -402,7 +416,7 @@ export async function loginUser(input: { email: string; password: string }) {
     storedHash.length !== computedHash.length ||
     !crypto.timingSafeEqual(storedHash, computedHash)
   ) {
-    throw new Error("Invalid email or password");
+    throw new Error("Invalid user ID, email, or password");
   }
 
   try {
@@ -578,6 +592,11 @@ export type AdminUserListRow = AdminUserRow & {
   inviter_email: string | null;
   direct_team_count: number;
   total_team_count: number;
+  /** Sum of direct referrals’ live wallet balance (INR). */
+  direct_team_live_balance_total: number;
+  /** Sum of direct referrals’ credited deposits (USDT). */
+  direct_team_deposits_usdt_total: number;
+  withdrawal_totp_enabled: boolean;
 };
 
 export type AdminUserDetailRow = AdminUserListRow;
@@ -635,7 +654,39 @@ export type ReferralTeamMemberPublic = {
   email: string;
   createdAt: string;
   selfReferralCode: string;
+  /** Live trading wallet balance (INR). */
+  liveWalletBalanceInr: number;
+  /** Sum of credited on-chain deposits (USDT). */
+  totalDepositedUsdt: number;
 };
+
+async function loadWalletBalancesForUserIds(userIds: string[]): Promise<Map<string, number>> {
+  const m = new Map<string, number>();
+  if (userIds.length === 0) return m;
+  const ph = userIds.map(() => "?").join(", ");
+  const rows = await dbAll<{ user_id: string | number; balance: number | string | null }>(
+    `SELECT user_id, balance FROM wallets WHERE user_id IN (${ph})`,
+    userIds
+  );
+  for (const r of rows) {
+    m.set(String(r.user_id).trim(), Number(r.balance ?? 0));
+  }
+  return m;
+}
+
+async function loadCreditedDepositTotalsForUserIds(userIds: string[]): Promise<Map<string, number>> {
+  const m = new Map<string, number>();
+  if (userIds.length === 0) return m;
+  const ph = userIds.map(() => "?").join(", ");
+  const rows = await dbAll<{ user_id: string | number; t: number | string | null }>(
+    `SELECT user_id, SUM(amount) AS t FROM deposits WHERE status = 'credited' AND user_id IN (${ph}) GROUP BY user_id`,
+    userIds
+  );
+  for (const r of rows) {
+    m.set(String(r.user_id).trim(), Number(r.t ?? 0));
+  }
+  return m;
+}
 
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
 export async function getReferralDashboardForUser(userId: string): Promise<{
@@ -644,6 +695,10 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTeam: ReferralTeamMemberPublic[];
   directCount: number;
   totalTeamCount: number;
+  /** Sum of live wallet (INR) across direct referrals only. */
+  directTotalLiveBalanceInr: number;
+  /** Sum of credited USDT deposits across direct referrals only. */
+  directTeamTotalDepositsUsdt: number;
 }> {
   await ready;
   const uid = String(userId ?? "").trim();
@@ -699,7 +754,9 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       name: r.name,
       email: r.email,
       createdAt: r.created_at,
-      selfReferralCode: String(r.self_referral_code ?? "").trim() || "—"
+      selfReferralCode: String(r.self_referral_code ?? "").trim() || "—",
+      liveWalletBalanceInr: 0,
+      totalDepositedUsdt: 0
     }));
   }
 
@@ -707,17 +764,57 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   const childrenByParentId = buildReferralChildrenMap(graph);
   const totalTeamCount = countTotalDownline(uid, childrenByParentId);
 
+  const directIds = directTeam.map((m) => m.id);
+  const walletByDirect = await loadWalletBalancesForUserIds(directIds);
+  const depByDirect = await loadCreditedDepositTotalsForUserIds(directIds);
+  let directTotalLiveBalanceInr = 0;
+  let directTeamTotalDepositsUsdt = 0;
+  directTeam = directTeam.map((m) => {
+    const liveWalletBalanceInr = walletByDirect.get(m.id) ?? 0;
+    const totalDepositedUsdt = depByDirect.get(m.id) ?? 0;
+    directTotalLiveBalanceInr += liveWalletBalanceInr;
+    directTeamTotalDepositsUsdt += totalDepositedUsdt;
+    return { ...m, liveWalletBalanceInr, totalDepositedUsdt };
+  });
+
   return {
     selfReferralCode: myCode || "—",
     inviter,
     directTeam,
     directCount: directTeam.length,
-    totalTeamCount
+    totalTeamCount,
+    directTotalLiveBalanceInr,
+    directTeamTotalDepositsUsdt
   };
+}
+
+async function buildGlobalWalletAndDepositMaps(): Promise<{
+  walletByUser: Map<string, number>;
+  depositSumByUser: Map<string, number>;
+}> {
+  const wRows = await dbAll<{ user_id: string | number; balance: number | string | null }>(
+    "SELECT user_id, balance FROM wallets"
+  );
+  const walletByUser = new Map<string, number>();
+  for (const r of wRows) {
+    walletByUser.set(String(r.user_id).trim(), Number(r.balance ?? 0));
+  }
+  const dRows = await dbAll<{ user_id: string | number; t: number | string | null }>(
+    "SELECT user_id, SUM(amount) AS t FROM deposits WHERE status = 'credited' GROUP BY user_id"
+  );
+  const depositSumByUser = new Map<string, number>();
+  for (const r of dRows) {
+    depositSumByUser.set(String(r.user_id).trim(), Number(r.t ?? 0));
+  }
+  return { walletByUser, depositSumByUser };
 }
 
 const ADMIN_USER_SELECT = `
   u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
+  CASE
+    WHEN u.withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(u.withdrawal_totp_secret, '')) <> '' THEN 1
+    ELSE 0
+  END AS withdrawal_totp_enabled,
   COALESCE(w.balance, 0) AS balance,
   COALESCE(w.demo_balance, 1000) AS demo_balance,
   inv.id AS inviter_id,
@@ -742,12 +839,24 @@ function mapRawAdminUserRow(
     inviter_id: string | null;
     inviter_name: string | null;
     inviter_email: string | null;
+    withdrawal_totp_enabled?: number | string | null;
   },
-  childrenByParentId: Map<string, string[]>
+  childrenByParentId: Map<string, string[]>,
+  walletByUser: Map<string, number>,
+  depositSumByUser: Map<string, number>
 ): AdminUserListRow {
+  const myId = String(row.id ?? "").trim();
+  const kids = childrenByParentId.get(myId) ?? [];
+  let direct_team_live_balance_total = 0;
+  let direct_team_deposits_usdt_total = 0;
+  for (const k of kids) {
+    const kk = String(k).trim();
+    direct_team_live_balance_total += walletByUser.get(kk) ?? 0;
+    direct_team_deposits_usdt_total += depositSumByUser.get(kk) ?? 0;
+  }
   return {
     /** Always string for React-Admin URL + getOne (avoids number/BIGINT JSON mismatch). */
-    id: String(row.id ?? "").trim(),
+    id: myId,
     name: row.name,
     email: row.email,
     created_at: row.created_at,
@@ -759,8 +868,11 @@ function mapRawAdminUserRow(
     inviter_id: row.inviter_id != null ? String(row.inviter_id).trim() : null,
     inviter_name: row.inviter_name ?? null,
     inviter_email: row.inviter_email ?? null,
-    direct_team_count: childrenByParentId.get(String(row.id))?.length ?? 0,
-    total_team_count: countTotalDownline(String(row.id), childrenByParentId)
+    direct_team_count: kids.length,
+    total_team_count: countTotalDownline(myId, childrenByParentId),
+    direct_team_live_balance_total,
+    direct_team_deposits_usdt_total,
+    withdrawal_totp_enabled: Number(row.withdrawal_totp_enabled ?? 0) === 1
   };
 }
 
@@ -770,6 +882,7 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
     "SELECT id, self_referral_code, referral_code FROM users"
   );
   const childrenByParentId = buildReferralChildrenMap(graph);
+  const { walletByUser, depositSumByUser } = await buildGlobalWalletAndDepositMaps();
 
   const sql = isMysqlMode()
     ? `SELECT ${ADMIN_USER_SELECT} ${ADMIN_USER_JOINS} ORDER BY u.created_at DESC`
@@ -782,10 +895,11 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
       inviter_id: string | null;
       inviter_name: string | null;
       inviter_email: string | null;
+      withdrawal_totp_enabled?: number | string | null;
     }
   >(sql);
 
-  return raw.map((r) => mapRawAdminUserRow(r, childrenByParentId));
+  return raw.map((r) => mapRawAdminUserRow(r, childrenByParentId, walletByUser, depositSumByUser));
 }
 
 /**
@@ -862,11 +976,21 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
   const resolvedId = await resolveAdminUserPrimaryKey(target);
 
   const baseSql = isMysqlMode()
-    ? "SELECT id, name, email, created_at, self_referral_code, referral_code, role FROM users WHERE id = ? LIMIT 1"
-    : "SELECT id, name, email, created_at, self_referral_code, referral_code, role FROM users WHERE id = ?";
+    ? `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+        CASE
+          WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
+          ELSE 0
+        END AS withdrawal_totp_enabled
+       FROM users WHERE id = ? LIMIT 1`
+    : `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+        CASE
+          WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
+          ELSE 0
+        END AS withdrawal_totp_enabled
+       FROM users WHERE id = ?`;
 
   if (resolvedId) {
-    const base = await dbGet<AdminUserRow>(baseSql, [resolvedId]);
+    const base = await dbGet<AdminUserRow & { withdrawal_totp_enabled?: number }>(baseSql, [resolvedId]);
     if (base) {
       return await assembleAdminUserDetailFromBase(base, resolvedId);
     }
@@ -874,7 +998,7 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 
   const scannedPk = await findUserPrimaryKeyByIdScan(target);
   if (scannedPk) {
-    const base = await dbGet<AdminUserRow>(baseSql, [scannedPk]);
+    const base = await dbGet<AdminUserRow & { withdrawal_totp_enabled?: number }>(baseSql, [scannedPk]);
     if (base) {
       return await assembleAdminUserDetailFromBase(base, scannedPk);
     }
@@ -885,7 +1009,7 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 }
 
 async function assembleAdminUserDetailFromBase(
-  base: AdminUserRow,
+  base: AdminUserRow & { withdrawal_totp_enabled?: number | string | null },
   resolvedId: string
 ): Promise<AdminUserDetailRow> {
   let wallet = await dbGet<{ balance: number | string | null; demo_balance: number | string | null }>(
@@ -921,6 +1045,7 @@ async function assembleAdminUserDetailFromBase(
     "SELECT id, self_referral_code, referral_code FROM users"
   );
   const childrenByParentId = buildReferralChildrenMap(graph);
+  const { walletByUser, depositSumByUser } = await buildGlobalWalletAndDepositMaps();
 
   const raw: AdminUserRow & {
     balance: number | string | null;
@@ -928,16 +1053,18 @@ async function assembleAdminUserDetailFromBase(
     inviter_id: string | null;
     inviter_name: string | null;
     inviter_email: string | null;
+    withdrawal_totp_enabled?: number | string | null;
   } = {
     ...base,
     balance: wallet?.balance ?? 0,
     demo_balance: wallet?.demo_balance ?? 1000,
     inviter_id,
     inviter_name,
-    inviter_email
+    inviter_email,
+    withdrawal_totp_enabled: base.withdrawal_totp_enabled
   };
 
-  return mapRawAdminUserRow(raw, childrenByParentId);
+  return mapRawAdminUserRow(raw, childrenByParentId, walletByUser, depositSumByUser);
 }
 
 export type AdminUserUpdatePayload = {

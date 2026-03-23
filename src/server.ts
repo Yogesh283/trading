@@ -2,10 +2,10 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import crypto from "node:crypto";
-import http from "node:http";
+import http, { type IncomingMessage } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import cron from "node-cron";
 import { env } from "./config/env";
 import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
@@ -24,6 +24,7 @@ import {
   loginUser,
   registerUser,
   getReferralDashboardForUser,
+  getUserFromToken,
   promoteAdminFromEnv,
   requireAdminSession,
   requireSession,
@@ -65,6 +66,17 @@ import {
   runInvestmentDailyYield,
   withdrawToWallet
 } from "./services/investmentStore";
+import {
+  assertWithdrawalTotpCode,
+  beginWithdrawalTotpSetup,
+  confirmWithdrawalTotpSetup,
+  getWithdrawalTotpStatus
+} from "./services/withdrawalTotpService";
+import {
+  getReferralLevelConfigPayload,
+  updateReferralLevelConfigPayload
+} from "./services/referralLevelConfigService";
+import { getAdminUserInsights, searchUsersForAdmin } from "./services/adminUserInsightsService";
 
 /** True when running via `tsx` from `src/` (not compiled `dist/`). */
 const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src";
@@ -197,7 +209,7 @@ app.post("/api/auth/register", async (req, res) => {
       return res.status(400).json({ message: "Name must be at least 2 characters" });
     }
 
-    if (!email.includes("@")) {
+    if (email && !email.includes("@")) {
       return res.status(400).json({ message: "Valid email is required" });
     }
 
@@ -206,7 +218,12 @@ app.post("/api/auth/register", async (req, res) => {
     }
 
     const referralCode = String(req.body?.referralCode ?? req.body?.referral_code ?? "").trim() || undefined;
-    const result = await registerUser({ name, email, password, referralCode });
+    const result = await registerUser({
+      name,
+      ...(email ? { email } : {}),
+      password,
+      referralCode
+    });
     logger.info({ userId: result.user.id, email: result.user.email }, "User registered — row saved in users table");
     return res.status(201).json({ ...result, database: getDatabaseInfo() });
   } catch (error) {
@@ -226,7 +243,7 @@ app.post("/api/auth/login", async (req, res) => {
     const password = String(req.body?.password ?? "");
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res.status(400).json({ message: "User ID or email and password are required" });
     }
 
     const result = await loginUser({ email, password });
@@ -240,10 +257,66 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/auth/me", async (req, res) => {
   try {
     const user = await requireSession(req.headers.authorization);
-    return res.json({ user });
+    const totpSt = await getWithdrawalTotpStatus(user.id);
+    return res.json({
+      user: {
+        ...user,
+        withdrawalTotpEnabled: totpSt.enabled,
+        withdrawalTotpSetupPending: totpSt.setupPending
+      }
+    });
   } catch {
     return res.status(401).json({ message: "Unauthorized" });
   }
+});
+
+app.get("/api/me/withdrawal-totp/status", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const st = await getWithdrawalTotpStatus(user.id);
+      return res.json(st);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "withdrawal totp status");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
+app.post("/api/me/withdrawal-totp/begin", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const out = await beginWithdrawalTotpSetup(user.id, user.email);
+      return res.json(out);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "withdrawal totp begin");
+      return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
+    }
+  })();
+});
+
+app.post("/api/me/withdrawal-totp/confirm", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const code = String(req.body?.code ?? "");
+      await confirmWithdrawalTotpSetup(user.id, code);
+      return res.json({ ok: true });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const msg = e instanceof Error ? e.message : "Failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
 });
 
 app.get("/api/referrals/summary", (req, res) => {
@@ -789,6 +862,89 @@ app.put("/api/admin/ra/users/:id", (req, res) => {
   });
 });
 
+app.get("/api/admin/referral-level-settings", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const payload = await getReferralLevelConfigPayload();
+      return res.json(payload);
+    } catch (err) {
+      logger.error({ err }, "admin referral-level-settings get");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
+app.put("/api/admin/referral-level-settings", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const body = req.body as {
+        referralProgramEnabled?: boolean;
+        levels?: { level: number; percentOfStake: number; enabled: boolean }[];
+      };
+      await updateReferralLevelConfigPayload({
+        referralProgramEnabled: Boolean(body.referralProgramEnabled),
+        levels: Array.isArray(body.levels) ? body.levels : []
+      });
+      const payload = await getReferralLevelConfigPayload();
+      return res.json(payload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.get("/api/admin/user-insights", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const userId = String(req.query.userId ?? "").trim();
+    const search = String(req.query.search ?? "").trim();
+    try {
+      if (search.length >= 1) {
+        const matches = await searchUsersForAdmin(search);
+        return res.json({ matches });
+      }
+      if (!userId) {
+        return res.status(400).json({ message: "Provide userId or search query" });
+      }
+      const insights = await getAdminUserInsights(userId);
+      if (!insights) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      return res.json(insights);
+    } catch (err) {
+      logger.error({ err }, "admin user-insights");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
 /**
  * React-Admin `getOne` / internal fetches: GET /api/admin/ra/:resource/:id
  * Register before GET /api/admin/ra/:resource so `.../user_investments/5` is not swallowed as list.
@@ -876,6 +1032,14 @@ app.post("/api/withdrawals", (req, res) => {
     const user = await requireSession(req.headers.authorization);
     const amount = Number(req.body?.amount);
     const toAddress = String(req.body?.toAddress ?? "").trim().toLowerCase();
+    const tpn = String(req.body?.tpn ?? req.body?.totp ?? req.body?.totpCode ?? "").trim();
+
+    try {
+      await assertWithdrawalTotpCode(user.id, tpn);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "TPN required";
+      return res.status(400).json({ message: msg });
+    }
 
     if (
       !Number.isFinite(amount) ||
@@ -945,13 +1109,14 @@ app.post("/api/demo/orders", (req, res) => {
     const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
     const timeframeSec = Number(req.body?.timeframe);
     const user = await resolveDemoUser(req.headers.authorization);
-    if (user.id !== getGuestUser().id) {
+    if (user.id === getGuestUser().id) {
       return res.status(403).json({
         message:
-          "Demo trading is only before login. Log out and use Enter Demo to practice, or trade from your live account when available."
+          "Demo trading needs an account. Log in or register, then use Demo in the app header — guest betting is disabled."
       });
     }
-    const account = getAccountForWallet(getGuestUser().id, "demo");
+    await prepareAccountForRequest(user.id, "demo");
+    const account = getAccountForWallet(user.id, "demo");
 
     if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
       return res.status(400).json({ message: "Unsupported symbol" });
@@ -1016,7 +1181,9 @@ app.post("/api/demo/orders", (req, res) => {
       return res.status(400).json({ message: "Insufficient balance for this amount" });
     }
 
-    logger.info({ trade, userId: "guest" }, "Demo trade opened");
+    await saveDemoBalanceToDb(user.id, account.balance);
+
+    logger.info({ trade, userId: user.id }, "Demo trade opened");
 
     return res.status(201).json({ trade });
   })().catch((error) => {
@@ -1328,18 +1495,47 @@ async function attachViteDevMiddleware(): Promise<void> {
   logger.info({ port: env.PORT }, "Vite dev middleware — open frontend on same port");
 }
 
-wsServer.on("connection", (socket) => {
-  const guestDemo = getAccountForWallet(getGuestUser().id, "demo");
+async function sendTradingWsSnapshot(socket: WebSocket, req: IncomingMessage) {
+  const markets = forexFeed.snapshot();
+  const rawUrl = req.url ?? "/ws";
+  try {
+    const u = new URL(rawUrl, "http://127.0.0.1");
+    const qpToken = u.searchParams.get("token")?.trim();
+    const qpWallet = u.searchParams.get("wallet")?.trim().toLowerCase() === "live" ? "live" : "demo";
+    if (qpToken) {
+      const user = await getUserFromToken(qpToken);
+      if (user) {
+        await prepareAccountForRequest(user.id, qpWallet);
+        const account = getAccountForWallet(user.id, qpWallet);
+        socket.send(
+          JSON.stringify({
+            type: "snapshot",
+            data: {
+              markets,
+              account: account.snapshot(markets),
+              trades: account.listTrades(),
+              wallet: qpWallet
+            }
+          })
+        );
+        return;
+      }
+    }
+  } catch (e) {
+    logger.warn({ e }, "WS snapshot: token/wallet handling failed");
+  }
+
+  /** Anonymous: market feed only — demo/live account requires login (no guest betting). */
   socket.send(
     JSON.stringify({
       type: "snapshot",
-      data: {
-        markets: forexFeed.snapshot(),
-        account: guestDemo.snapshot(forexFeed.snapshot()),
-        trades: guestDemo.listTrades()
-      }
+      data: { markets }
     })
   );
+}
+
+wsServer.on("connection", (socket, req) => {
+  void sendTradingWsSnapshot(socket, req);
 });
 
 export async function startServer(): Promise<http.Server> {

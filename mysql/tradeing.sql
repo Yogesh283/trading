@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
   self_referral_code VARCHAR(32) NULL,
   referral_code VARCHAR(32) NULL,
   role VARCHAR(16) NOT NULL DEFAULT 'user',
+  withdrawal_totp_secret VARCHAR(128) NULL,
+  withdrawal_totp_pending VARCHAR(128) NULL,
   UNIQUE KEY uk_users_self_referral (self_referral_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

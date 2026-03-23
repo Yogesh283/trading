@@ -1,6 +1,8 @@
 /** Product name — use everywhere in UI */
 export const APP_NAME = "UpDown FX";
 export const SESSION_STORAGE_KEY = "updownfx-session";
+/** Logged-in only: last chosen trading wallet (demo vs live). */
+export const USER_ACCOUNT_WALLET_STORAGE_KEY = "updownfx-user-account-wallet";
 
 const viteBase = import.meta.env.BASE_URL || "/";
 const baseWithSlash = viteBase.endsWith("/") ? viteBase : `${viteBase}/`;

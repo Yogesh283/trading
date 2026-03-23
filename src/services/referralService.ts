@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { dbGet, initAppDb } from "../db/appDb";
-import { LEVEL_INCOME_DEPTH, LEVEL_INCOME_FRACTION } from "../config/referral";
+import { LEVEL_INCOME_DEPTH } from "../config/referral";
+import { getEffectiveLevelPercents } from "./referralLevelConfigService";
 import { applyLedger } from "./walletStore";
 import { logger } from "../utils/logger";
 
@@ -83,12 +84,20 @@ export async function distributeBinaryBetLevelIncome(
 ): Promise<void> {
   if (!Number.isFinite(stakeAmount) || stakeAmount <= 0) return;
 
-  const share = Number((stakeAmount * LEVEL_INCOME_FRACTION).toFixed(4));
-  if (share <= 0) return;
-
+  const { byLevel } = await getEffectiveLevelPercents();
   const recipients = await getLevelIncomeRecipientIds(bettorUserId);
   let level = 1;
   for (const userId of recipients) {
+    const fraction = byLevel.get(level) ?? 0;
+    if (fraction <= 0) {
+      level += 1;
+      continue;
+    }
+    const share = Number((stakeAmount * fraction).toFixed(4));
+    if (share <= 0) {
+      level += 1;
+      continue;
+    }
     try {
       await applyLedger(userId, share, "level_income", `${tradeId}-L${level}`);
     } catch (e) {

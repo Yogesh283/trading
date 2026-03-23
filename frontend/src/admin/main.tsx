@@ -1,6 +1,8 @@
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import PeopleIcon from "@mui/icons-material/People";
+import SearchIcon from "@mui/icons-material/Search";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import SavingsIcon from "@mui/icons-material/Savings";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
@@ -9,9 +11,11 @@ import WalletIcon from "@mui/icons-material/Wallet";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Admin, Resource } from "react-admin";
+import { AdminAppLayout } from "./AdminLayout";
 import { adminAuthProvider } from "./authProvider";
 import { adminDataProvider } from "./dataProvider";
 import { AdminLoginPage } from "./AdminLogin";
+import { ReferralLevelSettingsPage } from "./ReferralLevelSettingsPage";
 import {
   DepositList,
   MarketTickList,
@@ -22,6 +26,7 @@ import {
   WalletList,
   WithdrawalList
 } from "./resources";
+import { UserInsightsPage } from "./UserInsightsPage";
 import "../site-frame.css";
 
 const darkTheme = createTheme({
@@ -44,6 +49,7 @@ ReactDOM.createRoot(adminMount).render(
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <Admin
+        layout={AdminAppLayout}
         dataProvider={adminDataProvider}
         authProvider={adminAuthProvider}
         loginPage={AdminLoginPage}
@@ -63,6 +69,18 @@ ReactDOM.createRoot(adminMount).render(
           options={{ label: "User investments" }}
         />
         <Resource name="market_ticks" list={MarketTickList} icon={ShowChartIcon} options={{ label: "Market ticks" }} />
+        <Resource
+          name="user_insights"
+          list={UserInsightsPage}
+          icon={SearchIcon}
+          options={{ label: "User insights" }}
+        />
+        <Resource
+          name="referral_level_settings"
+          list={ReferralLevelSettingsPage}
+          icon={AccountTreeIcon}
+          options={{ label: "Referral / level %" }}
+        />
       </Admin>
     </ThemeProvider>
   </React.StrictMode>

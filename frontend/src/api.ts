@@ -46,6 +46,10 @@ export interface AuthUser {
   /** Your invite code (share with new signups). */
   selfReferralCode: string;
   role: "user" | "admin";
+  /** From /api/auth/me — withdrawal authenticator enabled. */
+  withdrawalTotpEnabled?: boolean;
+  /** Setup started but not confirmed. */
+  withdrawalTotpSetupPending?: boolean;
 }
 
 export interface AuthResponse {
@@ -133,7 +137,7 @@ async function fetchJsonOrThrow(url: string, init: RequestInit): Promise<Respons
 
 export async function registerUser(input: {
   name: string;
-  email: string;
+  email?: string;
   password: string;
   referralCode?: string;
 }) {
@@ -229,6 +233,8 @@ export interface ReferralTeamMember {
   email: string;
   createdAt: string;
   selfReferralCode: string;
+  liveWalletBalanceInr: number;
+  totalDepositedUsdt: number;
 }
 
 export interface ReferralSummary {
@@ -237,6 +243,10 @@ export interface ReferralSummary {
   directTeam: ReferralTeamMember[];
   directCount: number;
   totalTeamCount: number;
+  /** Sum of direct referrals’ live wallet (INR). */
+  directTotalLiveBalanceInr: number;
+  /** Sum of direct referrals’ credited deposits (USDT). */
+  directTeamTotalDepositsUsdt: number;
 }
 
 export async function loadReferralSummary(token: string) {
@@ -314,15 +324,56 @@ export interface WithdrawalRecord {
   updated_at: string;
 }
 
+export type WithdrawalTotpStatus = {
+  enabled: boolean;
+  setupPending: boolean;
+};
+
+export async function loadWithdrawalTotpStatus(token: string): Promise<WithdrawalTotpStatus> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/status`, {
+    headers: { ...requestHeaders(token, "live") }
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to load TPN status");
+  }
+  return j as WithdrawalTotpStatus;
+}
+
+export async function beginWithdrawalTotpSetup(token: string): Promise<{ secret: string; otpauthUrl: string }> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/begin`, {
+    method: "POST",
+    headers: { ...requestHeaders(token, "live") }
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to start TPN setup");
+  }
+  return j as { secret: string; otpauthUrl: string };
+}
+
+export async function confirmWithdrawalTotpSetup(token: string, code: string): Promise<void> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
+    body: JSON.stringify({ code })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Confirm failed");
+  }
+}
+
 export async function submitWithdrawalRequest(
   token: string,
   amount: number,
-  toAddress: string
+  toAddress: string,
+  tpn: string
 ) {
   const response = await fetch(`${apiBase()}/api/withdrawals`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
-    body: JSON.stringify({ amount, toAddress })
+    body: JSON.stringify({ amount, toAddress, tpn })
   });
   return parseJson<{
     withdrawal: WithdrawalRecord;

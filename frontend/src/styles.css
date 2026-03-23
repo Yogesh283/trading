@@ -178,6 +178,65 @@ select {
   border: 1px solid rgba(255, 193, 7, 0.35);
 }
 
+.app-nav-account-toggle {
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  flex-shrink: 0;
+}
+
+.app-nav-account-toggle button {
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.app-nav-account-toggle button:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-nav-account-toggle button.on.demo-on {
+  background: rgba(112, 240, 180, 0.22);
+  color: #7ef0b5;
+}
+
+.app-nav-account-toggle button.on.live-on {
+  background: rgba(255, 193, 7, 0.18);
+  color: #ffd666;
+}
+
+.app-nav-drawer-wallet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.app-nav-drawer-wallet-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.app-nav-account-toggle--drawer {
+  flex: 1;
+  max-width: 220px;
+  margin-left: auto;
+}
+
 .app-main-nav-desktop {
   display: flex;
   align-items: center;

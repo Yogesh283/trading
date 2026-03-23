@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import mysql from "mysql2/promise";
 import sqlite3 from "sqlite3";
 import { env } from "../config/env";
+import { LEVEL_INCOME_DEPTH, LEVEL_INCOME_FRACTION } from "../config/referral";
 
 const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function randomSelfReferralCode(): string {
@@ -460,6 +461,110 @@ async function migrateMarketTicks(): Promise<void> {
   await dbRun(MARKET_TICKS_INDEX_SQL);
 }
 
+async function migrateUsersWithdrawalTotp(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const hasCol = async (name: string) => {
+      const row = await dbGet<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+        [dbName, name]
+      );
+      return Number(row?.n) > 0;
+    };
+    if (!(await hasCol("withdrawal_totp_secret"))) {
+      try {
+        await dbRun("ALTER TABLE users ADD COLUMN withdrawal_totp_secret VARCHAR(128) NULL AFTER role");
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN withdrawal_totp_secret VARCHAR(128) NULL");
+      }
+    }
+    if (!(await hasCol("withdrawal_totp_pending"))) {
+      try {
+        await dbRun(
+          "ALTER TABLE users ADD COLUMN withdrawal_totp_pending VARCHAR(128) NULL AFTER withdrawal_totp_secret"
+        );
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN withdrawal_totp_pending VARCHAR(128) NULL");
+      }
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(users)");
+  if (!cols.some((c) => c.name === "withdrawal_totp_secret")) {
+    await dbRun("ALTER TABLE users ADD COLUMN withdrawal_totp_secret TEXT");
+  }
+  if (!cols.some((c) => c.name === "withdrawal_totp_pending")) {
+    await dbRun("ALTER TABLE users ADD COLUMN withdrawal_totp_pending TEXT");
+  }
+}
+
+const APP_SETTINGS_SQLITE = `
+  CREATE TABLE IF NOT EXISTS app_settings (
+    setting_key TEXT PRIMARY KEY NOT NULL,
+    setting_value TEXT NOT NULL
+  )
+`;
+
+const APP_SETTINGS_MYSQL = `
+  CREATE TABLE IF NOT EXISTS app_settings (
+    setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
+    setting_value TEXT NOT NULL
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+const REFERRAL_LEVEL_SETTINGS_SQLITE = `
+  CREATE TABLE IF NOT EXISTS referral_level_settings (
+    level_num INTEGER NOT NULL PRIMARY KEY,
+    percent_of_stake REAL NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )
+`;
+
+const REFERRAL_LEVEL_SETTINGS_MYSQL = `
+  CREATE TABLE IF NOT EXISTS referral_level_settings (
+    level_num INT NOT NULL PRIMARY KEY,
+    percent_of_stake DOUBLE NOT NULL,
+    enabled TINYINT(1) NOT NULL DEFAULT 1
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+/** Master switch + per-level % of stake for MLM / referral (admin-editable). */
+async function migrateReferralLevelAndAppSettings(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(APP_SETTINGS_MYSQL);
+    await getPool().execute(REFERRAL_LEVEL_SETTINGS_MYSQL);
+  } else {
+    await dbRun(APP_SETTINGS_SQLITE);
+    await dbRun(REFERRAL_LEVEL_SETTINGS_SQLITE);
+  }
+
+  const masterRow = await dbGet<{ c: number }>(
+    "SELECT COUNT(*) AS c FROM app_settings WHERE setting_key = ?",
+    ["referral_program_enabled"]
+  );
+  if (Number(masterRow?.c ?? 0) === 0) {
+    await dbRun("INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)", [
+      "referral_program_enabled",
+      "1"
+    ]);
+  }
+
+  const levels = await dbAll<{ level_num: number }>(
+    "SELECT level_num FROM referral_level_settings ORDER BY level_num"
+  );
+  const have = new Set(levels.map((l) => l.level_num));
+  for (let lv = 1; lv <= LEVEL_INCOME_DEPTH; lv++) {
+    if (!have.has(lv)) {
+      await dbRun(
+        "INSERT INTO referral_level_settings (level_num, percent_of_stake, enabled) VALUES (?, ?, 1)",
+        [lv, LEVEL_INCOME_FRACTION]
+      );
+    }
+  }
+}
+
 async function migrateUsersRole(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -498,6 +603,8 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateMarketTicks();
         await migrateUsersRole();
+        await migrateUsersWithdrawalTotp();
+        await migrateReferralLevelAndAppSettings();
       } else {
         await runSqliteChain(getSqlite(), [
           ...SQLITE_PRAGMAS,
@@ -513,6 +620,8 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateMarketTicks();
         await migrateUsersRole();
+        await migrateUsersWithdrawalTotp();
+        await migrateReferralLevelAndAppSettings();
       }
     })();
   }

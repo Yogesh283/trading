@@ -31,14 +31,14 @@ function ApkDownloadLink({ className, children }: { className: string; children:
 const DEMO_TILES = [
   {
     title: "Demo account for practice",
-    desc: "Try Up and Down on live-style charts with virtual funds — no card required.",
-    cta: "Try demo",
+    desc: "After you sign in, use virtual funds on live-style charts — no card required.",
+    cta: "Sign in for demo",
     action: "demo" as const
   },
   {
     title: "Learn before you risk",
     desc: "Practice binary-style timing: choose direction, stake, and see the result when the candle closes.",
-    cta: "Open demo",
+    cta: "Log in for demo",
     action: "demo" as const
   },
   {
@@ -335,11 +335,11 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
           <div className="landing-demo-copy">
             <h2>Demo account — practice Up &amp; Down</h2>
             <p>
-              Try the same Up / Down flow and chart timing with virtual money. When you are comfortable, register and
-              fund your live wallet.
+              Log in or register first, then use the <strong>Demo</strong> toggle in the app for virtual money. When you
+              are ready, fund your live wallet.
             </p>
             <button type="button" className="landing-btn-primary landing-btn-lg landing-demo-cta" onClick={onTryDemo}>
-              Start demo now
+              Log in for Demo
             </button>
           </div>
           <div className="landing-demo-brand-visual">

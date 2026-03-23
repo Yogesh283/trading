@@ -8,6 +8,13 @@
  * Admin panel: on localhost always use same-origin API (local DB).
  * Otherwise a production `VITE_API_URL` baked into the build can point the admin UI at the wrong server.
  */
+/** Admin custom APIs: `admin/user-insights` → `/api/admin/user-insights` (or absolute with origin). */
+export function getAdminApiUrl(apiPath: string): string {
+  const o = getBackendHttpOriginLocalAdmin().replace(/\/$/, "");
+  const p = apiPath.replace(/^\//, "");
+  return o ? `${o}/api/${p}` : `/api/${p}`;
+}
+
 export function getBackendHttpOriginLocalAdmin(): string {
   if (typeof window !== "undefined") {
     const h = window.location.hostname.toLowerCase();
@@ -38,20 +45,38 @@ export function getBackendHttpOrigin(): string {
   return "";
 }
 
-export function getBackendWsUrl(): string {
+export type BackendWsAuth = { token: string; wallet: "demo" | "live" };
+
+/**
+ * Logged-in: pass `auth` so `/ws` sends your demo or live account snapshot (not guest demo).
+ * Token is in query string — use WSS in production; avoid sharing dev URLs.
+ */
+export function getBackendWsUrl(auth?: BackendWsAuth | null): string {
   const explicit = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  let path: string;
   if (explicit) {
     const base = explicit.replace(/\/$/, "");
-    return base.replace(/^http/, "ws") + "/ws";
-  }
-  if (!import.meta.env.DEV) {
+    path = base.replace(/^http/, "ws") + "/ws";
+  } else if (!import.meta.env.DEV) {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${window.location.host}/ws`;
+    path = `${proto}//${window.location.host}/ws`;
+  } else {
+    const http = getBackendHttpOrigin();
+    if (!http) {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      path = `${proto}//${window.location.host}/ws`;
+    } else {
+      path = http.replace(/^http/, "ws") + "/ws";
+    }
   }
-  const http = getBackendHttpOrigin();
-  if (!http) {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${window.location.host}/ws`;
+
+  if (auth?.token) {
+    const q = new URLSearchParams({
+      token: auth.token,
+      wallet: auth.wallet
+    });
+    const sep = path.includes("?") ? "&" : "?";
+    return `${path}${sep}${q.toString()}`;
   }
-  return http.replace(/^http/, "ws") + "/ws";
+  return path;
 }

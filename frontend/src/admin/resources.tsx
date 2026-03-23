@@ -1,6 +1,7 @@
 import { Button } from "@mui/material";
 import { useState } from "react";
 import {
+  BooleanField,
   Datagrid,
   DateField,
   Edit,
@@ -112,6 +113,17 @@ export function UserList() {
         <TextField source="inviter_email" label="Inviter email" emptyText="—" />
         <NumberField source="direct_team_count" label="Direct team" />
         <NumberField source="total_team_count" label="Total team" />
+        <NumberField
+          source="direct_team_live_balance_total"
+          label="Direct team live (INR)"
+          options={{ maximumFractionDigits: 2 }}
+        />
+        <NumberField
+          source="direct_team_deposits_usdt_total"
+          label="Direct deps USDT"
+          options={{ maximumFractionDigits: 2 }}
+        />
+        <BooleanField source="withdrawal_totp_enabled" label="Withdraw TPN" />
         <NumberField source="balance" label="Live USDT" options={{ minimumFractionDigits: 2, maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
         <TextField source="role" />
@@ -147,6 +159,19 @@ export function UserEdit() {
         <TextInput source="inviter_id" label="Inviter user id" disabled fullWidth />
         <TextInput source="direct_team_count" label="Direct team (count)" disabled fullWidth />
         <TextInput source="total_team_count" label="Total team (all levels)" disabled fullWidth />
+        <TextInput
+          source="direct_team_live_balance_total"
+          label="Direct team live balance sum (INR)"
+          disabled
+          fullWidth
+        />
+        <TextInput
+          source="direct_team_deposits_usdt_total"
+          label="Direct team credited deposits sum (USDT)"
+          disabled
+          fullWidth
+        />
+        <TextInput source="withdrawal_totp_enabled" label="Withdrawal TPN enabled" disabled fullWidth />
         <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
         <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
         <TextInput

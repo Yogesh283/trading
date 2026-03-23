@@ -91,11 +91,15 @@ Third-party **[React-Admin](https://marmelab.com/react-admin/)** UI for read-onl
 
 API: **`GET /api/admin/ra/:resource`** and **`GET /api/deposits/admin-all`** require **`Authorization: Bearer <JWT>`** and **`users.role = 'admin'`**.
 
+### User insights & level income (admin)
+
+- Sidebar: **User insights** — search by **name / email** or enter **user ID**; shows profile, live/demo wallet, **deposits (USDT)**, **withdrawals by status**, **level income** (`level_income` ledger), **binary** win/stake/net, **all `transactions` totals by type**, and recent ledger rows.
+- Sidebar: **Referral / level %** — master **on/off** for the whole program, plus **levels 1–5**: each level’s **% of live binary stake** and **on/off**. Values are stored in **`app_settings`** (`referral_program_enabled`) and **`referral_level_settings`** (defaults **0.1%** per level = `0.001` fraction). Server applies these on each live binary bet (upline payouts).
+
 ## Current Features
 
 - Login and register pages
-- **Demo trading only before login** (Enter Demo)
-- After login/register: **no demo trading** — live account view only; log out to practice again
+- **Demo trading after login** — use **Demo / Live** in the app header (no guest demo betting)
 - Live Binance websocket market data
 - Demo account and trade history
 - REST API for health, markets, account, and trades

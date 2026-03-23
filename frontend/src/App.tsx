@@ -35,7 +35,7 @@ import WithdrawalPage from "./WithdrawalPage";
 import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
-import { APP_NAME, SESSION_STORAGE_KEY } from "./appBrand";
+import { APP_NAME, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 import { formatInr } from "./fundsConfig";
 import {
@@ -46,16 +46,12 @@ import {
   DockIconWithdraw
 } from "./MobileDockIcons";
 
-type SessionState =
-  | {
-      mode: "guest";
-      user: AuthUser;
-    }
-  | {
-      mode: "user";
-      token: string;
-      user: AuthUser;
-    };
+/** Logged-in session only — guest / no-login demo trading is disabled (server + UI). */
+type SessionState = {
+  mode: "user";
+  token: string;
+  user: AuthUser;
+};
 
 type AuthView = "login" | "register";
 
@@ -212,6 +208,16 @@ export default function App() {
   const [walletActivityOpen, setWalletActivityOpen] = useState(false);
   const [walletTxs, setWalletTxs] = useState<WalletLedgerRow[]>([]);
   const [walletTxLoading, setWalletTxLoading] = useState(false);
+  /** Logged-in: whether trading UI uses virtual demo wallet or live wallet. */
+  const [userAccountWallet, setUserAccountWallet] = useState<"demo" | "live">(() => {
+    try {
+      const v = window.localStorage.getItem(USER_ACCOUNT_WALLET_STORAGE_KEY);
+      if (v === "demo" || v === "live") return v;
+    } catch {
+      /* ignore */
+    }
+    return "demo";
+  });
   const [timerTick, setTimerTick] = useState(0);
   const prevPricesRef = useRef<Record<string, number>>({});
   const symbolRef = useRef(symbol);
@@ -331,7 +337,7 @@ export default function App() {
 
   /** Wallet in-app browser: ?depositAmount= or #depositAmount= — open Deposit tab. */
   useEffect(() => {
-    if (session?.mode !== "user") return;
+    if (!session) return;
     try {
       if (shouldOpenDepositScreenFromUrl()) {
         setDashboardSection("deposit");
@@ -341,11 +347,10 @@ export default function App() {
     }
   }, [session]);
 
-  const sessionToken = session?.mode === "user" ? session.token : undefined;
-  const accountWallet = session?.mode === "user" ? ("live" as const) : ("demo" as const);
-  /** Re-run chart history when user logs in / guest starts so we retry fetch (deps were only booting+symbol before). */
-  const chartSessionKey =
-    session == null ? "" : session.mode === "user" ? `u:${session.user.id}` : `g:${session.user.id}`;
+  const sessionToken = session?.token;
+  const accountWallet: "demo" | "live" = session ? userAccountWallet : "demo";
+  /** Re-run chart history when user logs in (deps were only booting+symbol before). */
+  const chartSessionKey = session == null ? "" : `u:${session.user.id}`;
 
   useEffect(() => {
     const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -356,16 +361,9 @@ export default function App() {
 
     void (async () => {
       try {
-        const parsed = JSON.parse(saved) as SessionState;
-        if (parsed.mode === "guest") {
-          setSession({
-            mode: "guest",
-            user: {
-              ...parsed.user,
-              selfReferralCode: parsed.user.selfReferralCode ?? "",
-              role: parsed.user.role ?? "user"
-            }
-          });
+        const parsed = JSON.parse(saved) as { mode?: string; token?: string };
+        if (parsed.mode !== "user" || !parsed.token) {
+          window.localStorage.removeItem(SESSION_STORAGE_KEY);
           return;
         }
 
@@ -385,7 +383,7 @@ export default function App() {
 
   /**
    * Referral invite: `/?ref=CODE` → after splash + boot, open **Register** directly with code prefilled.
-   * Skip when already logged in or guest demo (`session != null`).
+   * Skip when already logged in (`session != null`).
    */
   useEffect(() => {
     if (!splashReady || booting || session != null) return;
@@ -435,22 +433,35 @@ export default function App() {
     };
   }, [booting, symbol, chartSessionKey]);
 
-  const refresh = async () => {
+  const refresh = async (walletOverride?: "demo" | "live") => {
     const mySeq = ++refreshSeqRef.current;
+    const wallet = walletOverride ?? accountWallet;
     try {
-      const [marketData, accountData, tradeData] = await Promise.all([
-        loadMarkets(),
-        loadAccount(sessionToken, accountWallet),
-        loadTrades(sessionToken, accountWallet)
-      ]);
-
+      const marketData = await loadMarkets();
       if (mySeq !== refreshSeqRef.current) {
         return;
       }
 
       setMarkets(marketData.ticks);
-      setAccount(accountData);
-      setTrades(tradeData.trades);
+
+      if (!sessionToken) {
+        setAccount(null);
+        setTrades([]);
+      } else {
+        const [accountData, tradeData] = await Promise.all([
+          loadAccount(sessionToken, wallet),
+          loadTrades(sessionToken, wallet)
+        ]);
+        if (mySeq !== refreshSeqRef.current) {
+          return;
+        }
+        setAccount(accountData);
+        setTrades(tradeData.trades);
+      }
+
+      if (mySeq !== refreshSeqRef.current) {
+        return;
+      }
       if (marketData.symbols?.length) {
         setForexSymbolList([...marketData.symbols]);
       }
@@ -478,7 +489,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!walletActivityOpen || session?.mode !== "user") {
+    if (!walletActivityOpen || !session) {
       return;
     }
     setWalletTxLoading(true);
@@ -491,7 +502,7 @@ export default function App() {
   useEffect(() => {
     void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Load failed"));
 
-    const wsUrl = getBackendWsUrl();
+    const wsUrl = getBackendWsUrl(session ? { token: session.token, wallet: accountWallet } : undefined);
 
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => setStatus("Live");
@@ -504,7 +515,6 @@ export default function App() {
             data: {
               markets: MarketTick[];
               account: AccountSnapshot;
-              /** Guest demo trades — keeps Account & history in sync on connect. */
               trades?: Trade[];
             };
           }
@@ -512,7 +522,10 @@ export default function App() {
 
       if (payload.type === "snapshot") {
         setMarkets(payload.data.markets);
-        if (session?.mode !== "user") {
+        const snapWallet = (payload.data as { wallet?: "demo" | "live" }).wallet;
+        const isPersonalSnap = snapWallet === "demo" || snapWallet === "live";
+        const applyUserSnap = session != null && isPersonalSnap && snapWallet === accountWallet;
+        if (applyUserSnap) {
           setAccount(payload.data.account);
           if (Array.isArray(payload.data.trades)) {
             setTrades(payload.data.trades);
@@ -539,7 +552,7 @@ export default function App() {
       ws.close();
       window.clearInterval(interval);
     };
-  }, [session?.mode, sessionToken, accountWallet]);
+  }, [session, sessionToken, accountWallet]);
 
   useEffect(() => {
     const next: Record<string, number> = { ...prevPricesRef.current };
@@ -561,7 +574,11 @@ export default function App() {
     opts?: { stake?: number }
   ) => {
     setMessage("");
-    if (session?.mode === "user") return;
+    if (!session) {
+      setMessage("Log in to place trades.");
+      return;
+    }
+    if (accountWallet !== "demo") return;
     const base = Number(quantity);
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -576,7 +593,7 @@ export default function App() {
           amount,
           timeframe: binaryTimeframe
         },
-        undefined,
+        session.token,
         "demo"
       );
       setTrades((current) => [trade, ...current]);
@@ -598,7 +615,7 @@ export default function App() {
     opts?: { stake?: number }
   ) => {
     setMessage("");
-    if (session?.mode !== "user") return;
+    if (!session || accountWallet !== "live") return;
     const base = Number(quantity);
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -646,8 +663,11 @@ export default function App() {
         return;
       }
 
+      const emailTrim = registerForm.email.trim();
       const response = await registerUser({
-        ...registerForm,
+        name: registerForm.name,
+        ...(emailTrim ? { email: emailTrim } : {}),
+        password: registerForm.password,
         referralCode: registerForm.referralCode.trim() || undefined
       });
       setTrades([]);
@@ -658,7 +678,9 @@ export default function App() {
         token: response.token,
         user: response.user
       });
-      setAuthMessage(`Account created — your user ID is ${response.user.id}`);
+      setAuthMessage(
+        `Account created — your User ID is ${response.user.id}. Next time log in with this ID and your password (no email needed on phone).`
+      );
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Authentication failed");
     } finally {
@@ -666,18 +688,11 @@ export default function App() {
     }
   };
 
-  const enterGuestDemo = () => {
-    setSession({
-      mode: "guest",
-      user: {
-        id: "guest",
-        name: "Guest Demo",
-        email: "guest@demo.local",
-        createdAt: new Date(0).toISOString(),
-        selfReferralCode: "",
-        role: "user"
-      }
-    });
+  /** Demo trading only after login — open auth with hint (no guest session). */
+  const openAuthForDemo = () => {
+    setAuthView("login");
+    setPublicScreen("auth");
+    setAuthMessage("Log in or register, then use the Demo / Live toggle in the app to practice with virtual funds.");
   };
 
   const logout = () => {
@@ -695,7 +710,7 @@ export default function App() {
     if (publicScreen === "landing") {
       return (
         <LandingPage
-          onTryDemo={enterGuestDemo}
+          onTryDemo={openAuthForDemo}
           onAbout={() => setPublicScreen("about")}
           onLogin={() => {
             setAuthView("login");
@@ -721,7 +736,7 @@ export default function App() {
             setAuthView("register");
             setPublicScreen("auth");
           }}
-          onTryDemo={enterGuestDemo}
+          onTryDemo={openAuthForDemo}
         />
       );
     }
@@ -737,7 +752,7 @@ export default function App() {
         onAuthSubmit={handleAuth}
         onBackToLanding={() => setPublicScreen("landing")}
         onNavigateToAbout={() => setPublicScreen("about")}
-        onDemoAccess={enterGuestDemo}
+        onDemoAccess={openAuthForDemo}
         onLoginFormChange={setLoginForm}
         onRegisterFormChange={setRegisterForm}
         onViewChange={setAuthView}
@@ -747,17 +762,14 @@ export default function App() {
     );
   }
 
-  const isGuestDemo = session.mode === "guest";
-  const isLoggedIn = session.mode === "user";
+  const tradingAsDemo = accountWallet === "demo";
   /** Demo + live: stake and wallet shown in INR (same numeric units as server demo/live wallets). */
   const fmtWallet = (n: number) => formatInr(n);
 
   return (
     <div
       className={`app-shell${session && isPhone ? " app-mobile-trade" : ""}${session && !isPhone ? " app-guest-desktop-dock" : ""}`}
-      data-dock={
-        session && isPhone ? (isLoggedIn ? "theme" : "contrast") : undefined
-      }
+      data-dock={session && isPhone ? "theme" : undefined}
     >
       <header className={`app-main-nav${mainNavOpen ? " app-main-nav--drawer-open" : ""}`}>
         <div className="app-main-nav-row">
@@ -775,9 +787,33 @@ export default function App() {
           <div className="app-nav-brand-block">
             <BrandLogo className="app-nav-brand-logo" />
             <span className="app-nav-brand">{APP_NAME}</span>
-            <span className={`app-nav-mode-pill ${isGuestDemo ? "demo" : "live"}`}>
-              {isGuestDemo ? "Demo" : "Live"}
+            <span className={`app-nav-mode-pill ${tradingAsDemo ? "demo" : "live"}`}>
+              {tradingAsDemo ? "Demo" : "Live"}
             </span>
+            {!isPhone ? (
+              <div className="app-nav-account-toggle" role="group" aria-label="Trading account">
+                <button
+                  type="button"
+                  className={accountWallet === "demo" ? "on demo-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("demo");
+                    void refresh("demo").catch(() => undefined);
+                  }}
+                >
+                  Demo
+                </button>
+                <button
+                  type="button"
+                  className={accountWallet === "live" ? "on live-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("live");
+                    void refresh("live").catch(() => undefined);
+                  }}
+                >
+                  Live
+                </button>
+              </div>
+            ) : null}
           </div>
           {!isPhone ? (
             <nav className="app-main-nav-desktop" aria-label="Main navigation">
@@ -828,65 +864,44 @@ export default function App() {
               >
                 About
               </button>
-              {isLoggedIn ? (
-                <>
-                  <button
-                    type="button"
-                    className={dashboardSection === "deposit" ? "active" : ""}
-                    onClick={() => setDashboardSection("deposit")}
-                  >
-                    Deposit
-                  </button>
-                  <button
-                    type="button"
-                    className={dashboardSection === "withdrawal" ? "active" : ""}
-                    onClick={() => setDashboardSection("withdrawal")}
-                  >
-                    Withdraw
-                  </button>
-                  <button
-                    type="button"
-                    className={dashboardSection === "investment" ? "active" : ""}
-                    onClick={() => setDashboardSection("investment")}
-                  >
-                    Investment
-                  </button>
-                  <button
-                    type="button"
-                    className={dashboardSection === "referral" ? "active" : ""}
-                    onClick={() => setDashboardSection("referral")}
-                  >
-                    Referral
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWalletActivityOpen(true);
-                    }}
-                  >
-                    Wallet log
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMessage("Log in or register to deposit USDT. Exit demo, then sign up.")
-                    }
-                  >
-                    Deposit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setMessage("Log in to withdraw. Exit demo, then sign in.")
-                    }
-                  >
-                    Withdraw
-                  </button>
-                </>
-              )}
+              <>
+                <button
+                  type="button"
+                  className={dashboardSection === "deposit" ? "active" : ""}
+                  onClick={() => setDashboardSection("deposit")}
+                >
+                  Deposit
+                </button>
+                <button
+                  type="button"
+                  className={dashboardSection === "withdrawal" ? "active" : ""}
+                  onClick={() => setDashboardSection("withdrawal")}
+                >
+                  Withdraw
+                </button>
+                <button
+                  type="button"
+                  className={dashboardSection === "investment" ? "active" : ""}
+                  onClick={() => setDashboardSection("investment")}
+                >
+                  Investment
+                </button>
+                <button
+                  type="button"
+                  className={dashboardSection === "referral" ? "active" : ""}
+                  onClick={() => setDashboardSection("referral")}
+                >
+                  Refer &amp; Earn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletActivityOpen(true);
+                  }}
+                >
+                  Wallet log
+                </button>
+              </>
             </nav>
           ) : null}
           <div className="app-nav-right">
@@ -895,14 +910,16 @@ export default function App() {
             </span>
             {!isPhone ? (
               <button type="button" className="app-nav-text-btn" onClick={logout}>
-                {isGuestDemo ? "Exit demo" : "Logout"}
+                Logout
               </button>
             ) : null}
           </div>
         </div>
         {!isPhone ? (
           <p className="app-main-nav-sub">
-            {isGuestDemo ? "Virtual funds · practice Up/Down with timer" : session.user.email}
+            {accountWallet === "demo"
+              ? "Demo — virtual funds · switch to Live for your funded balance"
+              : session.user.email}
           </p>
         ) : null}
       </header>
@@ -939,7 +956,34 @@ export default function App() {
             </div>
             <div className="app-nav-drawer-user">
               <strong>{session.user.name}</strong>
-              <span>{isGuestDemo ? "Guest demo" : session.user.email}</span>
+              <span>{session.user.email}</span>
+            </div>
+            <div className="app-nav-drawer-wallet-row">
+              <span className="app-nav-drawer-wallet-label">Trading</span>
+              <div className="app-nav-account-toggle app-nav-account-toggle--drawer" role="group" aria-label="Trading account">
+                <button
+                  type="button"
+                  className={accountWallet === "demo" ? "on demo-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("demo");
+                    void refresh("demo").catch(() => undefined);
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Demo
+                </button>
+                <button
+                  type="button"
+                  className={accountWallet === "live" ? "on live-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("live");
+                    void refresh("live").catch(() => undefined);
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Live
+                </button>
+              </div>
             </div>
             <div className="app-nav-drawer-links">
               <button
@@ -1019,78 +1063,55 @@ export default function App() {
               >
                 About
               </button>
-              {isLoggedIn ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDashboardSection("deposit");
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Deposit USDT
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDashboardSection("withdrawal");
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Withdraw USDT
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDashboardSection("investment");
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Investment
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDashboardSection("referral");
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Referral &amp; team
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMainNavOpen(false);
-                      setWalletActivityOpen(true);
-                    }}
-                  >
-                    Wallet activity
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMainNavOpen(false);
-                      setMessage("Log in or register to deposit. Exit demo → Register.");
-                    }}
-                  >
-                    Deposit USDT
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMainNavOpen(false);
-                      setMessage("Log in to withdraw. Exit demo → Log in.");
-                    }}
-                  >
-                    Withdraw USDT
-                  </button>
-                </>
-              )}
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardSection("deposit");
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Deposit USDT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardSection("withdrawal");
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Withdraw USDT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardSection("investment");
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Investment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDashboardSection("referral");
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Refer &amp; Earn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMainNavOpen(false);
+                    setWalletActivityOpen(true);
+                  }}
+                >
+                  Wallet activity
+                </button>
+              </>
               <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>
-                {isGuestDemo ? "Exit demo" : "Log out"}
+                Log out
               </button>
             </div>
           </nav>
@@ -1099,26 +1120,26 @@ export default function App() {
 
       {dashboardSection === "about" ? (
         <AboutPage embeddedInApp onBack={() => setDashboardSection("trading")} />
-      ) : isLoggedIn && dashboardSection === "deposit" ? (
+      ) : dashboardSection === "deposit" ? (
         <DepositPage
           token={session.token}
           onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
-      ) : isLoggedIn && dashboardSection === "withdrawal" ? (
+      ) : dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
           balance={account?.balance ?? 0}
           onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
-      ) : isLoggedIn && dashboardSection === "investment" ? (
+      ) : dashboardSection === "investment" ? (
         <InvestmentPage
           token={session.token}
           onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
-      ) : isLoggedIn && dashboardSection === "referral" ? (
+      ) : dashboardSection === "referral" ? (
         <ReferralPage token={session.token} onBack={() => setDashboardSection("trading")} />
       ) : (
       <>
@@ -1294,7 +1315,7 @@ export default function App() {
                   return;
                 }
                 const stake = Math.max(1, Math.floor(base * mobileMultiplier));
-                if (session?.mode === "user") {
+                if (accountWallet === "live") {
                   void handleLiveBinaryOrder(mobileSide === "buy" ? "up" : "down", { stake });
                   return;
                 }
@@ -1440,14 +1461,14 @@ export default function App() {
       <>
       <main className="grid">
         <section className="panel" id="app-account-summary">
-          <h2>{isLoggedIn ? "Trading account" : "Demo account"}</h2>
+          <h2>Trading account</h2>
           <div className="stats">
             <Stat label="Balance" value={fmtWallet(account?.balance ?? 0)} />
             <Stat label="Equity" value={fmtWallet(account?.equity ?? 0)} />
             <Stat label="Realized P&L" value={fmtWallet(account?.realizedPnl ?? 0)} />
             <Stat label="Unrealized P&L" value={fmtWallet(account?.unrealizedPnl ?? 0)} />
           </div>
-          {isLoggedIn && session.user.selfReferralCode ? (
+          {session.user.selfReferralCode ? (
             <div className="referral-box muted" style={{ marginTop: "0.75rem" }}>
               <strong>Your referral code</strong>{" "}
               <code className="referral-code-pill">{session.user.selfReferralCode}</code>{" "}
@@ -1547,13 +1568,13 @@ export default function App() {
           <LiveChart
             points={chartSeries}
             symbol={symbol}
-            trades={isGuestDemo ? symbolTrades : []}
+            trades={tradingAsDemo ? symbolTrades : []}
             timeframeSec={chartTimeframe}
             onTimeframeChange={onChartTimeframeChange}
           />
         </section>
 
-        {isGuestDemo ? (
+        {tradingAsDemo ? (
           <section className="panel panel-demo-summary">
             <h2>Demo trading</h2>
             <p className="muted">
@@ -1637,12 +1658,9 @@ export default function App() {
               Win: <strong>1.8×</strong> stake back (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full stake.
             </p>
             <p className="muted">
-              Use the <strong>bottom bar</strong> to place trades (amount, Up/Down).
-              Demo practice:{" "}
-              <button type="button" className="link-inline" onClick={logout}>
-                log out
-              </button>{" "}
-              and tap <strong>Enter Demo</strong>.
+              Use the <strong>bottom bar</strong> to place trades (amount, Up/Down). To practice with virtual funds
+              without touching your live balance, switch to <strong>Demo</strong> in the header or menu (
+              <strong>Trading → Demo</strong> on phone).
             </p>
           </section>
         )}
@@ -1804,7 +1822,7 @@ export default function App() {
                   return;
                 }
                 const stake = Math.max(1, Math.floor(base * mobileMultiplier));
-                if (session?.mode === "user") {
+                if (accountWallet === "live") {
                   void handleLiveBinaryOrder(mobileSide === "buy" ? "up" : "down", { stake });
                   return;
                 }
@@ -1905,16 +1923,13 @@ export default function App() {
       )}
       {session && isPhone ? (
         <nav
-          className={`mobile-bottom-dock${isLoggedIn ? " mobile-bottom-dock--theme" : ""}`}
+          className="mobile-bottom-dock mobile-bottom-dock--theme"
           aria-label="Bottom menu"
         >
           <button
             type="button"
             className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "deposit" ? "active" : ""}`}
-            onClick={() => {
-              if (isLoggedIn) setDashboardSection("deposit");
-              else setMessage("Log in to deposit.");
-            }}
+            onClick={() => setDashboardSection("deposit")}
             aria-current={dashboardSection === "deposit" ? "page" : undefined}
           >
             <span className="mobile-dock-icon-slot" aria-hidden>
@@ -1925,10 +1940,7 @@ export default function App() {
           <button
             type="button"
             className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "withdrawal" ? "active" : ""}`}
-            onClick={() => {
-              if (isLoggedIn) setDashboardSection("withdrawal");
-              else setMessage("Log in to withdraw.");
-            }}
+            onClick={() => setDashboardSection("withdrawal")}
             aria-current={dashboardSection === "withdrawal" ? "page" : undefined}
           >
             <span className="mobile-dock-icon-slot" aria-hidden>
@@ -1978,7 +1990,7 @@ export default function App() {
           </button>
         </nav>
       ) : null}
-      {walletActivityOpen && session?.mode === "user" ? (
+      {walletActivityOpen && session ? (
         <div
           className="wallet-tx-backdrop"
           role="presentation"
@@ -2104,6 +2116,16 @@ function AuthScreen({
   status: string;
 }) {
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
+  /** Phone / narrow: register without email; login with User ID or email. */
+  const [authCompact, setAuthCompact] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setAuthCompact(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
@@ -2151,7 +2173,7 @@ function AuthScreen({
               Register
             </button>
             <button type="button" className="auth-nav-link primary" onClick={onDemoAccess}>
-              Enter demo
+              Demo after sign-in
             </button>
           </nav>
           <button
@@ -2203,7 +2225,7 @@ function AuthScreen({
                   Register
                 </button>
                 <button type="button" onClick={() => { setAuthMenuOpen(false); onDemoAccess(); }}>
-                  Enter demo
+                  Demo after sign-in
                 </button>
               </div>
             </nav>
@@ -2215,15 +2237,15 @@ function AuthScreen({
         <div className="auth-hero-brand">
           <BrandLogo size={44} className="auth-hero-logo" />
           <div>
-            <p className="eyebrow">Demo first · Live after login</p>
+            <p className="eyebrow">Demo first · Live when you fund</p>
             <p className="auth-hero-brand-name">{APP_NAME}</p>
           </div>
         </div>
-        <h1>Practice without login · Live account when you sign in</h1>
+        <h1>Sign in to trade — Demo or Live</h1>
         <p className="subtext">
-          <strong>Enter Demo</strong> below to trade with virtual money. After{" "}
-          <strong>login / register</strong>, demo trading turns off — you only see your live trading
-          area (fund / broker when connected).
+          <strong>Demo practice</strong> is only for logged-in users. After{" "}
+          <strong>log in or register</strong>, use the <strong>Demo / Live</strong> toggle in the app header to switch
+          between your personal virtual wallet and your funded live wallet.
         </p>
 
         <div className="auth-metrics">
@@ -2237,11 +2259,14 @@ function AuthScreen({
 
         <div className="auth-demo">
           <div>
-            <strong>Demo before login</strong>
-            <p className="muted">After you log in, this guest demo is not available — log out to practice again.</p>
+            <strong>Try Demo after sign-in</strong>
+            <p className="muted">
+              Log in or register first. Then open the app and choose <strong>Demo</strong> next to Live for virtual
+              funds — no guest betting.
+            </p>
           </div>
           <button className="secondary-button" type="button" onClick={onDemoAccess}>
-            Enter Demo
+            Log in for Demo
           </button>
         </div>
 
@@ -2315,24 +2340,37 @@ function AuthScreen({
             </label>
           ) : null}
 
-          <label>
-            Email
-            <input
-              type="email"
-              value={authView === "login" ? loginForm.email : registerForm.email}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (authView === "login") {
-                  onLoginFormChange((current) => ({ ...current, email: value }));
-                  return;
-                }
+          {authView === "login" || !authCompact ? (
+            <label>
+              {authView === "login"
+                ? authCompact
+                  ? "User ID or email"
+                  : "Email"
+                : "Email"}
+              <input
+                type={authView === "login" && authCompact ? "text" : "email"}
+                inputMode={authView === "login" && authCompact ? "text" : undefined}
+                value={authView === "login" ? loginForm.email : registerForm.email}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (authView === "login") {
+                    onLoginFormChange((current) => ({ ...current, email: value }));
+                    return;
+                  }
 
-                onRegisterFormChange((current) => ({ ...current, email: value }));
-              }}
-              placeholder="name@example.com"
-              autoComplete="email"
-            />
-          </label>
+                  onRegisterFormChange((current) => ({ ...current, email: value }));
+                }}
+                placeholder={
+                  authView === "login"
+                    ? authCompact
+                      ? "e.g. 1234 or you@mail.com"
+                      : "name@example.com"
+                    : "name@example.com"
+                }
+                autoComplete={authView === "login" ? "username" : "email"}
+              />
+            </label>
+          ) : null}
 
           <label>
             Password

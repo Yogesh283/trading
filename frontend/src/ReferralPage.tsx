@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { loadReferralSummary, type ReferralSummary } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import { formatInr } from "./fundsConfig";
 
 type Props = {
   token: string;
@@ -71,9 +72,9 @@ export default function ReferralPage({ token, onBack }: Props) {
       <div className="funds-card referral-card">
         <div className="funds-title-row investment-title-row">
           <BrandLogo size={40} />
-          <h1>Referral &amp; team</h1>
+          <h1>Refer &amp; Earn</h1>
         </div>
-        <p className="funds-network">Share your link. Friends who register with it join your team.</p>
+        <p className="funds-network">Share your link. Friends who register join your team — see their activity below.</p>
 
         {error ? <p className="referral-error">{error}</p> : null}
         {copyMsg ? <p className="referral-copy-toast">{copyMsg}</p> : null}
@@ -144,6 +145,8 @@ export default function ReferralPage({ token, onBack }: Props) {
                         <th>Name</th>
                         <th>Email</th>
                         <th>Joined</th>
+                        <th>Live wallet</th>
+                        <th>Deposits</th>
                         <th>Their code</th>
                       </tr>
                     </thead>
@@ -158,6 +161,10 @@ export default function ReferralPage({ token, onBack }: Props) {
                               month: "short",
                               day: "numeric"
                             })}
+                          </td>
+                          <td title="Live trading wallet (INR)">{formatInr(m.liveWalletBalanceInr ?? 0)}</td>
+                          <td title="Sum of credited on-chain deposits (USDT)">
+                            {(m.totalDepositedUsdt ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
                           </td>
                           <td>
                             <code className="referral-code-pill">{m.selfReferralCode}</code>

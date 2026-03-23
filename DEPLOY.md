@@ -125,7 +125,25 @@ pm2 start dist/index.js --name updowanfx
 pm2 save && pm2 startup
 ```
 
-**Domain:** Nginx / CloudPanel se site ko **`http://127.0.0.1:3000`** (ya jo `.env` `PORT` ho) par **reverse proxy** karo; sirf static folder se Node API **`/api` / `/ws` nahi chalenge**.
+**Domain:** Nginx / CloudPanel se site ko **`http://127.0.0.1:3000`** (ya jo `.env` `PORT` ho) par **reverse proxy** karo; sirf static folder se Node API **`/api` / `/ws` nahi chalenge`.
+
+---
+
+## 6) Android APK (Capacitor)
+
+APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.config.json`** → `server.url` (abhi **`https://updowanfx.com`**).
+
+| Kaam | Command / jagah |
+|------|-------------------|
+| URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
+| Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
+| Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
+
+**Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
+
+**Naya APK zaroori jab:** `server.url` / app name / icons / native permissions badlein.
+
+Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**.
 
 ---
 
