@@ -22,6 +22,7 @@
     "lint": "tsc --noEmit",
     "frontend:clear-vite-cache": "node -e \"const fs=require('fs');const p=require('path').join('frontend','node_modules','.vite');try{fs.rmSync(p,{recursive:true,force:true});console.log('Cleared',p);}catch(e){console.log(e.message||e);process.exit(1)}\"",
     "frontend:dev": "npm --prefix frontend run dev",
+    "copy-apk": "npm run copy-apk --prefix frontend",
     "frontend:build": "npm --prefix frontend run build",
     "cron:investment": "tsx scripts/investment-cron.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",

@@ -125,6 +125,16 @@ android:usesCleartextTraffic="true"
 - ऐप लेबल: `appName`  
 पहली बार `cap add android` से पहले सही कर लें; बाद में बदलने पर Android project में भी अपडेट लग सकता है।
 
+## वेबसाइट पर “Download APK” बटन
+
+लैंडिंग लिंक: **`/downloads/UpDownFX.apk`** (same origin)।
+
+1. Android Studio से APK बनाएँ।  
+2. Repo root से: **`npm run copy-apk`** — यह `app-release.apk` / `app-debug.apk` को **`frontend/public/downloads/UpDownFX.apk`** पर कॉपी करता है।  
+3. फिर **`npm run build:all`** (या कम से कम frontend build) ताकि `dist` में APK जाए।
+
+**सर्वर पर बिना rebuild:** VPS पर **`releases/UpDownFX.apk`** रखें (repo root के बगल में), या `.env` में **`APK_FILE_PATH`** — Node सीधे वहीं से serve करेगा।
+
 ## APK में नया अपडेट कैसे मिलेगा?
 
 तुम्हारा APK **WebView** में **`server.url`** वाली **live site** खोलता है (जैसे `https://updowanfx.com`).

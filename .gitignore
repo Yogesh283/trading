@@ -15,6 +15,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
+# Large Android builds — deploy via server / releases/ folder instead
+releases/*.apk
+frontend/public/downloads/*.apk
 # Vim / editors
 *.swp
 *~

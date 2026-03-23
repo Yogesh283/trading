@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "sync:brand": "node scripts/sync-brand.mjs",
+    "copy-apk": "node scripts/copy-apk.mjs",
     "predev": "npm run sync:brand",
-    "prebuild": "npm run sync:brand",
+    "prebuild": "npm run sync:brand && npm run copy-apk",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview"

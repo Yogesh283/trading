@@ -138,12 +138,13 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
+| **Site par “Download APK”** | Pehle APK banao, phir **ya to** `npm run copy-apk` (repo root) → `npm run build:all` (file `frontend/public/downloads/UpDownFX.apk` + `dist` mein jayegi) **ya** server par **`releases/UpDownFX.apk`** rakho **ya** `.env` mein **`APK_FILE_PATH=/poora/path/UpDownFX.apk`** — Node **`GET /downloads/UpDownFX.apk`** serve karega |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 
 **Naya APK zaroori jab:** `server.url` / app name / icons / native permissions badlein.
 
-Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**.
+Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**, **`releases/README.md`**.
 
 ---
 

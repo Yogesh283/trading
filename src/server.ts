@@ -102,6 +102,29 @@ export const useUnifiedDevPort =
 
 const app = express();
 
+/** Android APK for landing “Download APK” — avoids 404 when file is not inside frontend build. */
+function resolveAndroidApkPath(): string | null {
+  const explicit = env.APK_FILE_PATH?.trim();
+  if (explicit) {
+    const abs = path.isAbsolute(explicit) ? explicit : path.join(projectRoot, explicit);
+    if (fs.existsSync(abs)) {
+      return abs;
+    }
+    logger.warn({ APK_FILE_PATH: explicit }, "APK_FILE_PATH set but file not found");
+  }
+  const candidates = [
+    path.join(projectRoot, "releases", "UpDownFX.apk"),
+    path.join(frontendDist, "downloads", "UpDownFX.apk"),
+    path.join(projectRoot, "frontend", "public", "downloads", "UpDownFX.apk")
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return null;
+}
+
 function pathOnlyFromUrl(url: string | undefined): string {
   const u = url ?? "/";
   const q = u.indexOf("?");
@@ -1414,6 +1437,38 @@ app.get("/api/wallet/transactions", (req, res) => {
     }
     logger.error({ error }, "wallet transactions");
     res.status(500).json({ message: "Failed to list transactions" });
+  });
+});
+
+app.get("/downloads/UpDownFX.apk", (_req, res) => {
+  const file = resolveAndroidApkPath();
+  if (!file) {
+    res
+      .status(404)
+      .type("text/html; charset=utf-8")
+      .send(
+        `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head><body style="font-family:system-ui;padding:1.5rem;max-width:36rem">
+<h1>APK file missing</h1>
+<p>Put <strong>UpDownFX.apk</strong> on the server in one of these ways:</p>
+<ul>
+<li><code>releases/UpDownFX.apk</code> (next to the Node app folder)</li>
+<li>Or set <code>APK_FILE_PATH</code> in <code>.env</code> to the full path of the APK</li>
+<li>Or run <code>npm run copy-apk</code> in <code>frontend/</code> after building the APK in Android Studio, then <code>npm run build:all</code></li>
+</ul>
+<p>Build APK: <code>mobile-apk</code> → Android Studio → Build APK.</p>
+</body></html>`
+      );
+    return;
+  }
+  res.setHeader("Content-Type", "application/vnd.android.package-archive");
+  res.setHeader("Content-Disposition", 'attachment; filename="UpDownFX.apk"');
+  res.sendFile(path.resolve(file), (err) => {
+    if (err) {
+      logger.error({ err, file }, "sendFile APK failed");
+      if (!res.headersSent) {
+        res.status(500).end();
+      }
+    }
   });
 });
 

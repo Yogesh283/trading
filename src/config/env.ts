@@ -96,7 +96,12 @@ const envSchema = z.object({
   INVESTMENT_CRON_IN_PROCESS: z
     .string()
     .optional()
-    .transform((s) => s === "0" || String(s).toLowerCase() === "false")
+    .transform((s) => s === "0" || String(s).toLowerCase() === "false"),
+  /**
+   * Absolute path (or path relative to repo root) to `UpDownFX.apk` for GET /downloads/UpDownFX.apk.
+   * If unset, server looks for releases/UpDownFX.apk, frontend/dist/downloads/UpDownFX.apk, frontend/public/downloads/UpDownFX.apk.
+   */
+  APK_FILE_PATH: z.string().optional()
 });
 
 const parsed = envSchema.parse(process.env);
