@@ -5,3 +5,5 @@ export const brandLogo = `${b}brand/logo.png`;
 export const brandBanner1 = `${b}brand/banner1.jpeg`;
 export const brandBanner2 = `${b}brand/banner2.jpeg`;
 export const brandBanner3 = `${b}brand/banner3.jpeg`;
+/** Promo / hero video (place file at public/brand/v.mp4) */
+export const brandHeroVideo = `${b}brand/v.mp4`;

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import "./landing.css";
 import { APP_NAME, APK_DOWNLOAD_URL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
-import { brandBanner1, brandBanner2, brandBanner3, brandLogo } from "./brandUrls";
+import { brandBanner1, brandBanner2, brandBanner3, brandHeroVideo, brandLogo } from "./brandUrls";
 
 const PILL_ITEMS = [
   "Up / Down binary trades",
@@ -101,6 +101,31 @@ type Props = {
 export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
+  const cinematicVideoRef = useRef<HTMLVideoElement>(null);
+  const [cinematicPlaying, setCinematicPlaying] = useState(false);
+
+  const playCinematicVideo = useCallback(async () => {
+    const el = cinematicVideoRef.current;
+    if (!el) return;
+    try {
+      el.muted = true;
+      el.currentTime = 0;
+      await el.play();
+      setCinematicPlaying(true);
+    } catch {
+      setCinematicPlaying(false);
+    }
+  }, []);
+
+  /** Video poora chalne ke baad band + dubara sirf Play se start */
+  const handleCinematicEnded = useCallback(() => {
+    setCinematicPlaying(false);
+    const el = cinematicVideoRef.current;
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -135,53 +160,56 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
   return (
     <div className="landing-page landing-ot">
       <header className={`landing-nav landing-ot-nav${menuOpen ? " landing-drawer-open" : ""}`}>
-        <div className="landing-nav-inner">
-          <span className="landing-brand">
-            <BrandLogo size={40} className="landing-brand-logo" />
-            <span className="landing-brand-text">{APP_NAME}</span>
-          </span>
-          <button
-            type="button"
-            className="landing-menu-btn"
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
-          >
-            <span className="landing-menu-burger" aria-hidden />
-          </button>
-          <nav className="landing-nav-links landing-nav-desktop" aria-label="Main">
-            <button type="button" className="landing-link" onClick={() => scrollTo("ot-platform")}>
-              Platform
-            </button>
-            <button type="button" className="landing-link" onClick={() => scrollTo("ot-binary")}>
-              Up / Down
-            </button>
+        <div className="landing-nav-inner landing-nav-inner--bar">
+          <div className="landing-nav-slot landing-nav-slot--brand">
+            <span className="landing-brand">
+              <BrandLogo size={40} className="landing-brand-logo" />
+              <span className="landing-brand-text">{APP_NAME}</span>
+            </span>
+          </div>
+          <div className="landing-nav-slot landing-nav-slot--center landing-nav-desktop">
+            <nav className="landing-nav-pill" aria-label="Main">
+              <button type="button" className="landing-pill-link" onClick={() => scrollTo("ot-platform")}>
+                Trading
+              </button>
+              <ApkDownloadLink className="landing-pill-link landing-pill-link--app">Download App</ApkDownloadLink>
+              <button type="button" className="landing-pill-link" onClick={() => go(onAbout)}>
+                About
+              </button>
+              <button type="button" className="landing-pill-link" onClick={() => scrollTo("ot-help")}>
+                Help
+              </button>
+            </nav>
+          </div>
+          <div className="landing-nav-slot landing-nav-slot--end">
+            <div className="landing-nav-desktop landing-nav-cta-bar">
+              <button
+                type="button"
+                className="landing-lang-btn"
+                aria-label="Language: English"
+                title="English (UK)"
+              >
+                <span className="landing-lang-flag" aria-hidden>
+                  🇬🇧
+                </span>
+              </button>
+              <button type="button" className="landing-btn-signin" onClick={onLogin}>
+                Sign in
+              </button>
+              <button type="button" className="landing-btn-tryfree" onClick={onTryDemo}>
+                Try for free
+              </button>
+            </div>
             <button
               type="button"
-              className="landing-link landing-cta-highlight landing-cta-highlight--demo"
-              onClick={() => scrollTo("ot-demo-grid")}
+              className="landing-menu-btn"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(true)}
             >
-              Demo
+              <span className="landing-menu-burger" aria-hidden />
             </button>
-            <button type="button" className="landing-link" onClick={() => scrollTo("ot-reviews")}>
-              Reviews
-            </button>
-            <button type="button" className="landing-link" onClick={() => go(onAbout)}>
-              About
-            </button>
-            <ApkDownloadLink className="landing-link landing-cta-highlight landing-cta-highlight--apk">
-              Download APK
-            </ApkDownloadLink>
-            <button type="button" className="landing-link landing-cta-highlight landing-cta-highlight--login" onClick={onLogin}>
-              Log in
-            </button>
-            <button type="button" className="landing-btn-outline landing-cta-highlight landing-cta-highlight--register" onClick={onRegister}>
-              Register
-            </button>
-            <button type="button" className="landing-btn-primary landing-cta-highlight landing-cta-highlight--start" onClick={onTryDemo}>
-              Start for $0
-            </button>
-          </nav>
+          </div>
         </div>
         {menuOpen ? (
           <div
@@ -211,37 +239,29 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
               </div>
               <div className="landing-drawer-links">
                 <button type="button" onClick={() => { scrollTo("ot-platform"); }}>
-                  Platform
+                  Trading
                 </button>
-                <button type="button" onClick={() => { scrollTo("ot-binary"); }}>
-                  Up / Down
+                <ApkDownloadLink className="landing-drawer-link">Download App</ApkDownloadLink>
+                <button type="button" onClick={() => go(onAbout)}>
+                  About
                 </button>
-                <button
-                  type="button"
-                  className="landing-cta-highlight landing-cta-highlight--demo"
-                  onClick={() => {
-                    scrollTo("ot-demo-grid");
-                  }}
-                >
-                  Demo
+                <button type="button" onClick={() => { scrollTo("ot-help"); }}>
+                  Help
+                </button>
+                <button type="button" onClick={() => { scrollTo("ot-demo-grid"); }}>
+                  Explore demo
                 </button>
                 <button type="button" onClick={() => { scrollTo("ot-reviews"); }}>
                   Reviews
                 </button>
-                <button type="button" onClick={() => go(onAbout)}>
-                  About
-                </button>
-                <ApkDownloadLink className="landing-drawer-link landing-cta-highlight landing-cta-highlight--apk">
-                  Download APK (Android)
-                </ApkDownloadLink>
                 <button type="button" className="landing-cta-highlight landing-cta-highlight--login" onClick={() => go(onLogin)}>
-                  Log in
+                  Sign in
                 </button>
                 <button type="button" className="landing-cta-highlight landing-cta-highlight--register" onClick={() => go(onRegister)}>
                   Register
                 </button>
                 <button type="button" className="landing-cta-highlight landing-cta-highlight--start" onClick={() => go(onTryDemo)}>
-                  Start for $0
+                  Try for free
                 </button>
               </div>
             </nav>
@@ -278,31 +298,34 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
         </div>
       </section>
 
-      {/* Cinematic — banner1 (I.JPG.jpeg) */}
+      {/* Cinematic — brand video v.mp4; tap Play to start (poster until then) */}
       <section className="landing-ot-cinematic" aria-label="Trading workspace">
         <div className="landing-ot-cinematic-inner">
-          <img
-            src={brandBanner1}
-            alt="Dimly lit desk with laptop showing forex-style charts — focus on trading from anywhere"
-            className="landing-ot-cinematic-img"
-            width={1600}
-            height={900}
-            loading="lazy"
-            decoding="async"
-          />
-          <div className="landing-ot-cinematic-scrim" aria-hidden />
-          <div className="landing-ot-cinematic-copy">
-            <div className="landing-ot-cinematic-stack">
-              <span className="landing-ot-cinematic-brand">{APP_NAME}</span>
-              <p className="landing-ot-cinematic-word">Trade</p>
-              <p className="landing-ot-cinematic-tag">Forex · timed Up / Down · web &amp; mobile</p>
-              <div className="landing-ot-cinematic-cta-wrap">
-                <button type="button" className="landing-ot-cinematic-cta" onClick={onTryDemo}>
-                  Start for $0
-                </button>
-              </div>
+          <video
+            ref={cinematicVideoRef}
+            className="landing-ot-cinematic-img landing-ot-cinematic-video"
+            muted
+            playsInline
+            poster={brandBanner1}
+            preload="metadata"
+            aria-label="Trading platform preview video"
+            onPlay={() => setCinematicPlaying(true)}
+            onEnded={handleCinematicEnded}
+          >
+            <source src={brandHeroVideo} type="video/mp4" />
+          </video>
+          {!cinematicPlaying ? (
+            <div className="landing-cinematic-play-overlay">
+              <button
+                type="button"
+                className="landing-cinematic-play-btn"
+                onClick={() => void playCinematicVideo()}
+                aria-label="Play preview video"
+              >
+                <span className="landing-cinematic-play-triangle" aria-hidden />
+              </button>
             </div>
-          </div>
+          ) : null}
         </div>
       </section>
 
@@ -468,7 +491,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
         </p>
       </section>
 
-      <section className="landing-ot-support">
+      <section className="landing-ot-support" id="ot-help" aria-label="Help and support">
         <h2 className="landing-ot-h2 landing-ot-center">On your way to confident trading</h2>
         <div className="landing-ot-support-grid">
           {SUPPORT_COLS.map((col) => (
