@@ -2,7 +2,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import crypto from "node:crypto";
-import http, { type IncomingMessage } from "node:http";
+import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -125,37 +125,63 @@ function resolveAndroidApkPath(): string | null {
   return null;
 }
 
-function sendAndroidApkResponse(_req: express.Request, res: express.Response): void {
+const ANDROID_APK_PATHS = new Set([
+  "/api/mobile-app",
+  "/api/android-app.apk",
+  "/downloads/UpDownFX.apk"
+]);
+
+const ANDROID_APK_MISSING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head><body style="font-family:system-ui;padding:1.5rem;max-width:36rem">
+<h1>APK file missing on server</h1>
+<p>Chrome shows &quot;File wasn&apos;t available on site&quot; when the APK is not on disk or the URL returns HTML/404.</p>
+<p>Put <strong>UpDownFX.apk</strong> here (pick one):</p>
+<ul>
+<li><strong>Best on VPS:</strong> <code>releases/UpDownFX.apk</code> next to the app folder (same level as <code>package.json</code>), then <code>pm2 restart</code></li>
+<li>Or <code>APK_FILE_PATH</code> in <code>.env</code> → full path to the APK</li>
+<li>Or PC: <code>npm run copy-apk</code> then <code>npm run build:all</code> and deploy so <code>frontend/dist/downloads/UpDownFX.apk</code> exists</li>
+</ul>
+<p>Working URLs (after file exists): <code>/api/mobile-app</code> · <code>/api/android-app.apk</code> · <code>/downloads/UpDownFX.apk</code></p>
+<p>Check: <code>GET /api/health</code> → <code>apkReady: true</code></p>
+</body></html>`;
+
+/**
+ * Served from the raw `http` handler (before Express/Vite) so dev unified port and proxies can’t swallow the route.
+ */
+function tryServeAndroidApkFromRaw(
+  req: IncomingMessage,
+  res: ServerResponse,
+  pathOnly: string
+): boolean {
+  if (req.method !== "GET" || !ANDROID_APK_PATHS.has(pathOnly)) {
+    return false;
+  }
   const file = resolveAndroidApkPath();
   if (!file) {
-    res
-      .status(404)
-      .type("text/html; charset=utf-8")
-      .send(
-        `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head><body style="font-family:system-ui;padding:1.5rem;max-width:36rem">
-<h1>APK file missing</h1>
-<p>Put <strong>UpDownFX.apk</strong> on the server:</p>
-<ul>
-<li><code>releases/UpDownFX.apk</code> (next to the Node app folder)</li>
-<li>Or <code>APK_FILE_PATH</code> in <code>.env</code></li>
-<li>Or <code>npm run copy-apk</code> then <code>npm run build:all</code> so <code>frontend/dist/downloads/</code> has the file</li>
-</ul>
-<p>Download URLs (after file is in place): <code>/api/android-app.apk</code> or <code>/downloads/UpDownFX.apk</code></p>
-<p>Build APK: <code>mobile-apk</code> → Android Studio → Build APK.</p>
-</body></html>`
-      );
-    return;
+    res.writeHead(404, {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store"
+    });
+    res.end(ANDROID_APK_MISSING_HTML);
+    return true;
   }
-  res.setHeader("Content-Type", "application/vnd.android.package-archive");
-  res.setHeader("Content-Disposition", 'attachment; filename="UpDownFX.apk"');
-  res.sendFile(path.resolve(file), (err) => {
-    if (err) {
-      logger.error({ err, file }, "sendFile APK failed");
-      if (!res.headersSent) {
-        res.status(500).end();
-      }
+  const resolved = path.resolve(file);
+  res.writeHead(200, {
+    "Content-Type": "application/vnd.android.package-archive",
+    "Content-Disposition": 'attachment; filename="UpDownFX.apk"',
+    "Cache-Control": "no-store",
+    "X-Served-By": "updownfx-raw"
+  });
+  const stream = fs.createReadStream(resolved);
+  stream.on("error", (err) => {
+    logger.error({ err, file: resolved }, "APK read stream failed");
+    if (!res.headersSent) {
+      res.writeHead(500).end();
+    } else {
+      res.destroy();
     }
   });
+  stream.pipe(res);
+  return true;
 }
 
 function pathOnlyFromUrl(url: string | undefined): string {
@@ -203,7 +229,8 @@ const server = http.createServer((req, res) => {
       ok: true,
       service: "updownfx",
       symbols: FOREX_SYMBOLS,
-      forexPairs: FOREX_SYMBOLS.length
+      forexPairs: FOREX_SYMBOLS.length,
+      apkReady: Boolean(resolveAndroidApkPath())
     });
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
@@ -211,6 +238,9 @@ const server = http.createServer((req, res) => {
       "X-Served-By": "updownfx-raw"
     });
     res.end(body);
+    return;
+  }
+  if (tryServeAndroidApkFromRaw(req, res, pathOnly)) {
     return;
   }
   app(req, res);
@@ -1473,10 +1503,6 @@ app.get("/api/wallet/transactions", (req, res) => {
   });
 });
 
-/** Same binary — two paths: `/api/...` works behind Nginx when only `/api` is proxied to Node (avoids SPA fallback returning HTML for `/downloads/`). */
-app.get("/api/android-app.apk", sendAndroidApkResponse);
-app.get("/downloads/UpDownFX.apk", sendAndroidApkResponse);
-
 /**
  * Static + SPA AFTER all `/api` routes (Express 5: `express.static` before routes can prevent API handlers from running → 500 HTML).
  * Still skip `/api` in static if an unknown path falls through.
@@ -1626,6 +1652,14 @@ export async function startServer(): Promise<http.Server> {
     server.once("error", onListenError);
     server.listen(env.PORT, () => {
       server.off("error", onListenError);
+      const apkPath = resolveAndroidApkPath();
+      if (apkPath) {
+        logger.info({ apkPath }, "Android APK download: file found (GET /api/mobile-app)");
+      } else {
+        logger.warn(
+          "Android APK missing — Download APK will fail until releases/UpDownFX.apk or APK_FILE_PATH is set (see GET /api/health apkReady)"
+        );
+      }
       logger.info(
         {
           port: env.PORT,

@@ -138,8 +138,8 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | Pehle APK banao, phir **ya to** `npm run copy-apk` (repo root) → `npm run build:all` **ya** server par **`releases/UpDownFX.apk`** **ya** `.env` **`APK_FILE_PATH=...`** — Node **`GET /api/android-app.apk`** (default landing link; Nginx par `/api` proxy ke saath kaam karta hai) aur **`GET /downloads/UpDownFX.apk`** (legacy) dono same file dete hain |
-| Chrome **“File wasn’t available on site”** | Aksar **`/downloads/...`** Nginx/SPA se **HTML** mil raha hai (Node tak nahi ja raha). **Fix:** naya frontend build (default link ab **`/api/android-app.apk`**) + `pm2 restart`; verify: `curl -I https://tumhara-domain/api/android-app.apk` → `200` aur `Content-Type: application/vnd.android.package-archive` |
+| **Site par “Download APK”** | Pehle APK **server disk par** rakho: **`releases/UpDownFX.apk`** (repo root ke bagal) **ya** `.env` **`APK_FILE_PATH=...`** **ya** `npm run copy-apk` → `npm run build:all` (taaki `frontend/dist/downloads/` mein ho). Phir **`pm2 restart`**. Default link: **`GET /api/mobile-app`** — purane URLs **`/api/android-app.apk`**, **`/downloads/UpDownFX.apk`** bhi same file |
+| Chrome **“File wasn’t available on site”** | (1) **`https://tumhara-domain/api/health`** kholo — agar **`"apkReady":false`** hai to APK file server par **missing** hai → SFTP se `releases/UpDownFX.apk` upload karo. (2) Agar `apkReady:true` phir bhi fail → Nginx mein **`/api`** → Node proxy check karo. Test: `curl -I https://tumhara-domain/api/mobile-app` → **200** + `application/vnd.android.package-archive` |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 
