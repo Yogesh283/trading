@@ -12,7 +12,7 @@ import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config
 import { getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
-import { TRADE_TIMEFRAMES_SEC } from "./config/timeframes";
+import { TRADE_TIMEFRAMES_SEC, binaryCandleExpiresAtMs } from "./config/timeframes";
 import {
   forEachWalletAccount,
   getAccountForWallet,
@@ -984,7 +984,8 @@ app.post("/api/demo/orders", (req, res) => {
       return res.status(409).json({ message: "No live price available yet" });
     }
 
-    const expiryAt = isBinary ? Date.now() + timeframeSec * 1000 : undefined;
+    const nowMs = Date.now();
+    const expiryAt = isBinary ? binaryCandleExpiresAtMs(nowMs, timeframeSec) : undefined;
     const trade = isBinary
       ? account.openTrade({
           symbol,
@@ -1064,7 +1065,7 @@ app.post("/api/orders", (req, res) => {
     }
     const after = await getWalletBalance(user.id);
     account.setBalance(after);
-    const expiryAt = Date.now() + timeframeSec * 1000;
+    const expiryAt = binaryCandleExpiresAtMs(Date.now(), timeframeSec);
     const trade = account.openTrade({
       symbol,
       side: "buy",

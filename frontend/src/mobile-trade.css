@@ -1028,6 +1028,17 @@
   color: rgba(184, 197, 217, 0.88);
 }
 
+.mobile-hist-meta--settled {
+  color: #d7e2f0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.mobile-hist-meta--settled strong {
+  color: #8ab4f8;
+  font-weight: 700;
+}
+
 .mobile-hist-row .dir-up {
   color: #5ee4a3;
   font-weight: 600;
@@ -1040,7 +1051,7 @@
 
 .mobile-hist-legend {
   display: grid;
-  grid-template-columns: 0.95fr 0.42fr 0.62fr 0.72fr 0.68fr;
+  grid-template-columns: 0.88fr 0.38fr 0.52fr 0.68fr 0.68fr 0.58fr;
   gap: 4px;
   padding: 4px 4px 6px;
   font-size: 10px;
@@ -1053,9 +1064,15 @@
 
 .mobile-hist-row {
   display: grid;
-  grid-template-columns: 0.95fr 0.42fr 0.62fr 0.72fr 0.68fr;
+  grid-template-columns: 0.88fr 0.38fr 0.52fr 0.68fr 0.68fr 0.58fr;
   gap: 4px;
   padding: 8px 4px 4px;
   align-items: center;
   font-variant-numeric: tabular-nums;
+}
+
+.mobile-hist-close {
+  font-size: 11px;
+  font-weight: 600;
+  color: #dbe4f0;
 }

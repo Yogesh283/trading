@@ -162,6 +162,14 @@ function countdownToExpiry(expiryAt: number | undefined): string {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+function formatTradeCloseCell(trade: Trade): string {
+  if (trade.status !== "closed") return "—";
+  if (typeof trade.closePrice === "number" && Number.isFinite(trade.closePrice)) {
+    return formatFxPrice(trade.symbol, trade.closePrice);
+  }
+  return "—";
+}
+
 export default function App() {
   const [markets, setMarkets] = useState<MarketTick[]>([]);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
@@ -1330,7 +1338,8 @@ export default function App() {
                   <span>Up / Down</span>
                   <span>Stake</span>
                   <span>Entry</span>
-                  <span>Result</span>
+                  <span>Close</span>
+                  <span>P&amp;L</span>
                 </div>
               ) : null}
               {trades.slice(0, 20).map((trade) => {
@@ -1351,6 +1360,18 @@ export default function App() {
                         {formatFxPrice(trade.symbol, trade.entryPrice)}
                       </span>
                       <span
+                        className="mobile-hist-close"
+                        title={
+                          trade.status === "closed"
+                            ? typeof trade.closePrice === "number"
+                              ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                              : "Close price not recorded"
+                            : "Shows close price after trade settles"
+                        }
+                      >
+                        {formatTradeCloseCell(trade)}
+                      </span>
+                      <span
                         className={
                           typeof trade.pnl === "number"
                             ? trade.pnl >= 0
@@ -1360,7 +1381,7 @@ export default function App() {
                         }
                         title={
                           trade.status === "closed" && trade.closePrice != null
-                            ? `Closed at ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                            ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
                             : undefined
                         }
                       >
@@ -1373,19 +1394,32 @@ export default function App() {
                             : trade.status}
                       </span>
                     </div>
-                    <p className="mobile-hist-meta muted">
+                    <p
+                      className={
+                        trade.status === "closed" && isBinary && trade.closePrice != null
+                          ? "mobile-hist-meta mobile-hist-meta--settled"
+                          : "mobile-hist-meta muted"
+                      }
+                    >
                       {isBinary ? (
-                        <>
-                          <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
-                          {formatFxPrice(trade.symbol, trade.entryPrice)}
-                          {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
-                          {trade.status === "closed" && trade.closePrice != null ? (
-                            <>
-                              {" "}
-                              → cut @ {formatFxPrice(trade.symbol, trade.closePrice)}
-                            </>
-                          ) : null}
-                        </>
+                        trade.status === "open" ? (
+                          <>
+                            <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
+                            {formatFxPrice(trade.symbol, trade.entryPrice)}
+                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
+                          </>
+                        ) : trade.closePrice != null ? (
+                          <>
+                            <strong>Close</strong> {formatFxPrice(trade.symbol, trade.closePrice)} ·{" "}
+                            <strong>Entry</strong> {formatFxPrice(trade.symbol, trade.entryPrice)}
+                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s candle` : ""}
+                          </>
+                        ) : (
+                          <>
+                            Settled · entry {formatFxPrice(trade.symbol, trade.entryPrice)}
+                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
+                          </>
+                        )
                       ) : (
                         <>
                           Open @ {formatFxPrice(trade.symbol, trade.entryPrice)}
@@ -1635,6 +1669,7 @@ export default function App() {
               <span>Up / Down</span>
               <span>Stake</span>
               <span>Entry @ price</span>
+              <span>Close @ price</span>
               <span>Status</span>
               <span>Cut in</span>
               <span>P&L</span>
@@ -1661,6 +1696,16 @@ export default function App() {
                   </span>
                   <span title="Execution / entry price when order was placed">
                     {formatFxPrice(trade.symbol, trade.entryPrice)}
+                  </span>
+                  <span
+                    className="table-close-price"
+                    title={
+                      trade.status === "closed" && trade.closePrice != null
+                        ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                        : undefined
+                    }
+                  >
+                    {formatTradeCloseCell(trade)}
                   </span>
                   <span>{trade.status}</span>
                   <span className="table-cut-in">
