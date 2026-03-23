@@ -34,10 +34,13 @@ async function main() {
       created_at VARCHAR(64) NOT NULL,
       self_referral_code VARCHAR(32) NULL,
       referral_code VARCHAR(32) NULL,
+      phone_country_code VARCHAR(8) NULL,
+      phone_local VARCHAR(20) NULL,
       role VARCHAR(16) NOT NULL DEFAULT 'user',
       withdrawal_totp_secret VARCHAR(128) NULL,
       withdrawal_totp_pending VARCHAR(128) NULL,
-      UNIQUE KEY uk_users_self_referral (self_referral_code)
+      UNIQUE KEY uk_users_self_referral (self_referral_code),
+      UNIQUE KEY uk_users_phone (phone_country_code, phone_local)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   console.log("Table: users");

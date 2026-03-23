@@ -67,13 +67,27 @@ async function findUserPrimaryKeyByIdScan(requested: string): Promise<string | n
 }
 
 function rowToAuthUser(
-  row: Pick<UserRow, "id" | "name" | "email" | "created_at" | "self_referral_code" | "role">
+  row: Pick<
+    UserRow,
+    | "id"
+    | "name"
+    | "email"
+    | "created_at"
+    | "self_referral_code"
+    | "role"
+    | "phone_country_code"
+    | "phone_local"
+  >
 ): AuthUser {
   const role = row.role === "admin" ? "admin" : "user";
+  const cc = row.phone_country_code != null ? String(row.phone_country_code).trim() : "";
+  const loc = row.phone_local != null ? String(row.phone_local).trim() : "";
   return {
     id: row.id,
     name: row.name,
     email: row.email,
+    phoneCountryCode: cc || null,
+    phoneLocal: loc || null,
     createdAt: row.created_at,
     selfReferralCode: String(row.self_referral_code ?? "").trim() || "—",
     role
@@ -84,6 +98,9 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  /** Set for mobile signups; null for legacy / admin email-only accounts. */
+  phoneCountryCode: string | null;
+  phoneLocal: string | null;
   createdAt: string;
   /** User's own code to share (generated at register). */
   selfReferralCode: string;
@@ -100,6 +117,8 @@ interface UserRow {
   created_at: string;
   self_referral_code: string | null;
   referral_code: string | null;
+  phone_country_code: string | null;
+  phone_local: string | null;
   role: string;
 }
 
@@ -107,6 +126,8 @@ const GUEST_USER: AuthUser = {
   id: "guest",
   name: "Guest Demo",
   email: "guest@demo.local",
+  phoneCountryCode: null,
+  phoneLocal: null,
   createdAt: new Date(0).toISOString(),
   selfReferralCode: "",
   role: "user"
@@ -232,16 +253,54 @@ function isDuplicateEmailError(err: unknown): boolean {
   return msg.includes("email") && (msg.includes("duplicate") || msg.includes("unique") || msg.includes("constraint"));
 }
 
+function isDuplicatePhoneError(err: unknown): boolean {
+  const msg = String((err as Error).message ?? "").toLowerCase();
+  if (!msg.includes("duplicate") && !msg.includes("unique") && !msg.includes("constraint")) {
+    return false;
+  }
+  return (
+    msg.includes("phone") ||
+    msg.includes("uk_users_phone") ||
+    msg.includes("idx_users_phone_cc_local")
+  );
+}
+
+/** Digits only, 1–4 (e.g. 91 India, 92 Pakistan). */
+export function normalizePhoneCountryCode(raw: string): string | null {
+  const d = String(raw ?? "").replace(/\D/g, "");
+  if (d.length < 1 || d.length > 4) {
+    return null;
+  }
+  return d;
+}
+
+/** National number: digits only, 6–15 length; strips leading zeros if still too long. */
+export function normalizePhoneLocalDigits(raw: string): string | null {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  while (d.startsWith("0") && d.length > 6) {
+    d = d.slice(1);
+  }
+  if (d.length < 6 || d.length > 15) {
+    return null;
+  }
+  return d;
+}
+
 /**
  * 1) INSERT user — committed immediately so the row always appears in `users`.
  * 2) INSERT wallet — if this fails, user still exists; ensureWallet fixes on next login/API.
+ *
+ * **Public app:** `phoneCountryCode` + `phoneLocal` required; internal email placeholder stored.
+ * **Internal only** (e.g. dev Chrome user): pass `email` with `@` and omit phone → phone columns NULL.
  */
 export async function registerUser(input: {
   name: string;
-  /** Omit or leave empty for mobile signup — server sets `{userId}@m.updownfx.local`. */
-  email?: string;
   password: string;
-  /** Optional inviter's self-referral code */
+  /** Required for normal signup (not used when `email` is a real address for internal seed). */
+  phoneCountryCode?: string;
+  phoneLocal?: string;
+  /** Internal: dev / tests only */
+  email?: string;
   referralCode?: string;
 }) {
   await ready;
@@ -249,13 +308,27 @@ export async function registerUser(input: {
   const requestedEmail = String(input.email ?? "")
     .trim()
     .toLowerCase();
-  if (requestedEmail) {
-    if (!requestedEmail.includes("@")) {
-      throw new Error("Valid email is required");
-    }
+  const internalEmailPath = Boolean(requestedEmail && requestedEmail.includes("@"));
+
+  let phoneCc: string | null = null;
+  let phoneLoc: string | null = null;
+  if (internalEmailPath) {
     const existing = await dbGet<UserRow>("SELECT * FROM users WHERE email = ?", [requestedEmail]);
     if (existing) {
       throw new Error("Email already registered");
+    }
+  } else {
+    phoneCc = normalizePhoneCountryCode(String(input.phoneCountryCode ?? ""));
+    phoneLoc = normalizePhoneLocalDigits(String(input.phoneLocal ?? ""));
+    if (!phoneCc || !phoneLoc) {
+      throw new Error("Country code and valid mobile number are required");
+    }
+    const taken = await dbGet<UserRow>(
+      "SELECT id FROM users WHERE phone_country_code = ? AND phone_local = ? LIMIT 1",
+      [phoneCc, phoneLoc]
+    );
+    if (taken) {
+      throw new Error("This mobile number is already registered");
     }
   }
 
@@ -276,19 +349,22 @@ export async function registerUser(input: {
 
   for (let attempt = 0; attempt < 25; attempt++) {
     const id = await allocateUniqueFourDigitUserId();
-    const email = requestedEmail || `${id}@m.updownfx.local`;
+    const email = internalEmailPath ? requestedEmail : `${id}@m.updownfx.local`;
     const selfCode = await allocateUniqueSelfReferralCode();
     try {
       if (isMysqlMode()) {
         try {
           await getPool().execute(
-            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
-            [id, name, email, hash, salt, createdAt, selfCode, usedReferral]
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc]
           );
         } catch (e) {
           if (isDuplicateEmailError(e)) {
             throw new Error("Email already registered");
+          }
+          if (isDuplicatePhoneError(e)) {
+            throw new Error("This mobile number is already registered");
           }
           if (isDuplicateUserIdError(e) && attempt < 24) {
             continue;
@@ -298,12 +374,15 @@ export async function registerUser(input: {
       } else {
         try {
           await dbRun(
-            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
-            [id, name, email, hash, salt, createdAt, selfCode, usedReferral]
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc]
           );
         } catch (e) {
           if (isDuplicateEmailError(e)) {
             throw new Error("Email already registered");
+          }
+          if (isDuplicatePhoneError(e)) {
+            throw new Error("This mobile number is already registered");
           }
           if (isDuplicateUserIdError(e) && attempt < 24) {
             continue;
@@ -338,7 +417,7 @@ export async function registerUser(input: {
       }
 
       const saved = await dbGet<UserRow>(
-        "SELECT id, name, email, created_at, self_referral_code, role FROM users WHERE id = ?",
+        "SELECT id, name, email, created_at, self_referral_code, role, phone_country_code, phone_local FROM users WHERE id = ?",
         [id]
       );
       if (!saved) {
@@ -355,6 +434,9 @@ export async function registerUser(input: {
       };
     } catch (e) {
       if (e instanceof Error && e.message === "Email already registered") {
+        throw e;
+      }
+      if (e instanceof Error && e.message === "This mobile number is already registered") {
         throw e;
       }
       if (isDuplicateUserIdError(e) && attempt < 24) {
@@ -392,20 +474,38 @@ export async function ensureDevChromeUser(): Promise<void> {
   }
 }
 
-export async function loginUser(input: { email: string; password: string }) {
+/**
+ * App: `countryCode` + `phone` + `password`.
+ * Admin panel: `email` + `password`.
+ * Legacy: numeric `email` field = user id (accounts without phone).
+ */
+export async function loginUser(input: {
+  email?: string;
+  password: string;
+  countryCode?: string;
+  phone?: string;
+}) {
   await ready;
 
-  const raw = input.email.trim();
-  const lowered = raw.toLowerCase();
-  const userSql =
-    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role FROM users WHERE ";
+  const emailRaw = String(input.email ?? "").trim();
+  const loweredEmail = emailRaw.toLowerCase();
+  const cc = normalizePhoneCountryCode(String(input.countryCode ?? "").trim());
+  const local = normalizePhoneLocalDigits(String(input.phone ?? "").trim());
 
-  let user = await dbGet<UserRow>(`${userSql}LOWER(email) = ?`, [lowered]);
-  if (!user && /^\d+$/.test(raw)) {
-    user = await dbGet<UserRow>(`${userSql}id = ?`, [raw]);
+  const userSql =
+    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role, phone_country_code, phone_local FROM users WHERE ";
+
+  let user: UserRow | undefined;
+  if (loweredEmail.includes("@")) {
+    user = await dbGet<UserRow>(`${userSql}LOWER(email) = ?`, [loweredEmail]);
+  } else if (cc && local) {
+    user = await dbGet<UserRow>(`${userSql}phone_country_code = ? AND phone_local = ?`, [cc, local]);
+  } else if (/^\d+$/.test(emailRaw)) {
+    user = await dbGet<UserRow>(`${userSql}id = ?`, [emailRaw]);
   }
+
   if (!user) {
-    throw new Error("Invalid user ID, email, or password");
+    throw new Error("Invalid login or password");
   }
 
   const { hash } = hashPassword(input.password, user.password_salt);
@@ -416,7 +516,7 @@ export async function loginUser(input: { email: string; password: string }) {
     storedHash.length !== computedHash.length ||
     !crypto.timingSafeEqual(storedHash, computedHash)
   ) {
-    throw new Error("Invalid user ID, email, or password");
+    throw new Error("Invalid login or password");
   }
 
   try {
@@ -444,7 +544,7 @@ export async function getUserFromToken(token?: string | null) {
   await ready;
 
   const user = await dbGet<UserRow>(
-    "SELECT id, name, email, created_at, self_referral_code, role FROM users WHERE id = ?",
+    "SELECT id, name, email, created_at, self_referral_code, role, phone_country_code, phone_local FROM users WHERE id = ?",
     [userId]
   );
   if (!user) {

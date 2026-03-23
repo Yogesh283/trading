@@ -53,6 +53,17 @@ type SessionState = {
   user: AuthUser;
 };
 
+function formatAuthUserContact(u: AuthUser): string {
+  if (u.phoneCountryCode && u.phoneLocal) {
+    return `+${u.phoneCountryCode} ${u.phoneLocal}`;
+  }
+  const em = u.email ?? "";
+  if (em && !em.endsWith("@m.updownfx.local")) {
+    return em;
+  }
+  return `User ID ${u.id}`;
+}
+
 type AuthView = "login" | "register";
 
 type PublicScreen = "landing" | "auth" | "about";
@@ -192,10 +203,11 @@ export default function App() {
   const [booting, setBooting] = useState(true);
   const [splashReady, setSplashReady] = useState(false);
   const [publicScreen, setPublicScreen] = useState<PublicScreen>("landing");
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loginForm, setLoginForm] = useState({ countryCode: "91", phone: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
     name: "",
-    email: "",
+    countryCode: "91",
+    phone: "",
     password: "",
     referralCode: ""
   });
@@ -653,7 +665,11 @@ export default function App() {
 
     try {
       if (authView === "login") {
-        const response = await loginUser(loginForm);
+        const response = await loginUser({
+          countryCode: loginForm.countryCode,
+          phone: loginForm.phone,
+          password: loginForm.password
+        });
         setSession({
           mode: "user",
           token: response.token,
@@ -663,10 +679,10 @@ export default function App() {
         return;
       }
 
-      const emailTrim = registerForm.email.trim();
       const response = await registerUser({
         name: registerForm.name,
-        ...(emailTrim ? { email: emailTrim } : {}),
+        countryCode: registerForm.countryCode,
+        phone: registerForm.phone,
         password: registerForm.password,
         referralCode: registerForm.referralCode.trim() || undefined
       });
@@ -679,7 +695,7 @@ export default function App() {
         user: response.user
       });
       setAuthMessage(
-        `Account created — your User ID is ${response.user.id}. Next time log in with this ID and your password (no email needed on phone).`
+        `Account created — User ID ${response.user.id}. Log in with +${registerForm.countryCode} ${registerForm.phone} and your password.`
       );
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Authentication failed");
@@ -919,7 +935,7 @@ export default function App() {
           <p className="app-main-nav-sub">
             {accountWallet === "demo"
               ? "Demo — virtual funds · switch to Live for your funded balance"
-              : session.user.email}
+              : formatAuthUserContact(session.user)}
           </p>
         ) : null}
       </header>
@@ -956,7 +972,7 @@ export default function App() {
             </div>
             <div className="app-nav-drawer-user">
               <strong>{session.user.name}</strong>
-              <span>{session.user.email}</span>
+              <span>{formatAuthUserContact(session.user)}</span>
             </div>
             <div className="app-nav-drawer-wallet-row">
               <span className="app-nav-drawer-wallet-label">Trading</span>
@@ -2101,31 +2117,21 @@ function AuthScreen({
   authMessage: string;
   authView: AuthView;
   account: AccountSnapshot | null;
-  loginForm: { email: string; password: string };
+  loginForm: { countryCode: string; phone: string; password: string };
   markets: MarketTick[];
   onAuthSubmit: (event: FormEvent) => void;
   onBackToLanding: () => void;
   onNavigateToAbout: () => void;
   onDemoAccess: () => void;
-  onLoginFormChange: Dispatch<SetStateAction<{ email: string; password: string }>>;
+  onLoginFormChange: Dispatch<SetStateAction<{ countryCode: string; phone: string; password: string }>>;
   onRegisterFormChange: Dispatch<
-    SetStateAction<{ name: string; email: string; password: string; referralCode: string }>
+    SetStateAction<{ name: string; countryCode: string; phone: string; password: string; referralCode: string }>
   >;
   onViewChange: Dispatch<SetStateAction<AuthView>>;
-  registerForm: { name: string; email: string; password: string; referralCode: string };
+  registerForm: { name: string; countryCode: string; phone: string; password: string; referralCode: string };
   status: string;
 }) {
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
-  /** Phone / narrow: register without email; login with User ID or email. */
-  const [authCompact, setAuthCompact] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const apply = () => setAuthCompact(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
@@ -2340,37 +2346,46 @@ function AuthScreen({
             </label>
           ) : null}
 
-          {authView === "login" || !authCompact ? (
-            <label>
-              {authView === "login"
-                ? authCompact
-                  ? "User ID or email"
-                  : "Email"
-                : "Email"}
+          <div className="auth-phone-row">
+            <label className="auth-cc-field">
+              Country code
               <input
-                type={authView === "login" && authCompact ? "text" : "email"}
-                inputMode={authView === "login" && authCompact ? "text" : undefined}
-                value={authView === "login" ? loginForm.email : registerForm.email}
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={authView === "login" ? loginForm.countryCode : registerForm.countryCode}
                 onChange={(event) => {
-                  const value = event.target.value;
+                  const v = event.target.value.replace(/\D/g, "").slice(0, 4);
                   if (authView === "login") {
-                    onLoginFormChange((current) => ({ ...current, email: value }));
-                    return;
+                    onLoginFormChange((c) => ({ ...c, countryCode: v }));
+                  } else {
+                    onRegisterFormChange((c) => ({ ...c, countryCode: v }));
                   }
-
-                  onRegisterFormChange((current) => ({ ...current, email: value }));
                 }}
-                placeholder={
-                  authView === "login"
-                    ? authCompact
-                      ? "e.g. 1234 or you@mail.com"
-                      : "name@example.com"
-                    : "name@example.com"
-                }
-                autoComplete={authView === "login" ? "username" : "email"}
+                placeholder="91"
+                autoComplete="tel-country-code"
+                aria-label="Country calling code e.g. 91 India, 92 Pakistan"
               />
             </label>
-          ) : null}
+            <label className="auth-phone-field">
+              Mobile number
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={authView === "login" ? loginForm.phone : registerForm.phone}
+                onChange={(event) => {
+                  const v = event.target.value.replace(/\D/g, "").slice(0, 15);
+                  if (authView === "login") {
+                    onLoginFormChange((c) => ({ ...c, phone: v }));
+                  } else {
+                    onRegisterFormChange((c) => ({ ...c, phone: v }));
+                  }
+                }}
+                placeholder="9876543210"
+                autoComplete="tel-national"
+              />
+            </label>
+          </div>
 
           <label>
             Password

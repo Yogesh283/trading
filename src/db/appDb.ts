@@ -110,7 +110,10 @@ const USERS_SQL = `
     created_at TEXT NOT NULL,
     self_referral_code TEXT UNIQUE,
     referral_code TEXT,
-    role TEXT NOT NULL DEFAULT 'user'
+    phone_country_code TEXT,
+    phone_local TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    UNIQUE(phone_country_code, phone_local)
   )
 `;
 
@@ -124,8 +127,11 @@ const USERS_SQL_MYSQL = `
     created_at VARCHAR(64) NOT NULL,
     self_referral_code VARCHAR(32) NULL,
     referral_code VARCHAR(32) NULL,
+    phone_country_code VARCHAR(8) NULL,
+    phone_local VARCHAR(20) NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'user',
-    UNIQUE KEY uk_users_self_referral (self_referral_code)
+    UNIQUE KEY uk_users_self_referral (self_referral_code),
+    UNIQUE KEY uk_users_phone (phone_country_code, phone_local)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
@@ -587,6 +593,58 @@ async function migrateUsersRole(): Promise<void> {
   await dbRun("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
 }
 
+/** Mobile signup: country dial code (e.g. 91, 92) + national number; UNIQUE pair. Legacy rows stay NULL. */
+async function migrateUsersPhone(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const hasCol = async (name: string) => {
+      const row = await dbGet<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+        [dbName, name]
+      );
+      return Number(row?.n) > 0;
+    };
+    if (!(await hasCol("phone_country_code"))) {
+      try {
+        await dbRun("ALTER TABLE users ADD COLUMN phone_country_code VARCHAR(8) NULL AFTER referral_code");
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN phone_country_code VARCHAR(8) NULL");
+      }
+    }
+    if (!(await hasCol("phone_local"))) {
+      try {
+        await dbRun(
+          "ALTER TABLE users ADD COLUMN phone_local VARCHAR(20) NULL AFTER phone_country_code"
+        );
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN phone_local VARCHAR(20) NULL");
+      }
+    }
+    try {
+      await dbRun("CREATE UNIQUE INDEX uk_users_phone ON users (phone_country_code, phone_local)");
+    } catch {
+      /* exists */
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(users)");
+  if (!cols.some((c) => c.name === "phone_country_code")) {
+    await dbRun("ALTER TABLE users ADD COLUMN phone_country_code TEXT");
+  }
+  if (!cols.some((c) => c.name === "phone_local")) {
+    await dbRun("ALTER TABLE users ADD COLUMN phone_local TEXT");
+  }
+  try {
+    await dbRun(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone_cc_local ON users(phone_country_code, phone_local)"
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 let initPromise: Promise<void> | null = null;
 
 export function initAppDb(): Promise<void> {
@@ -603,6 +661,7 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateMarketTicks();
         await migrateUsersRole();
+        await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
         await migrateReferralLevelAndAppSettings();
       } else {
@@ -620,6 +679,7 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateMarketTicks();
         await migrateUsersRole();
+        await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
         await migrateReferralLevelAndAppSettings();
       }

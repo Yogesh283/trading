@@ -346,15 +346,12 @@ for (const apkPath of ANDROID_APK_PATHS) {
 app.post("/api/auth/register", async (req, res) => {
   try {
     const name = String(req.body?.name ?? "").trim();
-    const email = String(req.body?.email ?? "").trim();
     const password = String(req.body?.password ?? "");
+    const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
+    const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
 
     if (name.length < 2) {
       return res.status(400).json({ message: "Name must be at least 2 characters" });
-    }
-
-    if (email && !email.includes("@")) {
-      return res.status(400).json({ message: "Valid email is required" });
     }
 
     if (password.length < 6) {
@@ -364,15 +361,19 @@ app.post("/api/auth/register", async (req, res) => {
     const referralCode = String(req.body?.referralCode ?? req.body?.referral_code ?? "").trim() || undefined;
     const result = await registerUser({
       name,
-      ...(email ? { email } : {}),
       password,
+      phoneCountryCode: countryCode,
+      phoneLocal: phone,
       referralCode
     });
-    logger.info({ userId: result.user.id, email: result.user.email }, "User registered — row saved in users table");
+    logger.info(
+      { userId: result.user.id, phone: `${result.user.phoneCountryCode ?? ""}${result.user.phoneLocal ?? ""}` },
+      "User registered — row saved in users table"
+    );
     return res.status(201).json({ ...result, database: getDatabaseInfo() });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Registration failed";
-    logger.warn({ err: error, email: String(req.body?.email ?? "") }, "Register failed");
+    logger.warn({ err: error, countryCode: String(req.body?.countryCode ?? "") }, "Register failed");
     const hint =
       message.includes("wallet") || message.includes("FOREIGN")
         ? " Check MySQL wallets table and demo_balance column."
@@ -384,13 +385,29 @@ app.post("/api/auth/register", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   try {
     const email = String(req.body?.email ?? "").trim();
+    const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
+    const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
     const password = String(req.body?.password ?? "");
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "User ID or email and password are required" });
+    if (!password) {
+      return res.status(400).json({ message: "Password is required" });
     }
 
-    const result = await loginUser({ email, password });
+    let result;
+    if (email.includes("@")) {
+      if (!email) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+      result = await loginUser({ email, password });
+    } else if (countryCode && phone) {
+      result = await loginUser({ countryCode, phone, password });
+    } else if (/^\d+$/.test(email)) {
+      result = await loginUser({ email, password });
+    } else {
+      return res.status(400).json({
+        message: "Country code + mobile + password are required (or admin email + password)."
+      });
+    }
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Login failed";

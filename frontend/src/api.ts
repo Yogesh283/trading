@@ -42,6 +42,9 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  /** Mobile signup; null for legacy accounts. */
+  phoneCountryCode: string | null;
+  phoneLocal: string | null;
   createdAt: string;
   /** Your invite code (share with new signups). */
   selfReferralCode: string;
@@ -137,7 +140,8 @@ async function fetchJsonOrThrow(url: string, init: RequestInit): Promise<Respons
 
 export async function registerUser(input: {
   name: string;
-  email?: string;
+  countryCode: string;
+  phone: string;
   password: string;
   referralCode?: string;
 }) {
@@ -146,19 +150,41 @@ export async function registerUser(input: {
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(input)
+    body: JSON.stringify({
+      name: input.name,
+      countryCode: input.countryCode,
+      phone: input.phone,
+      password: input.password,
+      referralCode: input.referralCode
+    })
   });
 
   return parseJson<AuthResponse>(response);
 }
 
-export async function loginUser(input: { email: string; password: string }) {
+/** App: countryCode + phone + password. Admin: email + password. Legacy: user id in `email` + password. */
+export async function loginUser(input: {
+  email?: string;
+  countryCode?: string;
+  phone?: string;
+  password: string;
+}) {
+  const body: Record<string, string> = { password: input.password };
+  if (input.email != null && String(input.email).trim() !== "") {
+    body.email = String(input.email).trim();
+  }
+  if (input.countryCode != null && String(input.countryCode).trim() !== "") {
+    body.countryCode = String(input.countryCode).trim();
+  }
+  if (input.phone != null && String(input.phone).trim() !== "") {
+    body.phone = String(input.phone).trim();
+  }
   const response = await fetchJsonOrThrow(`${apiBase()}/api/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(input)
+    body: JSON.stringify(body)
   });
 
   return parseJson<AuthResponse>(response);

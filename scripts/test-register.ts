@@ -6,10 +6,11 @@ import { getDatabaseInfo } from "../src/db/appDb";
 
 async function main() {
   console.log("Database:", getDatabaseInfo());
-  const email = `testreg_${Date.now()}@example.com`;
+  const suffix = String(Date.now()).slice(-9);
   const r = await registerUser({
     name: "Test User",
-    email,
+    phoneCountryCode: "91",
+    phoneLocal: `9${suffix}`,
     password: "secret12"
   });
   console.log("Register OK:");
