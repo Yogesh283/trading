@@ -131,6 +131,19 @@ pm2 save && pm2 startup
 
 ## 6) Android APK (Capacitor)
 
+**Nginx (APK / API):** `location /api/` block **`location /` se pehle** — warna `/api/...` SPA `index.html` ban jata hai → download **`mobile-app.html`**.
+
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
 APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.config.json`** → `server.url` (abhi **`https://updowanfx.com`**).
 
 | Kaam | Command / jagah |
@@ -138,8 +151,8 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | Pehle APK **server disk par** rakho: **`releases/UpDownFX.apk`** (repo root ke bagal) **ya** `.env` **`APK_FILE_PATH=...`** **ya** `npm run copy-apk` → `npm run build:all` (taaki `frontend/dist/downloads/` mein ho). Phir **`pm2 restart`**. Default link: **`GET /api/mobile-app`** — purane URLs **`/api/android-app.apk`**, **`/downloads/UpDownFX.apk`** bhi same file |
-| Chrome **“File wasn’t available on site”** | (1) **`https://tumhara-domain/api/health`** kholo — agar **`"apkReady":false`** hai to APK file server par **missing** hai → SFTP se `releases/UpDownFX.apk` upload karo. (2) Agar `apkReady:true` phir bhi fail → Nginx mein **`/api`** → Node proxy check karo. Test: `curl -I https://tumhara-domain/api/mobile-app` → **200** + `application/vnd.android.package-archive` |
+| **Site par “Download APK”** | Pehle APK **server disk par** rakho: **`releases/UpDownFX.apk`** (repo root ke bagal) **ya** `.env` **`APK_FILE_PATH=...`** **ya** `npm run copy-apk` → `npm run build:all`. Phir **`pm2 restart`**. Default link: **`GET /api/system/android-apk`** (Node; same `/api/system/*` family as database health). |
+| Download **`mobile-app.html`** / HTML instead of APK | **`/api/...` Node tak nahi ja raha** — static/SPA ne `index.html` de diya. **Fix:** Nginx mein poora **`location /api`** → `proxy_pass` Node (port jo `.env` `PORT` hai) **aur** `try_files` / SPA fallback **sirf `/`** par. Test: `curl -I https://tumhara-domain/api/system/android-apk` → **200** + `Content-Type: application/vnd.android.package-archive`. **`/api/health`** mein **`apkReady:true`** hona chahiye jab file disk par hai. |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 

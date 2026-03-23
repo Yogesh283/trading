@@ -98,7 +98,7 @@ const envSchema = z.object({
     .optional()
     .transform((s) => s === "0" || String(s).toLowerCase() === "false"),
   /**
-   * Absolute path (or path relative to repo root) to `UpDownFX.apk` for GET /api/mobile-app, /api/android-app.apk, /downloads/UpDownFX.apk.
+   * Absolute path (or path relative to repo root) to `UpDownFX.apk` for GET /api/system/android-apk, /api/android-app.apk, /downloads/UpDownFX.apk, /api/mobile-app.
    * If unset, server looks for releases/UpDownFX.apk, frontend/dist/downloads/UpDownFX.apk, frontend/public/downloads/UpDownFX.apk.
    */
   APK_FILE_PATH: z.string().optional()

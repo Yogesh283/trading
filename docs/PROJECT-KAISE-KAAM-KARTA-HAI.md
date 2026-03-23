@@ -123,7 +123,7 @@ flowchart LR
 
 - APK asli app nahi — **WebView** jo **`https://tumhara-domain.com`** load karta hai
 - **Website update** = zyada tar **naya APK zaroori nahi** (sirf URL / native change par naya build)
-- **Download link:** default **`/api/mobile-app`** — server `releases/`, `APK_FILE_PATH`, ya `frontend/dist/downloads/` se file; **`/api/android-app.apk`** / **`/downloads/UpDownFX.apk`** bhi same file
+- **Download link:** default **`/api/system/android-apk`** — server `releases/`, `APK_FILE_PATH`, ya `frontend/dist/downloads/` se file; aur URLs bhi same file
 
 ---
 

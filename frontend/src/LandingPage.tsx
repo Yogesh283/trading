@@ -21,7 +21,7 @@ function ApkDownloadLink({ className, children }: { className: string; children:
     <a
       href={APK_DOWNLOAD_URL}
       className={className}
-      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : { download: true })}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
     >
       {children}
     </a>

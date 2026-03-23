@@ -125,7 +125,13 @@ function resolveAndroidApkPath(): string | null {
   return null;
 }
 
+/**
+ * Prefer `/api/system/android-apk` in the UI: same `/api/system/*` family as `GET /api/system/database`, so Nginx
+ * “API proxy” rules usually include it. Paths like `/api/mobile-app` often miss the proxy and get SPA `index.html`
+ * → Chrome offers to save `mobile-app.html` instead of an APK.
+ */
 const ANDROID_APK_PATHS = new Set([
+  "/api/system/android-apk",
   "/api/mobile-app",
   "/api/android-app.apk",
   "/downloads/UpDownFX.apk"
@@ -140,7 +146,7 @@ const ANDROID_APK_MISSING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-
 <li>Or <code>APK_FILE_PATH</code> in <code>.env</code> → full path to the APK</li>
 <li>Or PC: <code>npm run copy-apk</code> then <code>npm run build:all</code> and deploy so <code>frontend/dist/downloads/UpDownFX.apk</code> exists</li>
 </ul>
-<p>Working URLs (after file exists): <code>/api/mobile-app</code> · <code>/api/android-app.apk</code> · <code>/downloads/UpDownFX.apk</code></p>
+<p>Working URLs (after file exists): <code>/api/system/android-apk</code> (recommended) · <code>/api/android-app.apk</code> · <code>/downloads/UpDownFX.apk</code> · <code>/api/mobile-app</code></p>
 <p>Check: <code>GET /api/health</code> → <code>apkReady: true</code></p>
 </body></html>`;
 
@@ -1654,7 +1660,7 @@ export async function startServer(): Promise<http.Server> {
       server.off("error", onListenError);
       const apkPath = resolveAndroidApkPath();
       if (apkPath) {
-        logger.info({ apkPath }, "Android APK download: file found (GET /api/mobile-app)");
+        logger.info({ apkPath }, "Android APK download: file found (GET /api/system/android-apk)");
       } else {
         logger.warn(
           "Android APK missing — Download APK will fail until releases/UpDownFX.apk or APK_FILE_PATH is set (see GET /api/health apkReady)"
