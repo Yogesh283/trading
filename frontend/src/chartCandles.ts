@@ -8,6 +8,57 @@ export interface CandlePoint {
   close: number;
 }
 
+function numPrice(t: MarketTick): number {
+  const p = typeof t.price === "number" ? t.price : Number(t.price);
+  return Number.isFinite(p) && p > 0 ? p : NaN;
+}
+
+/**
+ * Drop ticks whose price is a clear outlier vs the rest of the bucket (bad DB row, mixed scale, etc.).
+ * Without this, one bogus high/low stretches the Y-axis and real candles look like flat hairlines.
+ */
+function ticksForBucketAggregation(sortedTicks: MarketTick[]): MarketTick[] {
+  const valid = sortedTicks.filter((t) => Number.isFinite(numPrice(t)));
+  if (valid.length === 0) {
+    return sortedTicks;
+  }
+  if (valid.length === 2) {
+    const a = numPrice(valid[0]!);
+    const b = numPrice(valid[1]!);
+    const rel = Math.abs(a - b) / Math.min(a, b);
+    if (rel > 0.025) {
+      const mid = (a + b) / 2;
+      return [
+        { ...valid[0]!, price: mid },
+        { ...valid[1]!, price: mid }
+      ];
+    }
+    return valid;
+  }
+  if (valid.length < 2) {
+    return valid;
+  }
+  const prices = valid.map((t) => numPrice(t));
+  const sorted = [...prices].sort((x, y) => x - y);
+  const n = sorted.length;
+  const q1 = sorted[Math.floor((n - 1) * 0.25)]!;
+  const q3 = sorted[Math.floor((n - 1) * 0.75)]!;
+  const iqr = q3 - q1;
+  if (!Number.isFinite(iqr) || iqr <= 0) {
+    return valid;
+  }
+  const lo = q1 - 3 * iqr;
+  const hi = q3 + 3 * iqr;
+  const kept = valid.filter((t) => {
+    const p = numPrice(t);
+    return p >= lo && p <= hi;
+  });
+  if (kept.length >= Math.max(2, Math.ceil(valid.length * 0.4))) {
+    return kept.sort((a, b) => a.timestamp - b.timestamp);
+  }
+  return valid;
+}
+
 /**
  * Unix ms when the current candle period ends (UTC wall-clock aligned via epoch buckets).
  * Same formula as server `binaryCandleExpiresAtMs` — chart countdown and binary expiry stay in sync.
@@ -45,18 +96,27 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
 
   const agg = new Map<number, CandlePoint>();
   for (const bucket of byBucket.keys()) {
-    const list = byBucket.get(bucket)!.sort((a, b) => a.timestamp - b.timestamp);
-    const prices = list.map((t) => t.price);
+    const rawSorted = [...byBucket.get(bucket)!].sort((a, b) => a.timestamp - b.timestamp);
+    const list = ticksForBucketAggregation(rawSorted);
+    const prices = list.map((t) => numPrice(t)).filter((p) => Number.isFinite(p));
+    if (prices.length === 0) {
+      continue;
+    }
+    const open = numPrice(list[0]!);
+    const close = numPrice(list[list.length - 1]!);
     agg.set(bucket, {
       timestamp: bucket,
-      open: list[0].price,
+      open,
       high: Math.max(...prices),
       low: Math.min(...prices),
-      close: list[list.length - 1].price
+      close
     });
   }
 
   const sortedBuckets = Array.from(agg.keys()).sort((a, b) => a - b);
+  if (sortedBuckets.length === 0) {
+    return [];
+  }
   const firstBucket = sortedBuckets[0]!;
   const lastDataBucket = sortedBuckets[sortedBuckets.length - 1]!;
   const nowBucket = Math.floor(nowMs / bucketMs) * bucketMs;

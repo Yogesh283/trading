@@ -2563,7 +2563,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Zoom = slot width in px (larger = fewer candles = more zoomed in). −/+ steps are clearly visible. */
-const MOBILE_DEFAULT_ZOOM_INDEX = 4;
+const MOBILE_DEFAULT_ZOOM_INDEX = 5;
 const DESKTOP_DEFAULT_ZOOM_INDEX = 3;
 
 function LiveChart({

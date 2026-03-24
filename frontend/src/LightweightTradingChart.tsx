@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ColorType,
   createChart,
   CrosshairMode,
   LineStyle,
   type IChartApi,
-  type IPriceLine,
   type ISeriesApi,
   type UTCTimestamp
 } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
 import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
-/** Last-price line (TradingView red) */
+/** Last-price line + axis label background (TradingView-style, all assets). */
 const TV_LAST_RED = "#f23645";
-/** Candle fills / borders — brighter so bodies read clearly on dark chart (lightweight-charts). */
-const TV_CANDLE_UP = "#26d7a0";
-const TV_CANDLE_UP_LINE = "#5eead4";
-const TV_CANDLE_DOWN = "#ff5a5a";
-const TV_CANDLE_DOWN_LINE = "#ff9494";
+/** Classic TV candle greens / reds (same family as reference charts). */
+const TV_CANDLE_UP = "#26a69a";
+const TV_CANDLE_UP_LINE = "#26a69a";
+const TV_CANDLE_DOWN = "#ef5350";
+const TV_CANDLE_DOWN_LINE = "#ef5350";
+const TV_CHART_BG = "#131722";
+const TV_GRID = "rgba(42, 46, 57, 0.5)";
 
 /** Responsive chart height for phone — large enough to feel “full” (toolbar + dock stay outside). */
 function useMobileChartHeightPx(isMobile: boolean): number {
@@ -61,8 +62,9 @@ function useMobileChartHeightPx(isMobile: boolean): number {
 }
 
 /**
- * One candlestick per bucket start time (unix seconds). Preserves real spacing (e.g. 5s TF → 5s on axis).
- * Same unix second only if bad/duplicate data — merge OHLC instead of faking `time + 1` (which hid separate bars).
+ * One point per chart bucket, time = unix seconds (lightweight-charts).
+ * Coerces OHLC so high/low always wrap open/close (avoids broken candle geometry).
+ * Duplicate unix seconds (should be rare) merge into one bar.
  */
 function candlestickDataFromCandles(candles: CandlePoint[]) {
   if (candles.length === 0) {
@@ -71,14 +73,23 @@ function candlestickDataFromCandles(candles: CandlePoint[]) {
   const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
   const merged = new Map<number, { open: number; high: number; low: number; close: number }>();
   for (const c of sorted) {
+    const o = Number(c.open);
+    const h0 = Number(c.high);
+    const l0 = Number(c.low);
+    const cl = Number(c.close);
+    if (![o, h0, l0, cl].every(Number.isFinite)) {
+      continue;
+    }
+    const high = Math.max(o, cl, h0, l0);
+    const low = Math.min(o, cl, h0, l0);
     const t = Math.floor(c.timestamp / 1000);
     const m = merged.get(t);
     if (!m) {
-      merged.set(t, { open: c.open, high: c.high, low: c.low, close: c.close });
+      merged.set(t, { open: o, high, low, close: cl });
     } else {
-      m.high = Math.max(m.high, c.high);
-      m.low = Math.min(m.low, c.low);
-      m.close = c.close;
+      m.high = Math.max(m.high, high);
+      m.low = Math.min(m.low, low);
+      m.close = cl;
     }
   }
   const secs = Array.from(merged.keys()).sort((a, b) => a - b);
@@ -125,35 +136,9 @@ export function LightweightTradingChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const priceLineRef = useRef<IPriceLine | null>(null);
-  const candlesRef = useRef(candles);
   const lastResetKeyRef = useRef("");
 
-  const [badgeTopPx, setBadgeTopPx] = useState<number | null>(null);
-
-  candlesRef.current = candles;
-
   const height = useMobileChartHeightPx(isMobileChart);
-
-  const scheduleBadgeUpdate = useCallback(() => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const series = candleRef.current;
-        const list = candlesRef.current;
-        if (!series || list.length === 0) {
-          setBadgeTopPx(null);
-          return;
-        }
-        const lastClose = list[list.length - 1]!.close;
-        const y = series.priceToCoordinate(lastClose);
-        if (y == null || Number.isNaN(y)) {
-          setBadgeTopPx(null);
-        } else {
-          setBadgeTopPx(y);
-        }
-      });
-    });
-  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -163,21 +148,24 @@ export function LightweightTradingChart({
 
     lastResetKeyRef.current = "";
 
-    const w0 = el.clientWidth;
-    const h0 = Math.max(el.clientHeight, 200);
-
     const chart = createChart(el, {
+      /** ResizeObserver on container — avoids wrong clientWidth on first paint + keeps right price scale laid out. */
+      autoSize: true,
+      width: 0,
+      height: 0,
       layout: {
-        background: { type: ColorType.Solid, color: isMobileChart ? "#0b0e14" : "#131722" },
+        background: { type: ColorType.Solid, color: TV_CHART_BG },
         textColor: "#d1d4dc",
         fontSize: isMobileChart ? 13 : 12
       },
       grid: {
-        vertLines: { color: "rgba(42, 46, 57, 0.35)" },
-        horzLines: { color: "rgba(42, 46, 57, 0.35)" }
+        vertLines: { color: TV_GRID },
+        horzLines: { color: TV_GRID }
       },
-      width: w0,
-      height: h0,
+      /** Hide empty left scale — all prices on the right (TradingView-style). */
+      leftPriceScale: {
+        visible: false
+      },
       crosshair: {
         mode: isMobileChart ? CrosshairMode.Magnet : CrosshairMode.Normal,
         vertLine: { color: "rgba(197, 203, 206, 0.2)", width: 1 },
@@ -187,14 +175,23 @@ export function LightweightTradingChart({
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
         borderColor: "rgba(42, 46, 57, 0.85)",
-        rightOffset: 8,
+        // Extra gap so last candle + wicks aren’t flush against the price scale on narrow screens
+        rightOffset: isMobileChart ? 14 : 8,
         fixLeftEdge: false,
         lockVisibleTimeRangeOnResize: true,
         minBarSpacing: 2
       },
       rightPriceScale: {
-        borderColor: "rgba(42, 46, 57, 0.85)",
-        scaleMargins: isMobileChart ? { top: 0.05, bottom: 0.14 } : { top: 0.06, bottom: 0.12 }
+        visible: true,
+        borderVisible: true,
+        ticksVisible: true,
+        entireTextOnly: false,
+        textColor: "#c4ced9",
+        borderColor: "rgba(56, 68, 82, 0.95)",
+        // Wide enough for "XAUUSD 4413.47" / JPY-style quotes on the axis
+        minimumWidth: isMobileChart ? 80 : 88,
+        // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
+        scaleMargins: isMobileChart ? { top: 0.12, bottom: 0.22 } : { top: 0.06, bottom: 0.12 }
       },
       localization: {
         priceFormatter: (p: number) =>
@@ -231,54 +228,26 @@ export function LightweightTradingChart({
       wickDownColor: TV_CANDLE_DOWN_LINE,
       borderVisible: true,
       wickVisible: true,
-      lastValueVisible: false,
-      priceLineVisible: false
+      /** Symbol next to last price on the right scale (e.g. USDJPY). */
+      title: assetTag,
+      lastValueVisible: true,
+      /** Red dashed last-price line like TradingView. */
+      priceLineVisible: true,
+      priceLineColor: TV_LAST_RED,
+      priceLineWidth: 1,
+      priceLineStyle: LineStyle.Dashed
     });
 
     chartRef.current = chart;
     candleRef.current = candleSeries;
-    priceLineRef.current = null;
-
-    const onLogicalRange = () => scheduleBadgeUpdate();
-    chart.timeScale().subscribeVisibleLogicalRangeChange(onLogicalRange);
-
-    const ro = new ResizeObserver(() => {
-      if (!containerRef.current || !chartRef.current) {
-        return;
-      }
-      const box = containerRef.current;
-      chartRef.current.applyOptions({
-        width: box.clientWidth,
-        height: Math.max(box.clientHeight, 200)
-      });
-      scheduleBadgeUpdate();
-    });
-    ro.observe(el);
 
     return () => {
-      ro.disconnect();
-      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onLogicalRange);
-      priceLineRef.current = null;
       lastResetKeyRef.current = "";
       chart.remove();
       chartRef.current = null;
       candleRef.current = null;
     };
-  }, [isMobileChart, scheduleBadgeUpdate, timeframeSec]);
-
-  /** Viewport height changes without remounting the chart instance. */
-  useEffect(() => {
-    const chart = chartRef.current;
-    const el = containerRef.current;
-    if (!chart || !el) {
-      return;
-    }
-    chart.applyOptions({
-      width: el.clientWidth,
-      height: Math.max(el.clientHeight, 200)
-    });
-    scheduleBadgeUpdate();
-  }, [height, scheduleBadgeUpdate]);
+  }, [assetTag, isMobileChart, timeframeSec]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -295,36 +264,21 @@ export function LightweightTradingChart({
 
     const cd = candlestickDataFromCandles(candles);
     candleSeries.setData(cd);
+    candleSeries.applyOptions({
+      title: assetTag,
+      priceLineColor: TV_LAST_RED
+    });
 
-    const lastClose = candles[candles.length - 1]!.close;
-
-    const lineColor =
-      tickDirection === "up"
-        ? TV_CANDLE_UP_LINE
-        : tickDirection === "down"
-          ? TV_CANDLE_DOWN_LINE
-          : TV_LAST_RED;
-
-    if (!priceLineRef.current) {
-      priceLineRef.current = candleSeries.createPriceLine({
-        price: lastClose,
-        color: lineColor,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: ""
-      });
-    } else {
-      priceLineRef.current.applyOptions({ price: lastClose, color: lineColor });
-    }
+    chart.priceScale("right").applyOptions({
+      visible: true,
+      minimumWidth: isMobileChart ? 80 : 88
+    });
 
     if (lastResetKeyRef.current !== chartResetKey) {
       lastResetKeyRef.current = chartResetKey;
       chart.timeScale().fitContent();
     }
-
-    scheduleBadgeUpdate();
-  }, [candles, timeframeSec, chartResetKey, scheduleBadgeUpdate, tickDirection]);
+  }, [assetTag, candles, chartResetKey, isMobileChart, timeframeSec]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -335,53 +289,24 @@ export function LightweightTradingChart({
       CHART_ZOOM_BAR_SPACING[Math.min(zoomIndex, CHART_ZOOM_BAR_SPACING.length - 1)] ?? 15;
     const minSp = Math.min(5, Math.max(2, sp * 0.28));
     chart.timeScale().applyOptions({ barSpacing: sp, minBarSpacing: minSp });
-    scheduleBadgeUpdate();
-  }, [zoomIndex, scheduleBadgeUpdate]);
-
-  const lastClose = candles.length ? candles[candles.length - 1]!.close : null;
+  }, [zoomIndex]);
 
   const badgeMod =
     tickDirection === "up" ? " tv-live-badge--tick-up" : tickDirection === "down" ? " tv-live-badge--tick-down" : "";
 
-  const BadgeInner = (
-    <>
-      <span className="tv-live-badge-tag">{assetTag}</span>
-      <span className={`tv-live-badge-price-row${tickDirection ? ` tick-${tickDirection}` : ""}`}>
-        {tickDirection === "up" ? <span className="tv-live-badge-arrow">↑</span> : null}
-        {tickDirection === "down" ? <span className="tv-live-badge-arrow">↓</span> : null}
-        <span className="tv-live-badge-price">{lastClose != null ? formatPrice(lastClose) : "—"}</span>
-      </span>
-      <span className={`tv-live-badge-cd${timerTextZoomed ? " zoomed" : ""}`}>{countdownStr}</span>
-    </>
-  );
-
   return (
     <div className="chart-lw-outer">
       <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
-      {badgeTopPx != null && lastClose != null ? (
-        <div
-          className="chart-lw-badge-layer"
-          style={
-            {
-              "--tv-badge-top": `${badgeTopPx}px`
-            } as CSSProperties
-          }
-        >
-          {isMobileChart ? (
-            <button
-              type="button"
-              className={`tv-live-badge tv-live-badge--btn${badgeMod}`}
-              style={{ top: "var(--tv-badge-top)" }}
-              aria-label="Current price and candle countdown; tap to resize timer"
-              onClick={onTimerTap}
-            >
-              {BadgeInner}
-            </button>
-          ) : (
-            <div className={`tv-live-badge${badgeMod}`} style={{ top: "var(--tv-badge-top)" }}>
-              {BadgeInner}
-            </div>
-          )}
+      {isMobileChart && candles.length > 0 ? (
+        <div className="chart-lw-timer-anchor">
+          <button
+            type="button"
+            className={`tv-live-badge tv-live-badge--btn tv-live-badge--timer-only${badgeMod}`}
+            aria-label="Candle countdown; tap to resize timer"
+            onClick={onTimerTap}
+          >
+            <span className={`tv-live-badge-cd${timerTextZoomed ? " zoomed" : ""}`}>{countdownStr}</span>
+          </button>
         </div>
       ) : null}
     </div>

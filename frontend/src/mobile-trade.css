@@ -501,6 +501,10 @@
   flex: 1 1 auto;
   min-height: 0;
   width: 100%;
+  touch-action: auto;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: visible;
 }
 
 .tv-chart-mobile .chart-lw-wrap {
@@ -529,9 +533,10 @@
   min-height: 200px;
 }
 
-.mobile-chart-wrap .chart-lw-badge-layer {
-  /* Match canvas; badge stays aligned on narrow screens */
-  max-width: 100%;
+/* Countdown pill — bottom-left; native chart shows symbol + price on right axis. */
+.tv-chart-mobile .chart-lw-timer-anchor {
+  left: 8px;
+  bottom: 58px;
 }
 
 /* Compact OHLC row so more vertical space stays for the chart */
@@ -566,12 +571,6 @@
 }
 
 /* Mobile chart: pan/pinch only on chart layer — NOT on zoom buttons (was blocking +/− taps). */
-.tv-chart-mobile .chart-svg-wrap {
-  touch-action: auto;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
 .tv-chart-mobile .chart-touch-layer {
   touch-action: pan-x pan-y pinch-zoom;
 }
