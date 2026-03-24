@@ -199,13 +199,29 @@ export function UserEdit() {
 export function WalletList() {
   return (
     <List perPage={25} sort={{ field: "updated_at", order: "DESC" }}>
-      <Datagrid rowClick={false} bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
+        <EditButton />
         <TextField source="user_id" label="User id" />
         <NumberField source="balance" label="Live USDT" options={{ maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
         <DateField source="updated_at" label="Updated" showTime />
       </Datagrid>
     </List>
+  );
+}
+
+/** Saves via PUT /api/admin/ra/wallets/:id (same balances as user edit, dedicated wallet screen). */
+export function WalletEdit() {
+  return (
+    <Edit mutationMode="pessimistic">
+      <SimpleForm>
+        <TextInput source="id" label="Record id (= user id)" disabled fullWidth />
+        <TextInput source="user_id" label="User id" disabled fullWidth />
+        <TextInput source="updated_at" label="Last updated (read-only)" disabled fullWidth />
+        <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
+        <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
+      </SimpleForm>
+    </Edit>
   );
 }
 

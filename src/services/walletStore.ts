@@ -96,6 +96,38 @@ export async function getWalletBalance(userId: string): Promise<number> {
 }
 
 /**
+ * Admin: set `wallets.balance` and/or `demo_balance` directly (no ledger transaction rows).
+ * `canonicalUserId` must be the real `users.id` / `wallets.user_id`.
+ */
+export async function setWalletBalancesFromAdmin(
+  canonicalUserId: string,
+  body: { balance?: number; demo_balance?: number }
+): Promise<void> {
+  if (body.balance === undefined && body.demo_balance === undefined) {
+    throw new Error("Provide balance and/or demo_balance");
+  }
+  await ensureWallet(canonicalUserId);
+  const cur = await dbGet<{ balance: number; demo_balance: number }>(
+    "SELECT balance, demo_balance FROM wallets WHERE user_id = ?",
+    [canonicalUserId]
+  );
+  const newB = body.balance !== undefined ? Number(body.balance) : Number(cur?.balance ?? 0);
+  const newD =
+    body.demo_balance !== undefined ? Number(body.demo_balance) : Number(cur?.demo_balance ?? DEFAULT_DEMO_BALANCE_INR);
+  if (!Number.isFinite(newB) || newB < 0) {
+    throw new Error("Invalid live balance");
+  }
+  if (!Number.isFinite(newD) || newD < 0) {
+    throw new Error("Invalid demo balance");
+  }
+  const now = new Date().toISOString();
+  await dbRun(
+    "UPDATE wallets SET balance = ?, demo_balance = ?, updated_at = ? WHERE user_id = ?",
+    [newB, newD, now, canonicalUserId]
+  );
+}
+
+/**
  * Apply balance delta; logs transactions with before_balance / after_balance.
  */
 export async function applyLedger(

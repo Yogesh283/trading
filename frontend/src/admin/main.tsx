@@ -26,6 +26,7 @@ import {
   UserEdit,
   UserInvestmentList,
   UserList,
+  WalletEdit,
   WalletList,
   WithdrawalList
 } from "./resources";
@@ -64,7 +65,13 @@ ReactDOM.createRoot(adminMount).render(
         <Resource name="deposits" list={DepositList} icon={AccountBalanceWalletIcon} options={{ label: "Deposits" }} />
         <Resource name="withdrawals" list={WithdrawalList} icon={PaymentsIcon} options={{ label: "Withdrawals" }} />
         <Resource name="users" list={UserList} edit={UserEdit} icon={PeopleIcon} options={{ label: "Users" }} />
-        <Resource name="wallets" list={WalletList} icon={WalletIcon} options={{ label: "Wallets" }} />
+        <Resource
+          name="wallets"
+          list={WalletList}
+          edit={WalletEdit}
+          icon={WalletIcon}
+          options={{ label: "Wallets" }}
+        />
         <Resource name="transactions" list={TransactionList} icon={ReceiptLongIcon} options={{ label: "Transactions" }} />
         <Resource
           name="user_investments"

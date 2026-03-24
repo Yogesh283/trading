@@ -17,10 +17,14 @@ export function candlePeriodEndMs(nowMs: number, intervalSeconds: number): numbe
   return Math.floor(nowMs / bucketMs) * bucketMs + bucketMs;
 }
 
+/** Max bars on chart — keeps TradingView-like density (avoids 10k+ flat dojis killing the look). */
+export const CHART_MAX_CANDLES = 1200;
+
 /**
- * Build OHLC candles: one bar per `intervalSeconds` bucket aligned to UTC epoch (e.g. 5s → 12 bars/min).
- * Empty buckets are filled as flat bars (O=H=L=C=previous close) so a new period always has its own candle
- * as soon as time advances, even when no tick arrived in that bucket yet.
+ * Build OHLC candles: one bar per `intervalSeconds` aligned to UTC wall buckets (same idea as TradingView UTC forex).
+ * 5s → new bar every 5s; 60 → every minute; 120/180/300/600 → every 2/3/5/10 minutes.
+ * Empty buckets become flat bars (O=H=L=C=last price) so each period is its own candle.
+ * Only the last `CHART_MAX_CANDLES` periods are kept so the series stays fast and readable.
  */
 export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: number = Date.now()): CandlePoint[] {
   if (points.length === 0) {
@@ -58,10 +62,23 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
   const nowBucket = Math.floor(nowMs / bucketMs) * bucketMs;
   const lastBucket = Math.max(lastDataBucket, nowBucket);
 
-  const out: CandlePoint[] = [];
-  let lastClose = agg.get(firstBucket)!.close;
+  const maxSpanMs = (CHART_MAX_CANDLES - 1) * bucketMs;
+  const effectiveFirst = Math.max(firstBucket, lastBucket - maxSpanMs);
 
-  for (let t = firstBucket; t <= lastBucket; t += bucketMs) {
+  const sortedPoints = [...points].sort((a, b) => a.timestamp - b.timestamp);
+  const lastPriceStrictlyBefore = (ms: number): number => {
+    for (let i = sortedPoints.length - 1; i >= 0; i--) {
+      if (sortedPoints[i].timestamp < ms) {
+        return sortedPoints[i].price;
+      }
+    }
+    return sortedPoints[0].price;
+  };
+
+  let lastClose = lastPriceStrictlyBefore(effectiveFirst);
+  const out: CandlePoint[] = [];
+
+  for (let t = effectiveFirst; t <= lastBucket; t += bucketMs) {
     const c = agg.get(t);
     if (c) {
       out.push(c);

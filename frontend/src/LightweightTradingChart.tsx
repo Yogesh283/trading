@@ -10,36 +10,87 @@ import {
   type UTCTimestamp
 } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
+import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
-const ZOOM_BAR_SPACING = [2, 3, 4, 6, 8, 10, 12, 16, 20, 26];
-
-/** TradingView-style last-price red */
+/** Last-price line (TradingView red) */
 const TV_LAST_RED = "#f23645";
+/** Candle fills / borders — brighter so bodies read clearly on dark chart (lightweight-charts). */
+const TV_CANDLE_UP = "#26d7a0";
+const TV_CANDLE_UP_LINE = "#5eead4";
+const TV_CANDLE_DOWN = "#ff5a5a";
+const TV_CANDLE_DOWN_LINE = "#ff9494";
 
-function candlestickDataFromCandles(candles: CandlePoint[]) {
-  const out: Array<{
-    time: UTCTimestamp;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-  }> = [];
-  let lastT = 0;
-  for (const c of candles) {
-    let t = Math.floor(c.timestamp / 1000);
-    if (t <= lastT) {
-      t = lastT + 1;
+/** Responsive chart height for phone (visual viewport / rotation). */
+function useMobileChartHeightPx(isMobile: boolean): number {
+  const compute = useCallback(() => {
+    if (typeof window === "undefined") {
+      return 360;
     }
-    lastT = t;
-    out.push({
-      time: t as UTCTimestamp,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close
-    });
+    const vh = window.visualViewport?.height ?? window.innerHeight;
+    return Math.round(Math.min(Math.max(vh * 0.36, 272), 520));
+  }, []);
+
+  const [px, setPx] = useState(() => {
+    if (!isMobile || typeof window === "undefined") {
+      return 440;
+    }
+    return compute();
+  });
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    const on = () => setPx(compute());
+    on();
+    window.addEventListener("resize", on);
+    window.addEventListener("orientationchange", on);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", on);
+    vv?.addEventListener("scroll", on);
+    return () => {
+      window.removeEventListener("resize", on);
+      window.removeEventListener("orientationchange", on);
+      vv?.removeEventListener("resize", on);
+      vv?.removeEventListener("scroll", on);
+    };
+  }, [isMobile, compute]);
+
+  return isMobile ? px : 440;
+}
+
+/**
+ * One candlestick per bucket start time (unix seconds). Preserves real spacing (e.g. 5s TF → 5s on axis).
+ * Same unix second only if bad/duplicate data — merge OHLC instead of faking `time + 1` (which hid separate bars).
+ */
+function candlestickDataFromCandles(candles: CandlePoint[]) {
+  if (candles.length === 0) {
+    return [];
   }
-  return out;
+  const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
+  const merged = new Map<number, { open: number; high: number; low: number; close: number }>();
+  for (const c of sorted) {
+    const t = Math.floor(c.timestamp / 1000);
+    const m = merged.get(t);
+    if (!m) {
+      merged.set(t, { open: c.open, high: c.high, low: c.low, close: c.close });
+    } else {
+      m.high = Math.max(m.high, c.high);
+      m.low = Math.min(m.low, c.low);
+      m.close = c.close;
+    }
+  }
+  const secs = Array.from(merged.keys()).sort((a, b) => a - b);
+  return secs.map((sec) => {
+    const m = merged.get(sec)!;
+    return {
+      time: sec as UTCTimestamp,
+      open: m.open,
+      high: m.high,
+      low: m.low,
+      close: m.close
+    };
+  });
 }
 
 type Props = {
@@ -78,7 +129,7 @@ export function LightweightTradingChart({
 
   candlesRef.current = candles;
 
-  const height = isMobileChart ? 400 : 440;
+  const height = useMobileChartHeightPx(isMobileChart);
 
   const scheduleBadgeUpdate = useCallback(() => {
     requestAnimationFrame(() => {
@@ -108,45 +159,74 @@ export function LightweightTradingChart({
 
     lastResetKeyRef.current = "";
 
+    const w0 = el.clientWidth;
+    const h0 = Math.max(el.clientHeight, 200);
+
     const chart = createChart(el, {
       layout: {
         background: { type: ColorType.Solid, color: isMobileChart ? "#0b0e14" : "#131722" },
-        textColor: "#B2B5BE",
+        textColor: "#d1d4dc",
         fontSize: isMobileChart ? 13 : 12
       },
       grid: {
-        vertLines: { color: "rgba(197, 203, 206, 0.06)" },
-        horzLines: { color: "rgba(197, 203, 206, 0.06)" }
+        vertLines: { color: "rgba(42, 46, 57, 0.35)" },
+        horzLines: { color: "rgba(42, 46, 57, 0.35)" }
       },
-      width: el.clientWidth,
-      height,
+      width: w0,
+      height: h0,
       crosshair: {
-        mode: CrosshairMode.Normal,
+        mode: isMobileChart ? CrosshairMode.Magnet : CrosshairMode.Normal,
         vertLine: { color: "rgba(197, 203, 206, 0.2)", width: 1 },
         horzLine: { color: "rgba(197, 203, 206, 0.2)", width: 1 }
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
-        borderColor: "rgba(42, 46, 57, 0.85)"
+        borderColor: "rgba(42, 46, 57, 0.85)",
+        rightOffset: 8,
+        fixLeftEdge: false,
+        lockVisibleTimeRangeOnResize: true,
+        minBarSpacing: 2
       },
       rightPriceScale: {
         borderColor: "rgba(42, 46, 57, 0.85)",
-        scaleMargins: { top: 0.06, bottom: 0.12 }
+        scaleMargins: isMobileChart ? { top: 0.05, bottom: 0.14 } : { top: 0.06, bottom: 0.12 }
       },
       localization: {
         priceFormatter: (p: number) =>
           p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6)
-      }
+      },
+      ...(isMobileChart
+        ? {
+            handleScroll: {
+              mouseWheel: false,
+              pressedMouseMove: true,
+              horzTouchDrag: true,
+              vertTouchDrag: false
+            },
+            handleScale: {
+              mouseWheel: false,
+              pinch: true,
+              axisPressedMouseMove: false,
+              axisDoubleClickReset: true
+            },
+            kineticScroll: {
+              mouse: false,
+              touch: true
+            }
+          }
+        : {})
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: "#26a69a",
-      downColor: "#ef5350",
-      borderUpColor: "#26a69a",
-      borderDownColor: "#ef5350",
-      wickUpColor: "#26a69a",
-      wickDownColor: "#ef5350",
+      upColor: TV_CANDLE_UP,
+      downColor: TV_CANDLE_DOWN,
+      borderUpColor: TV_CANDLE_UP_LINE,
+      borderDownColor: TV_CANDLE_DOWN_LINE,
+      wickUpColor: TV_CANDLE_UP_LINE,
+      wickDownColor: TV_CANDLE_DOWN_LINE,
+      borderVisible: true,
+      wickVisible: true,
       lastValueVisible: false,
       priceLineVisible: false
     });
@@ -162,7 +242,11 @@ export function LightweightTradingChart({
       if (!containerRef.current || !chartRef.current) {
         return;
       }
-      chartRef.current.applyOptions({ width: containerRef.current.clientWidth, height });
+      const box = containerRef.current;
+      chartRef.current.applyOptions({
+        width: box.clientWidth,
+        height: Math.max(box.clientHeight, 200)
+      });
       scheduleBadgeUpdate();
     });
     ro.observe(el);
@@ -176,7 +260,21 @@ export function LightweightTradingChart({
       chartRef.current = null;
       candleRef.current = null;
     };
-  }, [height, isMobileChart, scheduleBadgeUpdate, timeframeSec]);
+  }, [isMobileChart, scheduleBadgeUpdate, timeframeSec]);
+
+  /** Viewport height changes without remounting the chart instance. */
+  useEffect(() => {
+    const chart = chartRef.current;
+    const el = containerRef.current;
+    if (!chart || !el) {
+      return;
+    }
+    chart.applyOptions({
+      width: el.clientWidth,
+      height: Math.max(el.clientHeight, 200)
+    });
+    scheduleBadgeUpdate();
+  }, [height, scheduleBadgeUpdate]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -222,8 +320,10 @@ export function LightweightTradingChart({
     if (!chart) {
       return;
     }
-    const sp = ZOOM_BAR_SPACING[Math.min(zoomIndex, ZOOM_BAR_SPACING.length - 1)] ?? 8;
-    chart.timeScale().applyOptions({ barSpacing: sp });
+    const sp =
+      CHART_ZOOM_BAR_SPACING[Math.min(zoomIndex, CHART_ZOOM_BAR_SPACING.length - 1)] ?? 15;
+    const minSp = Math.min(5, Math.max(2, sp * 0.28));
+    chart.timeScale().applyOptions({ barSpacing: sp, minBarSpacing: minSp });
     scheduleBadgeUpdate();
   }, [zoomIndex, scheduleBadgeUpdate]);
 

@@ -32,7 +32,8 @@ import {
   resolveWallet,
   updateUserFromAdmin,
   setUserBlockedByAdmin,
-  resolveAdminUserPrimaryKey
+  resolveAdminUserPrimaryKey,
+  evictInMemoryAccountsForUser
 } from "./services/authService";
 import {
   createDepositIntent,
@@ -48,7 +49,8 @@ import {
   applyLedger,
   getWalletBalance,
   listTransactionsForUser,
-  saveDemoBalanceToDb
+  saveDemoBalanceToDb,
+  setWalletBalancesFromAdmin
 } from "./services/walletStore";
 import { TradeSide } from "./services/demoAccount";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
@@ -1045,6 +1047,61 @@ app.put("/api/admin/ra/users/:id", (req, res) => {
     }
   })().catch((error) => {
     logger.error({ error }, "admin ra put");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
+/** React-Admin wallet edit: PUT /api/admin/ra/wallets/:id (id = user_id) */
+app.put("/api/admin/ra/wallets/:id", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const id = adminSafePathId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Missing id" });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    try {
+      const canonical = await resolveAdminUserPrimaryKey(id);
+      if (!canonical) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const payload: { balance?: number; demo_balance?: number } = {};
+      if (body.balance !== undefined && body.balance !== null) {
+        payload.balance = Number(body.balance);
+      }
+      if (body.demo_balance !== undefined && body.demo_balance !== null) {
+        payload.demo_balance = Number(body.demo_balance);
+      }
+      if (payload.balance === undefined && payload.demo_balance === undefined) {
+        return res.status(400).json({ message: "Provide balance and/or demo_balance" });
+      }
+
+      await setWalletBalancesFromAdmin(canonical, payload);
+      evictInMemoryAccountsForUser(canonical);
+      await hydrateLiveAccountFromWallet(canonical);
+
+      const row = await getAdminRaOne("wallets", canonical);
+      if (!row) {
+        return res.status(404).json({ message: "Wallet row not found" });
+      }
+      return res.json(row);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      return res.status(400).json({ message: msg });
+    }
+  })().catch((error) => {
+    logger.error({ error }, "admin ra put wallets");
     res.status(500).json({ message: "Failed" });
   });
 });

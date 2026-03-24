@@ -465,9 +465,54 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.mobile-chart-wrap .tv-chart-svg {
-  min-height: 240px;
-  max-height: 42vh;
+/* Lightweight-charts host (replaces old .tv-chart-svg). */
+.mobile-chart-wrap .chart-lw-outer {
+  width: 100%;
+  min-height: min(36dvh, 400px);
+  min-width: 0;
+}
+
+.mobile-chart-wrap .chart-lw-host {
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-chart-wrap .chart-lw-badge-layer {
+  /* Match canvas; badge stays aligned on narrow screens */
+  max-width: 100%;
+}
+
+/* Compact OHLC row so more vertical space stays for the chart */
+.tv-chart-mobile.chart-card .tv-chart-toolbar {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 10px;
+  padding: 8px 4px 6px;
+}
+
+.tv-chart-mobile .tv-toolbar-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tv-chart-mobile .tv-chart-toolbar .tv-symbol {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.tv-chart-mobile .tv-chart-toolbar .tv-ohlc {
+  display: block;
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.tv-chart-mobile .tv-chart-meta-right {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.9;
 }
 
 /* Mobile chart: pan/pinch only on chart layer — NOT on zoom buttons (was blocking +/− taps). */

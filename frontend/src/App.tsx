@@ -8,6 +8,7 @@ import {
   useState
 } from "react";
 import { buildCandles, candlePeriodEndMs } from "./chartCandles";
+import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
 import { LightweightTradingChart } from "./LightweightTradingChart";
 import {
   AccountSnapshot,
@@ -2563,9 +2564,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Zoom = slot width in px (larger = fewer candles = more zoomed in). −/+ steps are clearly visible. */
-const SLOT_WIDTHS_PX = [4, 6, 9, 13, 18, 24, 32, 42, 52, 64];
-const MOBILE_DEFAULT_ZOOM_INDEX = 3; // ~13px slot — more candles on screen, TV-like density
-const DESKTOP_DEFAULT_ZOOM_INDEX = 2;
+const MOBILE_DEFAULT_ZOOM_INDEX = 4;
+const DESKTOP_DEFAULT_ZOOM_INDEX = 3;
 
 function LiveChart({
   points,
@@ -2633,7 +2633,7 @@ function LiveChart({
       const ratio = dist / pinchRef.current.initialDistance;
       const sensitivity = 2.5;
       const delta = Math.round(sensitivity * Math.log(ratio));
-      const next = Math.max(0, Math.min(SLOT_WIDTHS_PX.length - 1, pinchRef.current.initialZoomIndex + delta));
+      const next = Math.max(0, Math.min(CHART_ZOOM_STEP_COUNT - 1, pinchRef.current.initialZoomIndex + delta));
       setZoomIndex(next);
     };
 
@@ -2759,7 +2759,7 @@ function LiveChart({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setZoomIndex((i) => Math.min(SLOT_WIDTHS_PX.length - 1, i + 1));
+              setZoomIndex((i) => Math.min(CHART_ZOOM_STEP_COUNT - 1, i + 1));
             }}
             title="Zoom in"
             aria-label="Zoom in"
