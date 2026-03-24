@@ -15,6 +15,7 @@ import { AdminAppLayout } from "./AdminLayout";
 import { adminAuthProvider } from "./authProvider";
 import { adminDataProvider } from "./dataProvider";
 import { AdminLoginPage } from "./AdminLogin";
+import { AdminDashboard } from "./AdminDashboard";
 import { ReferralLevelSettingsPage } from "./ReferralLevelSettingsPage";
 import {
   DepositList,
@@ -50,6 +51,7 @@ ReactDOM.createRoot(adminMount).render(
       <CssBaseline />
       <Admin
         layout={AdminAppLayout}
+        dashboard={AdminDashboard}
         dataProvider={adminDataProvider}
         authProvider={adminAuthProvider}
         loginPage={AdminLoginPage}

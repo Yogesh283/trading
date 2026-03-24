@@ -77,6 +77,7 @@ import {
   updateReferralLevelConfigPayload
 } from "./services/referralLevelConfigService";
 import { getAdminUserInsights, searchUsersForAdmin } from "./services/adminUserInsightsService";
+import { getAdminDashboardStats } from "./services/adminDashboardService";
 
 /** True when running via `tsx` from `src/` (not compiled `dist/`). */
 const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src";
@@ -1075,6 +1076,27 @@ app.put("/api/admin/referral-level-settings", (req, res) => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Update failed";
       return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.get("/api/admin/dashboard-stats", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const payload = await getAdminDashboardStats();
+      return res.json({ ...payload, database: getDatabaseInfo() });
+    } catch (err) {
+      logger.error({ err }, "admin dashboard-stats");
+      return res.status(500).json({ message: "Failed" });
     }
   })();
 });
