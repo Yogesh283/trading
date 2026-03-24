@@ -16,7 +16,7 @@ export interface ForexTick {
   source: "forex";
 }
 
-/** ~3.3h at 1 tick/sec — deep enough for 10m/5m chart history when DB is empty. */
+/** ~5h at 1 tick/sec — enough 3m/5m/10m candles when DB is empty (see seedIntradayBackfill). */
 const HISTORY_MAX_TICKS_PER_SYMBOL = 18000;
 
 /** Simulated + stream pulse: one visible update per second for UI / 5s candles. */
@@ -145,8 +145,9 @@ export class ForexFeed extends EventEmitter {
 
   private seedIntradayBackfill() {
     const now = Date.now();
-    const backfillMs = 25 * 60 * 1000;
+    /** Match HISTORY_MAX_TICKS_PER_SYMBOL at 1 Hz (~5h) so 3m/5m/10m charts get many buckets, not one bar. */
     const stepMs = 1000;
+    const backfillMs = (HISTORY_MAX_TICKS_PER_SYMBOL - 1) * stepMs;
 
     for (const p of FOREX_PAIRS) {
       const ticks: ForexTick[] = [];

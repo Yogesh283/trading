@@ -103,6 +103,18 @@ CREATE TABLE IF NOT EXISTS market_ticks (
   INDEX idx_market_ticks_sym_ts (symbol, timestamp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS chart_candles (
+  symbol VARCHAR(32) NOT NULL,
+  timeframe_sec INT NOT NULL,
+  bucket_start_ms BIGINT NOT NULL,
+  open_price DOUBLE NOT NULL,
+  high_price DOUBLE NOT NULL,
+  low_price DOUBLE NOT NULL,
+  close_price DOUBLE NOT NULL,
+  PRIMARY KEY (symbol, timeframe_sec, bucket_start_ms),
+  INDEX idx_chart_candles_lookup (symbol, timeframe_sec, bucket_start_ms)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
   level_num INT NOT NULL PRIMARY KEY,
   percent_of_gross_yield DOUBLE NOT NULL DEFAULT 0,

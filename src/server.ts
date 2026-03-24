@@ -9,7 +9,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import cron from "node-cron";
 import { env } from "./config/env";
 import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
-import { getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
 import { TRADE_TIMEFRAMES_SEC, binaryCandleExpiresAtMs } from "./config/timeframes";
@@ -53,6 +53,7 @@ import {
   setWalletBalancesFromAdmin
 } from "./services/walletStore";
 import { TradeSide } from "./services/demoAccount";
+import { onForexTickForCandles } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
 import { distributeBinaryBetLevelIncome } from "./services/referralService";
@@ -308,7 +309,9 @@ setInterval(async () => {
 
 forexFeed.on("tick", (tick: ForexTick) => {
   tickBuffer.push(tick);
-  const payload = JSON.stringify({ type: "tick", data: tick });
+  onForexTickForCandles(tick.symbol, tick.price, tick.timestamp);
+  /** WebSocket `LivePrice` — per-second (or feed cadence) quote; same payload shape as legacy `tick`. */
+  const payload = JSON.stringify({ type: "live_price", data: tick });
 
   for (const client of wsServer.clients) {
     if (client.readyState === client.OPEN) {
@@ -541,6 +544,32 @@ app.get("/api/markets/history", (req, res) => {
   })().catch((err) => {
     logger.warn({ err }, "Markets history failed");
     res.status(500).json({ ticks: [] });
+  });
+});
+
+/** Closed OHLC from DB (aligned with TRADE_TIMEFRAMES_SEC); merge with WebSocket LivePrice ticks on the client. */
+app.get("/api/markets/candles", (req, res) => {
+  void (async () => {
+    const symbol = typeof req.query.symbol === "string" ? req.query.symbol.trim().toUpperCase() : "";
+    const timeframeSec = Number(req.query.timeframe);
+    const limit = Math.min(2000, Math.max(1, Number(req.query.limit) || 500));
+    if (!symbol || !Number.isFinite(timeframeSec) || !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)) {
+      return res.status(400).json({ message: "symbol and valid timeframe required" });
+    }
+    await initAppDb();
+    const rows = await getChartCandles(symbol, timeframeSec, limit);
+    res.json({
+      candles: rows.map((r) => ({
+        t: r.bucket_start_ms,
+        o: r.open_price,
+        h: r.high_price,
+        l: r.low_price,
+        c: r.close_price
+      }))
+    });
+  })().catch((err) => {
+    logger.warn({ err }, "Markets candles failed");
+    res.status(500).json({ candles: [] });
   });
 });
 
@@ -1478,7 +1507,7 @@ app.post("/api/demo/orders", (req, res) => {
         !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
       ) {
         return res.status(400).json({
-          message: "Timeframe must be one of: 5s, 1m, 2m, 3m, 5m, 10m"
+          message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m, 10m"
         });
       }
       if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -1560,7 +1589,7 @@ app.post("/api/orders", (req, res) => {
       !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
     ) {
       return res.status(400).json({
-        message: "Timeframe must be one of: 5s, 1m, 2m, 3m, 5m, 10m"
+        message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m, 10m"
       });
     }
     if (!Number.isFinite(amount) || amount <= 0) {

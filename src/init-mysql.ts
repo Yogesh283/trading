@@ -133,6 +133,21 @@ async function main() {
   console.log("Table: market_ticks");
 
   await conn.query(`
+    CREATE TABLE IF NOT EXISTS chart_candles (
+      symbol VARCHAR(32) NOT NULL,
+      timeframe_sec INT NOT NULL,
+      bucket_start_ms BIGINT NOT NULL,
+      open_price DOUBLE NOT NULL,
+      high_price DOUBLE NOT NULL,
+      low_price DOUBLE NOT NULL,
+      close_price DOUBLE NOT NULL,
+      PRIMARY KEY (symbol, timeframe_sec, bucket_start_ms),
+      INDEX idx_chart_candles_lookup (symbol, timeframe_sec, bucket_start_ms)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: chart_candles");
+
+  await conn.query(`
     CREATE TABLE IF NOT EXISTS app_settings (
       setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
       setting_value TEXT NOT NULL

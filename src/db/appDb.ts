@@ -293,6 +293,45 @@ const MARKET_TICKS_SQL_MYSQL = `
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
+/** Closed OHLC bars (persisted when each UTC bucket completes). Ticks stay in market_ticks for fine history. */
+const CHART_CANDLES_SQL = `
+  CREATE TABLE IF NOT EXISTS chart_candles (
+    symbol TEXT NOT NULL,
+    timeframe_sec INTEGER NOT NULL,
+    bucket_start_ms INTEGER NOT NULL,
+    open_price REAL NOT NULL,
+    high_price REAL NOT NULL,
+    low_price REAL NOT NULL,
+    close_price REAL NOT NULL,
+    PRIMARY KEY (symbol, timeframe_sec, bucket_start_ms)
+  )
+`;
+const CHART_CANDLES_INDEX_SQL = `CREATE INDEX IF NOT EXISTS idx_chart_candles_sym_tf_ts ON chart_candles(symbol, timeframe_sec, bucket_start_ms)`;
+
+const CHART_CANDLES_SQL_MYSQL = `
+  CREATE TABLE IF NOT EXISTS chart_candles (
+    symbol VARCHAR(32) NOT NULL,
+    timeframe_sec INT NOT NULL,
+    bucket_start_ms BIGINT NOT NULL,
+    open_price DOUBLE NOT NULL,
+    high_price DOUBLE NOT NULL,
+    low_price DOUBLE NOT NULL,
+    close_price DOUBLE NOT NULL,
+    PRIMARY KEY (symbol, timeframe_sec, bucket_start_ms),
+    INDEX idx_chart_candles_lookup (symbol, timeframe_sec, bucket_start_ms)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+export interface ChartCandleRow {
+  symbol: string;
+  timeframe_sec: number;
+  bucket_start_ms: number;
+  open_price: number;
+  high_price: number;
+  low_price: number;
+  close_price: number;
+}
+
 export interface MarketTickRow {
   symbol: string;
   price: number;
@@ -496,6 +535,58 @@ async function migrateMarketTicks(): Promise<void> {
   if (t.length > 0) return;
   await dbRun(MARKET_TICKS_SQL);
   await dbRun(MARKET_TICKS_INDEX_SQL);
+}
+
+async function migrateChartCandles(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(CHART_CANDLES_SQL_MYSQL);
+    return;
+  }
+  const t = await dbAll<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='chart_candles'"
+  );
+  if (t.length > 0) return;
+  await dbRun(CHART_CANDLES_SQL);
+  await dbRun(CHART_CANDLES_INDEX_SQL);
+}
+
+/** Insert a finalized bar (idempotent if replayed). */
+export async function saveChartCandle(row: ChartCandleRow): Promise<void> {
+  const sym = row.symbol.trim().toUpperCase();
+  if (mysqlMode) {
+    await getPool().execute(
+      `INSERT IGNORE INTO chart_candles (symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [sym, row.timeframe_sec, row.bucket_start_ms, row.open_price, row.high_price, row.low_price, row.close_price]
+    );
+    return;
+  }
+  await dbRun(
+    `INSERT OR IGNORE INTO chart_candles (symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [sym, row.timeframe_sec, row.bucket_start_ms, row.open_price, row.high_price, row.low_price, row.close_price]
+  );
+}
+
+/** Last N closed bars, oldest first (for chart bootstrap). */
+export async function getChartCandles(symbol: string, timeframeSec: number, limit: number): Promise<ChartCandleRow[]> {
+  const cap = Math.min(2000, Math.max(1, limit));
+  const sym = symbol.trim().toUpperCase();
+  if (mysqlMode) {
+    const [rows] = await getPool().execute(
+      `SELECT symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price
+       FROM chart_candles WHERE symbol = ? AND timeframe_sec = ? ORDER BY bucket_start_ms DESC LIMIT ?`,
+      [sym, timeframeSec, cap]
+    );
+    const list = (Array.isArray(rows) ? rows : []) as ChartCandleRow[];
+    return list.slice().reverse();
+  }
+  const rows = await dbAll<ChartCandleRow>(
+    `SELECT symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price
+     FROM chart_candles WHERE symbol = ? AND timeframe_sec = ? ORDER BY bucket_start_ms DESC LIMIT ?`,
+    [sym, timeframeSec, cap]
+  );
+  return rows.slice().reverse();
 }
 
 async function migrateUsersWithdrawalTotp(): Promise<void> {
@@ -780,6 +871,7 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
         await migrateMarketTicks();
+        await migrateChartCandles();
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
@@ -800,6 +892,7 @@ export function initAppDb(): Promise<void> {
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
         await migrateMarketTicks();
+        await migrateChartCandles();
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();

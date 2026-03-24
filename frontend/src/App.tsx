@@ -7,7 +7,13 @@ import {
   useRef,
   useState
 } from "react";
-import { buildCandles, candlePeriodEndMs } from "./chartCandles";
+import {
+  buildCandles,
+  candlePeriodEndMs,
+  extendClosedCandlesToNow,
+  mergeDbClosedWithLiveCandles,
+  type CandlePoint
+} from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
 import { lastTickMove } from "./tickDirection";
 import { LightweightTradingChart } from "./LightweightTradingChart";
@@ -18,6 +24,7 @@ import {
   createDemoOrder,
   createLiveOrder,
   loadAccount,
+  loadMarketCandles,
   loadMarkets,
   loadMarketsHistory,
   loadSession,
@@ -187,6 +194,8 @@ export default function App() {
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [history, setHistory] = useState<Record<string, MarketTick[]>>({});
+  /** Server `chart_candles` (closed bars) keyed `${symbol}:${timeframeSec}` — merged with WebSocket LivePrice ticks. */
+  const [dbClosedCandles, setDbClosedCandles] = useState<Record<string, CandlePoint[]>>({});
   const [status, setStatus] = useState("Connecting...");
   const [symbol, setSymbol] = useState("EURUSD");
   const [pairNames, setPairNames] = useState<Record<string, string>>({});
@@ -245,6 +254,8 @@ export default function App() {
   });
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
+  const chartTimeframeRef = useRef(chartTimeframe);
+  chartTimeframeRef.current = chartTimeframe;
   const [orderPlacedPopup, setOrderPlacedPopup] = useState<
     null | { account: "demo" | "live"; summary: string; direction: "up" | "down" }
   >(null);
@@ -255,6 +266,10 @@ export default function App() {
   const binaryCreatedTimerRef = useRef<number | null>(null);
   /** Ignore stale `refresh()` results so an older in-flight request cannot overwrite trades after a new order. */
   const refreshSeqRef = useRef(0);
+  /** While true, live prices come from WebSocket — avoid polling `/api/markets` every 10s. */
+  const wsMarketLiveRef = useRef(false);
+  /** Count 10s ticks for slower HTTP sync (account / trades / chart history) when WS is up. */
+  const wsHttpSyncCounterRef = useRef(0);
   const mobileTfWrapRef = useRef<HTMLDivElement>(null);
 
   const dismissOrderPlacedPopup = useCallback(() => {
@@ -486,16 +501,52 @@ export default function App() {
     };
   }, [booting, symbol, chartSessionKey]);
 
-  const refresh = async (walletOverride?: "demo" | "live") => {
+  /** Bootstrap closed OHLC from DB for the active symbol + timeframe (VIP ladder). */
+  useEffect(() => {
+    if (!chartSessionKey) {
+      return;
+    }
+    let cancelled = false;
+    const sym = symbol;
+    const tf = chartTimeframe;
+    const k = `${sym}:${tf}`;
+    void loadMarketCandles(sym, tf, 800)
+      .then((rows) => {
+        if (!cancelled) {
+          setDbClosedCandles((prev) => ({ ...prev, [k]: rows }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDbClosedCandles((prev) => ({ ...prev, [k]: [] }));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, chartTimeframe, chartSessionKey]);
+
+  const refresh = async (walletOverride?: "demo" | "live", options?: { skipMarketTicks?: boolean }) => {
     const mySeq = ++refreshSeqRef.current;
     const wallet = walletOverride ?? accountWallet;
+    const skipMarketTicks = Boolean(options?.skipMarketTicks);
     try {
-      const marketData = await loadMarkets();
-      if (mySeq !== refreshSeqRef.current) {
-        return;
-      }
+      if (!skipMarketTicks) {
+        const marketData = await loadMarkets();
+        if (mySeq !== refreshSeqRef.current) {
+          return;
+        }
 
-      setMarkets(marketData.ticks);
+        setMarkets(marketData.ticks);
+
+        if (marketData.symbols?.length) {
+          setForexSymbolList([...marketData.symbols]);
+        }
+        if (marketData.pairs?.length) {
+          setPairNames(Object.fromEntries(marketData.pairs.map((p) => [p.symbol, p.name])));
+        }
+        setHistory((current) => mergeSnapshot(current, marketData.ticks));
+      }
 
       if (!sessionToken) {
         setAccount(null);
@@ -522,13 +573,6 @@ export default function App() {
       if (mySeq !== refreshSeqRef.current) {
         return;
       }
-      if (marketData.symbols?.length) {
-        setForexSymbolList([...marketData.symbols]);
-      }
-      if (marketData.pairs?.length) {
-        setPairNames(Object.fromEntries(marketData.pairs.map((p) => [p.symbol, p.name])));
-      }
-      setHistory((current) => mergeSnapshot(current, marketData.ticks));
       try {
         const { ticks: hist } = await loadMarketsHistory(symbolRef.current, CHART_HISTORY_TICKS);
         if (mySeq !== refreshSeqRef.current) {
@@ -539,6 +583,17 @@ export default function App() {
         }
       } catch {
         // chart still updates from WS
+      }
+
+      const ck = `${symbolRef.current}:${chartTimeframeRef.current}`;
+      try {
+        const rows = await loadMarketCandles(symbolRef.current, chartTimeframeRef.current, 800);
+        if (mySeq !== refreshSeqRef.current) {
+          return;
+        }
+        setDbClosedCandles((prev) => ({ ...prev, [ck]: rows }));
+      } catch {
+        /* optional */
       }
     } catch (e) {
       if (mySeq !== refreshSeqRef.current) {
@@ -565,9 +620,20 @@ export default function App() {
     const wsUrl = getBackendWsUrl(session ? { token: session.token, wallet: accountWallet } : undefined);
 
     const ws = new WebSocket(wsUrl);
-    ws.onopen = () => setStatus("Live");
-    ws.onclose = () => setStatus("Disconnected");
-    ws.onerror = () => setStatus("Connection error");
+    ws.onopen = () => {
+      wsMarketLiveRef.current = true;
+      wsHttpSyncCounterRef.current = 0;
+      setStatus("Live");
+    };
+    ws.onclose = () => {
+      wsMarketLiveRef.current = false;
+      wsHttpSyncCounterRef.current = 0;
+      setStatus("Disconnected");
+    };
+    ws.onerror = () => {
+      wsMarketLiveRef.current = false;
+      setStatus("Connection error");
+    };
     ws.onmessage = (event) => {
       const payload = JSON.parse(event.data as string) as
         | {
@@ -578,7 +644,8 @@ export default function App() {
               trades?: Trade[];
             };
           }
-        | { type: "tick"; data: MarketTick };
+        | { type: "tick"; data: MarketTick }
+        | { type: "live_price"; data: MarketTick };
 
       if (payload.type === "snapshot") {
         setMarkets(payload.data.markets);
@@ -599,6 +666,10 @@ export default function App() {
         return;
       }
 
+      if (payload.type !== "tick" && payload.type !== "live_price") {
+        return;
+      }
+
       setMarkets((current) => {
         const bySymbol = new Map(current.map((t) => [t.symbol, t]));
         bySymbol.set(payload.data.symbol, payload.data);
@@ -608,11 +679,26 @@ export default function App() {
       setHistory((current) => appendPoint(current, payload.data));
     };
 
+    /**
+     * Disconnected: full HTTP refresh every 10s (prices + account).
+     * Connected: prices from WS only; light HTTP every ~60s for balances, trades, DB chart history.
+     */
     const interval = window.setInterval(() => {
+      if (wsMarketLiveRef.current) {
+        wsHttpSyncCounterRef.current += 1;
+        if (wsHttpSyncCounterRef.current < 6) {
+          return;
+        }
+        wsHttpSyncCounterRef.current = 0;
+        void refresh(undefined, { skipMarketTicks: true }).catch(() => undefined);
+        return;
+      }
       void refresh().catch(() => undefined);
     }, 10_000);
 
     return () => {
+      wsMarketLiveRef.current = false;
+      wsHttpSyncCounterRef.current = 0;
       ws.close();
       window.clearInterval(interval);
     };
@@ -1333,6 +1419,7 @@ export default function App() {
           <section className="panel wide mobile-chart-wrap" id="app-chart-anchor">
             <LiveChart
               points={chartSeries}
+              closedCandlesFromDb={dbClosedCandles[`${symbol}:${chartTimeframe}`] ?? []}
               symbol={symbol}
               trades={symbolTrades}
               timeframeSec={chartTimeframe}
@@ -1685,6 +1772,7 @@ export default function App() {
           </div>
           <LiveChart
             points={chartSeries}
+            closedCandlesFromDb={dbClosedCandles[`${symbol}:${chartTimeframe}`] ?? []}
             symbol={symbol}
             trades={tradingAsDemo ? symbolTrades : []}
             timeframeSec={chartTimeframe}
@@ -2568,6 +2656,7 @@ const DESKTOP_DEFAULT_ZOOM_INDEX = 3;
 
 function LiveChart({
   points,
+  closedCandlesFromDb = [],
   symbol,
   trades,
   timeframeSec,
@@ -2577,6 +2666,8 @@ function LiveChart({
   tickDirection = null
 }: {
   points: MarketTick[];
+  /** Closed OHLC from `/api/markets/candles` (DB); live leg from WebSocket `live_price` ticks. */
+  closedCandlesFromDb?: CandlePoint[];
   symbol: string;
   trades: Trade[];
   timeframeSec: number;
@@ -2596,8 +2687,9 @@ function LiveChart({
   const zoomIndexRef = useRef(zoomIndex);
   zoomIndexRef.current = zoomIndex;
 
+  /** 1s tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
   useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 200);
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -2652,30 +2744,48 @@ function LiveChart({
     };
   }, [isMobileChart, zoomIndex]);
 
+  const now = Date.now();
+  const firstTickMs =
+    points.length > 0 ? Math.min(...points.map((p) => p.timestamp)) : null;
+  const liveCandles =
+    points.length > 0 ? buildCandles(points, timeframeSec, now) : [];
+
+  let allCandles: CandlePoint[];
   if (points.length === 0) {
-    return <p className="muted">Waiting for live price data...</p>;
+    allCandles =
+      closedCandlesFromDb.length > 0
+        ? extendClosedCandlesToNow(closedCandlesFromDb, timeframeSec, now)
+        : [];
+  } else if (closedCandlesFromDb.length > 0) {
+    allCandles = mergeDbClosedWithLiveCandles(
+      closedCandlesFromDb,
+      liveCandles,
+      timeframeSec,
+      firstTickMs
+    );
+  } else {
+    allCandles = liveCandles;
   }
 
-  const now = Date.now();
-  const allCandles = buildCandles(points, timeframeSec, now);
   if (allCandles.length === 0) {
     return <p className="muted">Waiting for live price data...</p>;
   }
 
   const current = allCandles[allCandles.length - 1]!;
-  const change =
-    allCandles.length > 1 ? current.close - allCandles[0].open : 0;
-  const changePct = allCandles.length > 1 ? (change / allCandles[0].open) * 100 : 0;
+  const change = allCandles.length > 1 ? current.close - allCandles[0].open : 0;
+  const changePct =
+    allCandles.length > 1 && allCandles[0].open !== 0 ? (change / allCandles[0].open) * 100 : 0;
   const openTrades = trades.filter((trade) => trade.status === "open");
   const fmtPrice = (p: number) =>
     p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6);
 
   const pairLabel = formatForexPair(symbol);
 
+  /** Same UTC bucket end as server `binaryCandleExpiresAtMs` — new candle when this hits 00:00. */
   const candleEndMs = candlePeriodEndMs(now, timeframeSec);
   const msLeft = Math.max(0, candleEndMs - now);
-  const totalSec = Math.ceil(msLeft / 1000);
-  const cdSec = Math.min(3599, Math.max(0, totalSec));
+  const totalSec = Math.max(0, Math.ceil(msLeft / 1000));
+  const cdSec = Math.min(3599, totalSec);
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
 
   const chartResetKey = `${symbol}-${timeframeSec}`;
@@ -2700,6 +2810,23 @@ function LiveChart({
           </span>
         </div>
         <div className="chart-meta-right tv-chart-meta">
+          <span
+            className={`tv-chart-candle-timer${
+              tickDirection === "up"
+                ? " tv-chart-candle-timer--up"
+                : tickDirection === "down"
+                  ? " tv-chart-candle-timer--down"
+                  : ""
+            }`}
+            aria-live="polite"
+            title="Time until this candle closes"
+          >
+            <span className="tv-chart-candle-timer-label">{tfLabel(timeframeSec)}</span>
+            <span className="tv-chart-candle-timer-val">{countdownStr}</span>
+          </span>
+          <span className="tv-chart-meta-sep" aria-hidden>
+            ·
+          </span>
           <span>Trades: {openTrades.length}</span>
         </div>
       </div>
@@ -2718,6 +2845,7 @@ function LiveChart({
             key={chartResetKey}
             candles={allCandles}
             assetTag={symbol}
+            timeframeLabel={tfLabel(timeframeSec)}
             formatPrice={fmtPrice}
             timeframeSec={timeframeSec}
             zoomIndex={zoomIndex}
@@ -2814,13 +2942,11 @@ function mergeHistoryTicks(
   for (const [sym, list] of bySymbol) {
     const existing = next[sym] ?? [];
     const merged = [...existing, ...list].sort((a, b) => a.timestamp - b.timestamp);
-    const seen = new Set<number>();
-    const deduped = merged.filter((t) => {
-      const key = t.timestamp;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const byTs = new Map<number, MarketTick>();
+    for (const t of merged) {
+      byTs.set(t.timestamp, t);
+    }
+    const deduped = [...byTs.values()].sort((a, b) => a.timestamp - b.timestamp);
     next[sym] = deduped.slice(-15000);
   }
   return next;

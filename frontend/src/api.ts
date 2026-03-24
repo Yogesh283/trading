@@ -135,6 +135,25 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
   return (await response.json()) as { ticks: MarketTick[] };
 }
 
+/** Closed OHLC from DB (merge with WebSocket LivePrice ticks on the chart). */
+export async function loadMarketCandles(symbol: string, timeframeSec: number, limit = 500) {
+  const params = new URLSearchParams({ symbol, timeframe: String(timeframeSec), limit: String(limit) });
+  const response = await fetch(`${apiBase()}/api/markets/candles?${params}`);
+  if (!response.ok) {
+    throw new Error("Unable to load chart candles");
+  }
+  const data = (await response.json()) as {
+    candles: Array<{ t: number; o: number; h: number; l: number; c: number }>;
+  };
+  return data.candles.map((r) => ({
+    timestamp: r.t,
+    open: r.o,
+    high: r.h,
+    low: r.l,
+    close: r.c
+  }));
+}
+
 async function fetchJsonOrThrow(url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init);
@@ -557,12 +576,11 @@ export async function loadAdminDeposits(adminToken: string) {
   return (await response.json()) as { deposits: DepositRecord[]; total: number };
 }
 
-/** Chart + binary: sub-minute + minute candles (matches server TRADE_TIMEFRAMES_SEC). */
+/** Chart + binary: 5s–10m VIP ladder (matches server TRADE_TIMEFRAMES_SEC). */
 export const TIMEFRAME_OPTIONS = [
   { value: 5, label: "5s" },
   { value: 10, label: "10s" },
   { value: 60, label: "1m" },
-  { value: 120, label: "2m" },
   { value: 180, label: "3m" },
   { value: 300, label: "5m" },
   { value: 600, label: "10m" }

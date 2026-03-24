@@ -12,21 +12,34 @@ import {
 import type { CandlePoint } from "./chartCandles";
 import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
-/** Desktop: red last-price line + label (TradingView pro). */
-const TV_LAST_RED = "#ff4d5e";
-/** Mobile ref: white price pill → library picks black text via contrast. */
-const MOBILE_PRICE_PILL = "#ffffff";
-/** Classic TV / pro app greens & reds (all assets, same on mobile + desktop). */
-const CANDLE_UP = "#089981";
-const CANDLE_DOWN = "#f23645";
-const DESKTOP_CHART_BG = "#0a0c12";
-const MOBILE_CHART_BG = "#000000";
-const DESKTOP_GRID_VERT = "rgba(100, 116, 139, 0.14)";
-const DESKTOP_GRID_HORZ = "rgba(100, 116, 139, 0.22)";
-const MOBILE_GRID_VERT = "rgba(255, 255, 255, 0.055)";
-const MOBILE_GRID_HORZ = "rgba(255, 255, 255, 0.075)";
+/** Last-price line + axis pill (light neutral, readable on dark pane — exchange terminals). */
+const PRO_LAST_PRICE = "#eaecef";
+/** Binance-style candles + slightly darker borders for depth (VIP terminal). */
+const CANDLE_UP = "#0ecb81";
+const CANDLE_DOWN = "#f6465d";
+const CANDLE_BORDER_UP = "#078f6a";
+const CANDLE_BORDER_DOWN = "#c93545";
+const WICK_UP = "#12d991";
+const WICK_DOWN = "#ff5c6c";
+const CHART_BG = "#0d1117";
+const GRID_VERT = "rgba(43, 49, 57, 0.38)";
+const GRID_HORZ = "rgba(43, 49, 57, 0.5)";
+const SCALE_TEXT = "#929aa4";
+const SCALE_BORDER = "#2b3139";
+/** TradingView-style crosshair gray */
+const CROSSHAIR = "rgba(117, 134, 150, 0.55)";
 const CHART_FONT =
   'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
+
+function priceLineColorForTick(dir: "up" | "down" | null | undefined): string {
+  if (dir === "up") {
+    return CANDLE_UP;
+  }
+  if (dir === "down") {
+    return CANDLE_DOWN;
+  }
+  return PRO_LAST_PRICE;
+}
 
 /** Responsive chart height for phone — large enough to feel “full” (toolbar + dock stay outside). */
 function useMobileChartHeightPx(isMobile: boolean): number {
@@ -65,7 +78,7 @@ function useMobileChartHeightPx(isMobile: boolean): number {
     };
   }, [isMobile, compute]);
 
-  return isMobile ? px : 440;
+  return isMobile ? px : 480;
 }
 
 /**
@@ -115,6 +128,8 @@ function candlestickDataFromCandles(candles: CandlePoint[]) {
 type Props = {
   candles: CandlePoint[];
   assetTag: string;
+  /** Same short label as toolbar (e.g. 10S, 1M) — shown in the right-axis last-price pill with the countdown. */
+  timeframeLabel: string;
   formatPrice: (p: number) => string;
   timeframeSec: number;
   zoomIndex: number;
@@ -130,6 +145,7 @@ type Props = {
 export function LightweightTradingChart({
   candles,
   assetTag,
+  timeframeLabel,
   formatPrice,
   timeframeSec,
   zoomIndex,
@@ -163,15 +179,15 @@ export function LightweightTradingChart({
       layout: {
         background: {
           type: ColorType.Solid,
-          color: isMobileChart ? MOBILE_CHART_BG : DESKTOP_CHART_BG
+          color: CHART_BG
         },
-        textColor: isMobileChart ? "#c8cdd5" : "#e8edf4",
-        fontSize: isMobileChart ? 14 : 13,
+        textColor: SCALE_TEXT,
+        fontSize: isMobileChart ? 12 : 13,
         fontFamily: CHART_FONT
       },
       grid: {
-        vertLines: { color: isMobileChart ? MOBILE_GRID_VERT : DESKTOP_GRID_VERT },
-        horzLines: { color: isMobileChart ? MOBILE_GRID_HORZ : DESKTOP_GRID_HORZ }
+        vertLines: { color: GRID_VERT },
+        horzLines: { color: GRID_HORZ }
       },
       /** Hide empty left scale — all prices on the right (TradingView-style). */
       leftPriceScale: {
@@ -180,18 +196,20 @@ export function LightweightTradingChart({
       crosshair: {
         mode: isMobileChart ? CrosshairMode.Magnet : CrosshairMode.Normal,
         vertLine: {
-          color: isMobileChart ? "rgba(255, 255, 255, 0.12)" : "rgba(212, 175, 55, 0.22)",
-          width: 1
+          color: CROSSHAIR,
+          width: 1,
+          style: LineStyle.LargeDashed
         },
         horzLine: {
-          color: isMobileChart ? "rgba(255, 255, 255, 0.1)" : "rgba(212, 175, 55, 0.18)",
-          width: 1
+          color: CROSSHAIR,
+          width: 1,
+          style: LineStyle.LargeDashed
         }
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
-        borderColor: isMobileChart ? "rgba(255, 255, 255, 0.1)" : "rgba(148, 163, 184, 0.35)",
+        borderColor: SCALE_BORDER,
         // Extra gap so last candle + wicks aren’t flush against the price scale on narrow screens
         rightOffset: isMobileChart ? 14 : 8,
         fixLeftEdge: false,
@@ -206,12 +224,12 @@ export function LightweightTradingChart({
         borderVisible: true,
         ticksVisible: true,
         entireTextOnly: false,
-        textColor: isMobileChart ? "#a8b0bd" : "#e2e8f0",
-        borderColor: isMobileChart ? "rgba(255, 255, 255, 0.08)" : "rgba(148, 163, 184, 0.4)",
-        // Wide enough for "XAUUSD 4413.47" / JPY-style quotes on the axis
-        minimumWidth: isMobileChart ? 80 : 88,
+        textColor: SCALE_TEXT,
+        borderColor: SCALE_BORDER,
+        // Room for last-value pill: timeframe + MM:SS + price (desktop)
+        minimumWidth: isMobileChart ? 82 : 118,
         // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
-        scaleMargins: isMobileChart ? { top: 0.12, bottom: 0.22 } : { top: 0.06, bottom: 0.12 }
+        scaleMargins: isMobileChart ? { top: 0.1, bottom: 0.2 } : { top: 0.05, bottom: 0.1 }
       },
       localization: {
         priceFormatter: (p: number) =>
@@ -243,19 +261,19 @@ export function LightweightTradingChart({
     const candleSeries = chart.addCandlestickSeries({
       upColor: CANDLE_UP,
       downColor: CANDLE_DOWN,
-      borderUpColor: CANDLE_UP,
-      borderDownColor: CANDLE_DOWN,
-      wickUpColor: CANDLE_UP,
-      wickDownColor: CANDLE_DOWN,
+      borderUpColor: CANDLE_BORDER_UP,
+      borderDownColor: CANDLE_BORDER_DOWN,
+      wickUpColor: WICK_UP,
+      wickDownColor: WICK_DOWN,
       borderVisible: true,
       wickVisible: true,
-      /** Mobile: price-only pill on axis (ref). Desktop: symbol + price. */
-      title: isMobileChart ? "" : assetTag,
+      /** Mobile: price-only on axis (timer via overlay). Desktop: timer + TF in native last-value label. */
+      title: isMobileChart ? "" : `${timeframeLabel} ${countdownStr}`,
       lastValueVisible: true,
       priceLineVisible: true,
-      priceLineColor: isMobileChart ? MOBILE_PRICE_PILL : TV_LAST_RED,
-      priceLineWidth: isMobileChart ? 1 : 2,
-      priceLineStyle: LineStyle.Dashed
+      priceLineColor: PRO_LAST_PRICE,
+      priceLineWidth: 1,
+      priceLineStyle: LineStyle.Solid
     });
 
     chartRef.current = chart;
@@ -267,7 +285,7 @@ export function LightweightTradingChart({
       chartRef.current = null;
       candleRef.current = null;
     };
-  }, [assetTag, isMobileChart, timeframeSec]);
+  }, [assetTag, isMobileChart, timeframeLabel, timeframeSec]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -284,14 +302,10 @@ export function LightweightTradingChart({
 
     const cd = candlestickDataFromCandles(candles);
     candleSeries.setData(cd);
-    candleSeries.applyOptions({
-      title: isMobileChart ? "" : assetTag,
-      priceLineColor: isMobileChart ? MOBILE_PRICE_PILL : TV_LAST_RED
-    });
 
     chart.priceScale("right").applyOptions({
       visible: true,
-      minimumWidth: isMobileChart ? 80 : 88
+      minimumWidth: isMobileChart ? 82 : 118
     });
 
     if (lastResetKeyRef.current !== chartResetKey) {
@@ -299,6 +313,24 @@ export function LightweightTradingChart({
       chart.timeScale().fitContent();
     }
   }, [assetTag, candles, chartResetKey, isMobileChart, timeframeSec]);
+
+  /** Last-value label (title + price) and price line track countdown and tick direction without re-setting all bars. */
+  useEffect(() => {
+    const candleSeries = candleRef.current;
+    if (!candleSeries || candles.length === 0) {
+      return;
+    }
+    candleSeries.applyOptions({
+      title: isMobileChart ? "" : `${timeframeLabel} ${countdownStr}`,
+      priceLineColor: priceLineColorForTick(tickDirection)
+    });
+  }, [
+    candles.length,
+    countdownStr,
+    isMobileChart,
+    timeframeLabel,
+    tickDirection
+  ]);
 
   useEffect(() => {
     const chart = chartRef.current;

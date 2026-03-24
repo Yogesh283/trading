@@ -73,7 +73,7 @@ export const CHART_MAX_CANDLES = 1200;
 
 /**
  * Build OHLC candles: one bar per `intervalSeconds` aligned to UTC wall buckets (same idea as TradingView UTC forex).
- * 5s → new bar every 5s; 60 → every minute; 120/180/300/600 → every 2/3/5/10 minutes.
+ * 5s → new bar every 5 seconds; 10/60/180/300/600 → 10s through 10m bars.
  * Empty buckets become flat bars (O=H=L=C=last price) so each period is its own candle.
  * Only the last `CHART_MAX_CANDLES` periods are kept so the series stays fast and readable.
  */
@@ -154,6 +154,49 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
     }
   }
 
+  return out;
+}
+
+/**
+ * DB holds closed bars only; live WebSocket ticks rebuild the current window. Prefix = closed bars
+ * that end strictly before the first live tick bucket so buckets are not duplicated.
+ */
+export function mergeDbClosedWithLiveCandles(
+  closedAscending: CandlePoint[],
+  liveFromTicks: CandlePoint[],
+  timeframeSec: number,
+  firstTickTimeMs: number | null
+): CandlePoint[] {
+  if (liveFromTicks.length === 0) {
+    return closedAscending;
+  }
+  const tfMs = timeframeSec * 1000;
+  const firstBucket =
+    firstTickTimeMs != null
+      ? Math.floor(firstTickTimeMs / tfMs) * tfMs
+      : liveFromTicks[0]!.timestamp;
+  const prefix = closedAscending.filter((c) => c.timestamp + tfMs <= firstBucket);
+  return [...prefix, ...liveFromTicks];
+}
+
+/** When there are no ticks yet, extend stored closed bars with flat placeholders up to the current bucket. */
+export function extendClosedCandlesToNow(closed: CandlePoint[], timeframeSec: number, nowMs: number): CandlePoint[] {
+  if (closed.length === 0) {
+    return [];
+  }
+  const tfMs = timeframeSec * 1000;
+  const last = closed[closed.length - 1]!;
+  const nowBucket = Math.floor(nowMs / tfMs) * tfMs;
+  const lastBucket = last.timestamp;
+  if (nowBucket <= lastBucket) {
+    return closed;
+  }
+  let lc = last.close;
+  const out = [...closed];
+  for (let t = lastBucket + tfMs; t <= nowBucket; t += tfMs) {
+    out.push({ timestamp: t, open: lc, high: lc, low: lc, close: lc });
+    lc = lc;
+  }
   return out;
 }
 
