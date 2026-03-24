@@ -218,6 +218,9 @@ export class ForexFeed extends EventEmitter {
       }
       if (next !== prev) {
         this.pushTick(p.symbol, next, now);
+      } else {
+        /** Same rounded price as last pulse — still emit so WebSocket clients get ~1 Hz ticks and candles build. */
+        this.pushTick(p.symbol, prev, now);
       }
     }
   }

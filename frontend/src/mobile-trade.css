@@ -1124,6 +1124,19 @@
   font-size: 14px;
 }
 
+.binary-settle-banner {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.binary-settle-banner--win {
+  color: #0ecb81 !important;
+}
+
+.binary-settle-banner--loss {
+  color: #f6465d !important;
+}
+
 .mobile-timeout-strip {
   margin: 12px 0 14px;
   padding: 12px;

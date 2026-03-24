@@ -4,6 +4,7 @@ import {
   FormEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState
 } from "react";
@@ -271,6 +272,13 @@ export default function App() {
   /** Count 10s ticks for slower HTTP sync (account / trades / chart history) when WS is up. */
   const wsHttpSyncCounterRef = useRef(0);
   const mobileTfWrapRef = useRef<HTMLDivElement>(null);
+  /** After binary timeout, server settles in RAM — WS does not push trades; we poll + show this banner. */
+  const [binarySettleNotice, setBinarySettleNotice] = useState<null | { text: string; pnl: number }>(
+    null
+  );
+  const binarySettleNoticeTimerRef = useRef<number | null>(null);
+  const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
+  const binaryTradesSnapInitializedRef = useRef(false);
 
   const dismissOrderPlacedPopup = useCallback(() => {
     if (orderPopupTimeoutRef.current) {
@@ -301,6 +309,9 @@ export default function App() {
       }
       if (binaryCreatedTimerRef.current != null) {
         window.clearTimeout(binaryCreatedTimerRef.current);
+      }
+      if (binarySettleNoticeTimerRef.current != null) {
+        window.clearTimeout(binarySettleNoticeTimerRef.current);
       }
     };
   }, []);
@@ -503,7 +514,7 @@ export default function App() {
 
   /** Bootstrap closed OHLC from DB for the active symbol + timeframe (VIP ladder). */
   useEffect(() => {
-    if (!chartSessionKey) {
+    if (booting || !chartSessionKey) {
       return;
     }
     let cancelled = false;
@@ -524,7 +535,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [symbol, chartTimeframe, chartSessionKey]);
+  }, [booting, symbol, chartTimeframe, chartSessionKey]);
 
   const refresh = async (walletOverride?: "demo" | "live", options?: { skipMarketTicks?: boolean }) => {
     const mySeq = ++refreshSeqRef.current;
@@ -602,6 +613,9 @@ export default function App() {
       throw e;
     }
   };
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     if (!walletActivityOpen || !session) {
@@ -711,6 +725,100 @@ export default function App() {
   const openBinaryTrades = trades.filter(
     (t) => t.status === "open" && typeof t.expiryAt === "number"
   );
+
+  const openBinaryPollKey = useMemo(() => {
+    const rows = trades.filter((t) => t.status === "open" && typeof t.expiryAt === "number");
+    if (rows.length === 0) {
+      return "";
+    }
+    const expiries = rows.map((r) => r.expiryAt).filter((x): x is number => typeof x === "number");
+    return `${rows
+      .map((r) => r.id)
+      .sort()
+      .join(",")}|${Math.min(...expiries)}`;
+  }, [trades]);
+
+  useEffect(() => {
+    binaryTradesSnapInitializedRef.current = false;
+    prevOpenBinaryIdsRef.current = new Set();
+    setBinarySettleNotice(null);
+    if (binarySettleNoticeTimerRef.current != null) {
+      window.clearTimeout(binarySettleNoticeTimerRef.current);
+      binarySettleNoticeTimerRef.current = null;
+    }
+  }, [sessionToken, accountWallet]);
+
+  /** While any binary is open, sync trades + balance over HTTP — settlement is server-side only. */
+  useEffect(() => {
+    if (!sessionToken || openBinaryPollKey === "") {
+      return;
+    }
+    const sync = () => {
+      void refreshRef.current(undefined, { skipMarketTicks: true }).catch(() => undefined);
+    };
+    sync();
+    const id = window.setInterval(sync, 1500);
+    return () => window.clearInterval(id);
+  }, [sessionToken, openBinaryPollKey, accountWallet]);
+
+  useEffect(() => {
+    if (!sessionToken) {
+      return;
+    }
+    const nowOpen = new Set(
+      trades
+        .filter(
+          (t) =>
+            t.status === "open" &&
+            typeof t.expiryAt === "number" &&
+            (t.direction === "up" || t.direction === "down")
+        )
+        .map((t) => t.id)
+    );
+    if (!binaryTradesSnapInitializedRef.current) {
+      binaryTradesSnapInitializedRef.current = true;
+      prevOpenBinaryIdsRef.current = nowOpen;
+      return;
+    }
+    const newlySettled: Trade[] = [];
+    for (const id of prevOpenBinaryIdsRef.current) {
+      if (nowOpen.has(id)) {
+        continue;
+      }
+      const closed = trades.find((t) => t.id === id);
+      if (
+        closed?.status === "closed" &&
+        typeof closed.pnl === "number" &&
+        (closed.direction === "up" || closed.direction === "down")
+      ) {
+        newlySettled.push(closed);
+      }
+    }
+    if (newlySettled.length > 0) {
+      if (binarySettleNoticeTimerRef.current != null) {
+        window.clearTimeout(binarySettleNoticeTimerRef.current);
+      }
+      const settledWithPnl = newlySettled.filter((t): t is Trade & { pnl: number } => typeof t.pnl === "number");
+      let text: string;
+      if (settledWithPnl.length === 1) {
+        const t = settledWithPnl[0]!;
+        text = `${formatForexPair(t.symbol)} · Timeout · ${t.pnl >= 0 ? "Win" : "Loss"} ${
+          t.pnl >= 0 ? "+" : ""
+        }${formatInr(t.pnl)}`;
+      } else {
+        const total = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
+        text = `${settledWithPnl.length} trades · Timeout · total ${total >= 0 ? "+" : ""}${formatInr(total)}`;
+      }
+      const totalPnl = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
+      setBinarySettleNotice({ text, pnl: totalPnl });
+      binarySettleNoticeTimerRef.current = window.setTimeout(() => {
+        setBinarySettleNotice(null);
+        binarySettleNoticeTimerRef.current = null;
+      }, 8500);
+      scrollMobileTradeHistoryIntoView();
+    }
+    prevOpenBinaryIdsRef.current = nowOpen;
+  }, [sessionToken, trades]);
 
   const handleBinaryOrder = async (
     direction: "up" | "down",
@@ -851,6 +959,9 @@ export default function App() {
   const logout = () => {
     setSession(null);
     setDualBalances({ demo: null, live: null });
+    setTrades([]);
+    setAccount(null);
+    setHistory({});
     setMessage("");
     setAuthMessage("");
     setPublicScreen("landing");
@@ -1541,6 +1652,14 @@ export default function App() {
               </span>
             </button>
             {message ? <p className="message mobile-trade-msg">{message}</p> : null}
+            {binarySettleNotice ? (
+              <p
+                className={`binary-settle-banner mobile-trade-msg${binarySettleNotice.pnl >= 0 ? " binary-settle-banner--win" : " binary-settle-banner--loss"}`}
+                role="status"
+              >
+                {binarySettleNotice.text}
+              </p>
+            ) : null}
           </div>
 
           <section className="mobile-more-panel mobile-account-history-panel" id="app-mobile-account">
@@ -2069,6 +2188,14 @@ export default function App() {
             </div>
           ) : null}
           {message ? <p className="desktop-demo-bar-msg">{message}</p> : null}
+          {binarySettleNotice ? (
+            <p
+              className={`binary-settle-banner desktop-demo-bar-msg${binarySettleNotice.pnl >= 0 ? " binary-settle-banner--win" : " binary-settle-banner--loss"}`}
+              role="status"
+            >
+              {binarySettleNotice.text}
+            </p>
+          ) : null}
         </div>
       ) : null}
       </>
@@ -2919,9 +3046,21 @@ function LiveChart({
 function mergeSnapshot(current: Record<string, MarketTick[]>, ticks: MarketTick[]) {
   const next = { ...current };
   for (const tick of ticks) {
-    if (!next[tick.symbol] || next[tick.symbol].length === 0) {
-      next[tick.symbol] = [tick];
+    const sym = tick.symbol.toUpperCase();
+    const t = { ...tick, symbol: sym };
+    const existing = next[sym] ?? [];
+    if (existing.length === 0) {
+      next[sym] = [t];
+      continue;
     }
+    const last = existing[existing.length - 1]!;
+    if (t.timestamp === last.timestamp && t.price === last.price) {
+      continue;
+    }
+    if (t.timestamp < last.timestamp) {
+      continue;
+    }
+    next[sym] = [...existing, t].slice(-15000);
   }
   return next;
 }

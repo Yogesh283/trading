@@ -1807,6 +1807,85 @@ select {
   overflow: visible;
 }
 
+.chart-lw-stack {
+  overflow: visible;
+}
+
+/* Custom last-price pill: user-selected TF (10S, 1M…) + MM:SS + formatted price — aligned via priceToCoordinate. */
+.chart-lw-axis-pill-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  overflow: visible;
+}
+
+.chart-lw-axis-pill {
+  position: absolute;
+  right: 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 5px 8px 6px;
+  border-radius: 4px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  line-height: 1.15;
+  max-width: min(42vw, 140px);
+  text-align: right;
+}
+
+.chart-lw-axis-pill-timer {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.95;
+}
+
+.chart-lw-axis-pill-tf {
+  color: inherit;
+}
+
+.chart-lw-axis-pill-cd {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+.chart-lw-axis-pill-price {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.chart-lw-axis-pill--up {
+  background: #0ecb81;
+}
+
+.chart-lw-axis-pill--down {
+  background: #f6465d;
+}
+
+.chart-lw-axis-pill--neutral {
+  background: #474d57;
+  color: #f5f6f8;
+}
+
+.tv-live-badge-cd-tf {
+  font-weight: 800;
+  opacity: 0.92;
+  margin-right: 4px;
+}
+
 /* Mobile-only candle countdown (symbol + price live on native right axis). */
 .chart-lw-timer-anchor {
   position: absolute;
@@ -2766,6 +2845,19 @@ button.desktop-demo-cta:disabled,
   font-size: 13px;
   color: #7ef0b5;
   text-align: center;
+}
+
+.binary-settle-banner.desktop-demo-bar-msg {
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+.binary-settle-banner.desktop-demo-bar-msg.binary-settle-banner--win {
+  color: #0ecb81;
+}
+
+.binary-settle-banner.desktop-demo-bar-msg.binary-settle-banner--loss {
+  color: #f6465d;
 }
 
 @media (max-width: 900px) {

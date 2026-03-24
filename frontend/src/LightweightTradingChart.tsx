@@ -160,6 +160,10 @@ export function LightweightTradingChart({
   const chartRef = useRef<IChartApi | null>(null);
   const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const lastResetKeyRef = useRef("");
+  const candlesRef = useRef(candles);
+  candlesRef.current = candles;
+  /** Y px for custom last-price pill (native label hidden — show TF + countdown + price). */
+  const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
 
   const height = useMobileChartHeightPx(isMobileChart);
 
@@ -227,7 +231,7 @@ export function LightweightTradingChart({
         textColor: SCALE_TEXT,
         borderColor: SCALE_BORDER,
         // Room for last-value pill: timeframe + MM:SS + price (desktop)
-        minimumWidth: isMobileChart ? 82 : 118,
+        minimumWidth: isMobileChart ? 92 : 124,
         // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
         scaleMargins: isMobileChart ? { top: 0.1, bottom: 0.2 } : { top: 0.05, bottom: 0.1 }
       },
@@ -267,9 +271,8 @@ export function LightweightTradingChart({
       wickDownColor: WICK_DOWN,
       borderVisible: true,
       wickVisible: true,
-      /** Mobile: price-only on axis (timer via overlay). Desktop: timer + TF in native last-value label. */
-      title: isMobileChart ? "" : `${timeframeLabel} ${countdownStr}`,
-      lastValueVisible: true,
+      title: "",
+      lastValueVisible: false,
       priceLineVisible: true,
       priceLineColor: PRO_LAST_PRICE,
       priceLineWidth: 1,
@@ -285,7 +288,7 @@ export function LightweightTradingChart({
       chartRef.current = null;
       candleRef.current = null;
     };
-  }, [assetTag, isMobileChart, timeframeLabel, timeframeSec]);
+  }, [assetTag, isMobileChart, timeframeSec]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -305,7 +308,7 @@ export function LightweightTradingChart({
 
     chart.priceScale("right").applyOptions({
       visible: true,
-      minimumWidth: isMobileChart ? 82 : 118
+      minimumWidth: isMobileChart ? 92 : 124
     });
 
     if (lastResetKeyRef.current !== chartResetKey) {
@@ -314,23 +317,53 @@ export function LightweightTradingChart({
     }
   }, [assetTag, candles, chartResetKey, isMobileChart, timeframeSec]);
 
-  /** Last-value label (title + price) and price line track countdown and tick direction without re-setting all bars. */
+  /** Custom HTML pill for TF + countdown + price; native last-value label stays off. */
   useEffect(() => {
     const candleSeries = candleRef.current;
     if (!candleSeries || candles.length === 0) {
       return;
     }
     candleSeries.applyOptions({
-      title: isMobileChart ? "" : `${timeframeLabel} ${countdownStr}`,
       priceLineColor: priceLineColorForTick(tickDirection)
     });
-  }, [
-    candles.length,
-    countdownStr,
-    isMobileChart,
-    timeframeLabel,
-    tickDirection
-  ]);
+  }, [candles.length, tickDirection]);
+
+  const tailKey =
+    candles.length > 0
+      ? `${candles[candles.length - 1]!.timestamp}-${candles[candles.length - 1]!.close}`
+      : "";
+
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = candleRef.current;
+    const el = containerRef.current;
+    if (!chart || !series || !el) {
+      return;
+    }
+
+    const sync = () => {
+      const list = candlesRef.current;
+      const last = list[list.length - 1];
+      if (!last) {
+        setAxisPillTop(null);
+        return;
+      }
+      const y = series.priceToCoordinate(last.close);
+      setAxisPillTop(y == null ? null : Number(y));
+    };
+
+    sync();
+    const ro = new ResizeObserver(() => sync());
+    ro.observe(el);
+    const ts = chart.timeScale();
+    ts.subscribeVisibleLogicalRangeChange(sync);
+    ts.subscribeVisibleTimeRangeChange(sync);
+    return () => {
+      ro.disconnect();
+      ts.unsubscribeVisibleLogicalRangeChange(sync);
+      ts.unsubscribeVisibleTimeRangeChange(sync);
+    };
+  }, [chartResetKey, assetTag, isMobileChart, timeframeSec, zoomIndex, tailKey]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -343,21 +376,50 @@ export function LightweightTradingChart({
     chart.timeScale().applyOptions({ barSpacing: sp, minBarSpacing: minSp });
   }, [zoomIndex]);
 
-  const badgeMod =
-    tickDirection === "up" ? " tv-live-badge--tick-up" : tickDirection === "down" ? " tv-live-badge--tick-down" : "";
+  const last = candles.length > 0 ? candles[candles.length - 1]! : null;
+  const mobileTimerMod =
+    tickDirection === "up"
+      ? " tv-live-badge--tick-up"
+      : tickDirection === "down"
+        ? " tv-live-badge--tick-down"
+        : "";
+  const pillMod =
+    tickDirection === "up"
+      ? " chart-lw-axis-pill--up"
+      : tickDirection === "down"
+        ? " chart-lw-axis-pill--down"
+        : " chart-lw-axis-pill--neutral";
 
   return (
     <div className="chart-lw-outer">
-      <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
+      <div className="chart-lw-stack" style={{ position: "relative", width: "100%", height }}>
+        <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
+        {last != null && axisPillTop != null ? (
+          <div className="chart-lw-axis-pill-layer" aria-hidden>
+            <div
+              className={`chart-lw-axis-pill${pillMod}`}
+              style={{ top: axisPillTop, transform: "translateY(-50%)" }}
+            >
+              <span className="chart-lw-axis-pill-timer">
+                <span className="chart-lw-axis-pill-tf">{timeframeLabel}</span>
+                <span className="chart-lw-axis-pill-cd">{countdownStr}</span>
+              </span>
+              <span className="chart-lw-axis-pill-price">{formatPrice(last.close)}</span>
+            </div>
+          </div>
+        ) : null}
+      </div>
       {isMobileChart && candles.length > 0 ? (
         <div className="chart-lw-timer-anchor">
           <button
             type="button"
-            className={`tv-live-badge tv-live-badge--btn tv-live-badge--timer-only${badgeMod}`}
-            aria-label="Candle countdown; tap to resize timer"
+            className={`tv-live-badge tv-live-badge--btn tv-live-badge--timer-only${mobileTimerMod}`}
+            aria-label="Tap to enlarge countdown (same as axis pill)"
             onClick={onTimerTap}
           >
-            <span className={`tv-live-badge-cd${timerTextZoomed ? " zoomed" : ""}`}>{countdownStr}</span>
+            <span className={`tv-live-badge-cd${timerTextZoomed ? " zoomed" : ""}`}>
+              <span className="tv-live-badge-cd-tf">{timeframeLabel}</span> {countdownStr}
+            </span>
           </button>
         </div>
       ) : null}
