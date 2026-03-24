@@ -20,14 +20,15 @@ const TV_CANDLE_UP_LINE = "#5eead4";
 const TV_CANDLE_DOWN = "#ff5a5a";
 const TV_CANDLE_DOWN_LINE = "#ff9494";
 
-/** Responsive chart height for phone (visual viewport / rotation). */
+/** Responsive chart height for phone — large enough to feel “full” (toolbar + dock stay outside). */
 function useMobileChartHeightPx(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
-      return 360;
+      return 380;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    return Math.round(Math.min(Math.max(vh * 0.36, 272), 520));
+    const target = vh * 0.52;
+    return Math.round(Math.min(580, Math.max(300, target)));
   }, []);
 
   const [px, setPx] = useState(() => {
@@ -104,6 +105,8 @@ type Props = {
   countdownStr: string;
   timerTextZoomed: boolean;
   onTimerTap: () => void;
+  /** Last spot tick vs previous (green ↑ / red ↓). */
+  tickDirection?: "up" | "down" | null;
 };
 
 export function LightweightTradingChart({
@@ -116,7 +119,8 @@ export function LightweightTradingChart({
   chartResetKey,
   countdownStr,
   timerTextZoomed,
-  onTimerTap
+  onTimerTap,
+  tickDirection = null
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -294,17 +298,24 @@ export function LightweightTradingChart({
 
     const lastClose = candles[candles.length - 1]!.close;
 
+    const lineColor =
+      tickDirection === "up"
+        ? TV_CANDLE_UP_LINE
+        : tickDirection === "down"
+          ? TV_CANDLE_DOWN_LINE
+          : TV_LAST_RED;
+
     if (!priceLineRef.current) {
       priceLineRef.current = candleSeries.createPriceLine({
         price: lastClose,
-        color: TV_LAST_RED,
+        color: lineColor,
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: false,
         title: ""
       });
     } else {
-      priceLineRef.current.applyOptions({ price: lastClose });
+      priceLineRef.current.applyOptions({ price: lastClose, color: lineColor });
     }
 
     if (lastResetKeyRef.current !== chartResetKey) {
@@ -313,7 +324,7 @@ export function LightweightTradingChart({
     }
 
     scheduleBadgeUpdate();
-  }, [candles, timeframeSec, chartResetKey, scheduleBadgeUpdate]);
+  }, [candles, timeframeSec, chartResetKey, scheduleBadgeUpdate, tickDirection]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -329,10 +340,17 @@ export function LightweightTradingChart({
 
   const lastClose = candles.length ? candles[candles.length - 1]!.close : null;
 
+  const badgeMod =
+    tickDirection === "up" ? " tv-live-badge--tick-up" : tickDirection === "down" ? " tv-live-badge--tick-down" : "";
+
   const BadgeInner = (
     <>
       <span className="tv-live-badge-tag">{assetTag}</span>
-      <span className="tv-live-badge-price">{lastClose != null ? formatPrice(lastClose) : "—"}</span>
+      <span className={`tv-live-badge-price-row${tickDirection ? ` tick-${tickDirection}` : ""}`}>
+        {tickDirection === "up" ? <span className="tv-live-badge-arrow">↑</span> : null}
+        {tickDirection === "down" ? <span className="tv-live-badge-arrow">↓</span> : null}
+        <span className="tv-live-badge-price">{lastClose != null ? formatPrice(lastClose) : "—"}</span>
+      </span>
       <span className={`tv-live-badge-cd${timerTextZoomed ? " zoomed" : ""}`}>{countdownStr}</span>
     </>
   );
@@ -352,7 +370,7 @@ export function LightweightTradingChart({
           {isMobileChart ? (
             <button
               type="button"
-              className="tv-live-badge tv-live-badge--btn"
+              className={`tv-live-badge tv-live-badge--btn${badgeMod}`}
               style={{ top: "var(--tv-badge-top)" }}
               aria-label="Current price and candle countdown; tap to resize timer"
               onClick={onTimerTap}
@@ -360,7 +378,7 @@ export function LightweightTradingChart({
               {BadgeInner}
             </button>
           ) : (
-            <div className="tv-live-badge" style={{ top: "var(--tv-badge-top)" }}>
+            <div className={`tv-live-badge${badgeMod}`} style={{ top: "var(--tv-badge-top)" }}>
               {BadgeInner}
             </div>
           )}

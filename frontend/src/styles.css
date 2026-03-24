@@ -1445,6 +1445,33 @@ select {
   font-weight: 600;
 }
 
+/* Last spot tick vs previous tick */
+.tv-spot-tick {
+  display: inline-block;
+  margin: 0 6px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.tv-spot-tick.up {
+  color: var(--candle-bull);
+}
+
+.tv-spot-tick.down {
+  color: var(--candle-bear);
+}
+
+.chart-spot-price.up {
+  color: #7ee0c5;
+  border-color: rgba(38, 215, 160, 0.45);
+}
+
+.chart-spot-price.down {
+  color: #ffb1b1;
+  border-color: rgba(255, 90, 90, 0.45);
+}
+
 .tv-chart-meta {
   color: #787b86 !important;
   font-size: 11px;
@@ -1742,6 +1769,35 @@ select {
 .tv-live-badge-cd.zoomed {
   font-size: 15px;
   margin-top: 4px;
+}
+
+.tv-live-badge-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.tv-live-badge-arrow {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tv-live-badge-price-row.tick-up .tv-live-badge-arrow {
+  color: #b8fff0;
+}
+
+.tv-live-badge-price-row.tick-down .tv-live-badge-arrow {
+  color: #ffe0e0;
+}
+
+.tv-live-badge--tick-up {
+  background: linear-gradient(160deg, #0f3d32 0%, #0a9b7a 55%, #067a62 100%);
+}
+
+.tv-live-badge--tick-down {
+  background: linear-gradient(160deg, #4a1518 0%, #c42f38 55%, #9e222a 100%);
 }
 
 .tv-chart-mobile .tv-live-badge {
@@ -2186,7 +2242,15 @@ button.desktop-demo-cta:disabled,
 .asset-tile-price {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  color: #d1d4dc;
+}
+
+.asset-tile-price.up {
   color: var(--candle-bull);
+}
+
+.asset-tile-price.down {
+  color: var(--candle-bear);
 }
 
 .chart-header-with-logo .chart-symbol-logo {

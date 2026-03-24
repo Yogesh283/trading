@@ -9,6 +9,7 @@ import {
 } from "react";
 import { buildCandles, candlePeriodEndMs } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
+import { lastTickMove } from "./tickDirection";
 import { LightweightTradingChart } from "./LightweightTradingChart";
 import {
   AccountSnapshot,
@@ -242,7 +243,6 @@ export default function App() {
     demo: null,
     live: null
   });
-  const prevPricesRef = useRef<Record<string, number>>({});
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
   const [orderPlacedPopup, setOrderPlacedPopup] = useState<
@@ -618,15 +618,8 @@ export default function App() {
     };
   }, [session, sessionToken, accountWallet]);
 
-  useEffect(() => {
-    const next: Record<string, number> = { ...prevPricesRef.current };
-    markets.forEach((t) => {
-      next[t.symbol] = t.price;
-    });
-    prevPricesRef.current = next;
-  }, [markets]);
-
   const chartSeries = history[symbol] ?? [];
+  const spotTickMove = lastTickMove(chartSeries);
   const selectedTick = markets.find((tick) => tick.symbol === symbol) ?? null;
   const symbolTrades = trades.filter((trade) => trade.symbol === symbol);
   const openBinaryTrades = trades.filter(
@@ -1310,13 +1303,7 @@ export default function App() {
             <ul className="mobile-asset-chips">
               {forexSymbolList.map((s) => {
                 const tick = markets.find((t) => t.symbol === s);
-                const prevPrice = prevPricesRef.current[s];
-                const priceDir =
-                  tick && prevPrice != null && prevPrice !== tick.price
-                    ? tick.price > prevPrice
-                      ? "up"
-                      : "down"
-                    : null;
+                const priceDir = lastTickMove(history[s]);
                 return (
                   <li key={s} className="mobile-asset-chip-li">
                   <button
@@ -1352,6 +1339,7 @@ export default function App() {
               onTimeframeChange={onChartTimeframeChange}
               hideSideToolbar
               isMobileChart
+              tickDirection={spotTickMove}
             />
           </section>
 
@@ -1456,7 +1444,8 @@ export default function App() {
                       ? "Create Order Up"
                       : "Create Order Down"}
                 </strong>
-                <small>
+                <small className={spotTickMove ? `mobile-cta-spot ${spotTickMove}` : undefined}>
+                  {spotTickMove === "up" ? "↑ " : spotTickMove === "down" ? "↓ " : ""}
                   {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
                 </small>
               </span>
@@ -1638,6 +1627,7 @@ export default function App() {
             <div className="asset-grid">
               {forexSymbolList.map((s) => {
                 const tick = markets.find((t) => t.symbol === s);
+                const tileMove = lastTickMove(history[s]);
                 return (
                   <button
                     key={s}
@@ -1649,7 +1639,10 @@ export default function App() {
                     <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
                     <span className="asset-tile-pair">{formatForexPair(s)}</span>
                     {tick ? (
-                      <span className="asset-tile-price">{formatFxPrice(s, tick.price)}</span>
+                      <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
+                        {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
+                        {formatFxPrice(s, tick.price)}
+                      </span>
                     ) : null}
                   </button>
                 );
@@ -1684,7 +1677,8 @@ export default function App() {
               <p className="muted">Top 20 forex · same chart for every period (5s–10m)</p>
             </div>
             <div className="chart-badges">
-              <span className="badge">
+              <span className={`badge chart-spot-price${spotTickMove ? ` ${spotTickMove}` : ""}`}>
+                {spotTickMove === "up" ? "↑ " : spotTickMove === "down" ? "↓ " : ""}
                 {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
               </span>
             </div>
@@ -1695,6 +1689,7 @@ export default function App() {
             trades={tradingAsDemo ? symbolTrades : []}
             timeframeSec={chartTimeframe}
             onTimeframeChange={onChartTimeframeChange}
+            tickDirection={spotTickMove}
           />
         </section>
 
@@ -2020,6 +2015,7 @@ export default function App() {
             <div className="asset-grid asset-grid-modal">
               {forexSymbolList.map((s) => {
                 const tick = markets.find((t) => t.symbol === s);
+                const tileMove = lastTickMove(history[s]);
                 return (
                   <button
                     key={s}
@@ -2034,7 +2030,10 @@ export default function App() {
                     <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
                     <span className="asset-tile-pair">{formatForexPair(s)}</span>
                     {tick ? (
-                      <span className="asset-tile-price">{formatFxPrice(s, tick.price)}</span>
+                      <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
+                        {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
+                        {formatFxPrice(s, tick.price)}
+                      </span>
                     ) : null}
                   </button>
                 );
@@ -2574,7 +2573,8 @@ function LiveChart({
   timeframeSec,
   onTimeframeChange,
   hideSideToolbar = false,
-  isMobileChart = false
+  isMobileChart = false,
+  tickDirection = null
 }: {
   points: MarketTick[];
   symbol: string;
@@ -2584,6 +2584,7 @@ function LiveChart({
   hideSideToolbar?: boolean;
   /** Wider default zoom + reset on TF change (Olymp / TV-style mobile chart). */
   isMobileChart?: boolean;
+  tickDirection?: "up" | "down" | null;
 }) {
   const [, setTick] = useState(0);
   const defaultZoom = isMobileChart ? MOBILE_DEFAULT_ZOOM_INDEX : DESKTOP_DEFAULT_ZOOM_INDEX;
@@ -2684,6 +2685,11 @@ function LiveChart({
       <div className="chart-meta tv-chart-toolbar">
         <div className="tv-toolbar-left">
           <strong className="tv-symbol">{pairLabel}</strong>
+          {tickDirection ? (
+            <span className={`tv-spot-tick ${tickDirection}`} aria-hidden>
+              {tickDirection === "up" ? "↑" : "↓"}
+            </span>
+          ) : null}
           <span className="tv-ohlc">
             O {fmtPrice(current.open)} H {fmtPrice(current.high)} L {fmtPrice(current.low)} C{" "}
             {fmtPrice(current.close)}
@@ -2711,6 +2717,7 @@ function LiveChart({
             countdownStr={countdownStr}
             timerTextZoomed={timerTextZoomed}
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
+            tickDirection={tickDirection}
           />
         </div>
 
