@@ -1372,16 +1372,20 @@ select {
 .chart-card.tv-chart {
   padding: 0;
   overflow: visible;
-  border-radius: 4px;
-  border: 1px solid #363a45;
-  background: #000000;
+  border-radius: 10px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  background: linear-gradient(180deg, #0c0e14 0%, #060708 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    0 0 40px -12px rgba(99, 102, 241, 0.15);
 }
 
 .tv-chart-toolbar {
   padding: 10px 12px;
-  border-bottom: 1px solid #363a45;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
   margin: 0 !important;
-  background: #0a0a0a;
+  background: linear-gradient(180deg, rgba(18, 21, 30, 0.98) 0%, rgba(10, 12, 18, 0.99) 100%);
 }
 
 .tv-toolbar-left {
@@ -1414,8 +1418,10 @@ select {
 }
 
 .tv-chart-toolbar .tv-symbol {
-  color: #d1d4dc;
+  color: #f1f5f9;
   font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .tv-ohlc {
@@ -1733,8 +1739,11 @@ select {
 .tv-live-badge--timer-only {
   min-width: 0;
   padding: 8px 12px 9px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2) inset,
+    0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
 .tv-live-badge--timer-only .tv-live-badge-cd {
@@ -1979,17 +1988,22 @@ button.desktop-demo-cta:disabled,
   gap: 0;
   z-index: 10;
   pointer-events: auto;
-  background: rgba(22, 24, 28, 0.95);
+  background: linear-gradient(165deg, rgba(28, 32, 44, 0.96) 0%, rgba(14, 16, 24, 0.98) 100%);
   border-radius: 999px;
-  padding: 6px 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 7px 6px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 8px 28px rgba(0, 0, 0, 0.5),
+    0 0 24px -8px rgba(212, 175, 55, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .chart-zoom-divider {
   width: 1px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, transparent, rgba(212, 175, 55, 0.35), transparent);
   flex-shrink: 0;
 }
 
@@ -1997,19 +2011,23 @@ button.desktop-demo-cta:disabled,
   width: 36px;
   height: 28px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
-  color: #d1d4dc;
+  color: #f1f5f9;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.12s;
 }
 
 .chart-zoom-controls button:hover {
   color: #fff;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(212, 175, 55, 0.14);
+}
+
+.chart-zoom-controls button:active {
+  transform: scale(0.94);
 }
 
 .chart-svg {

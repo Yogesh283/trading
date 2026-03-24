@@ -4,6 +4,7 @@ import {
   createChart,
   CrosshairMode,
   LineStyle,
+  TrackingModeExitMode,
   type IChartApi,
   type ISeriesApi,
   type UTCTimestamp
@@ -11,15 +12,21 @@ import {
 import type { CandlePoint } from "./chartCandles";
 import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
-/** Last-price line + axis label background (TradingView-style, all assets). */
-const TV_LAST_RED = "#f23645";
-/** Classic TV candle greens / reds (same family as reference charts). */
-const TV_CANDLE_UP = "#26a69a";
-const TV_CANDLE_UP_LINE = "#26a69a";
-const TV_CANDLE_DOWN = "#ef5350";
-const TV_CANDLE_DOWN_LINE = "#ef5350";
-const TV_CHART_BG = "#131722";
-const TV_GRID = "rgba(42, 46, 57, 0.5)";
+/** Desktop: red last-price line + label (TradingView pro). */
+const TV_LAST_RED = "#ff4d5e";
+/** Mobile ref: white price pill → library picks black text via contrast. */
+const MOBILE_PRICE_PILL = "#ffffff";
+/** Classic TV / pro app greens & reds (all assets, same on mobile + desktop). */
+const CANDLE_UP = "#089981";
+const CANDLE_DOWN = "#f23645";
+const DESKTOP_CHART_BG = "#0a0c12";
+const MOBILE_CHART_BG = "#000000";
+const DESKTOP_GRID_VERT = "rgba(100, 116, 139, 0.14)";
+const DESKTOP_GRID_HORZ = "rgba(100, 116, 139, 0.22)";
+const MOBILE_GRID_VERT = "rgba(255, 255, 255, 0.055)";
+const MOBILE_GRID_HORZ = "rgba(255, 255, 255, 0.075)";
+const CHART_FONT =
+  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
 
 /** Responsive chart height for phone — large enough to feel “full” (toolbar + dock stay outside). */
 function useMobileChartHeightPx(isMobile: boolean): number {
@@ -154,13 +161,17 @@ export function LightweightTradingChart({
       width: 0,
       height: 0,
       layout: {
-        background: { type: ColorType.Solid, color: TV_CHART_BG },
-        textColor: "#d1d4dc",
-        fontSize: isMobileChart ? 13 : 12
+        background: {
+          type: ColorType.Solid,
+          color: isMobileChart ? MOBILE_CHART_BG : DESKTOP_CHART_BG
+        },
+        textColor: isMobileChart ? "#c8cdd5" : "#e8edf4",
+        fontSize: isMobileChart ? 14 : 13,
+        fontFamily: CHART_FONT
       },
       grid: {
-        vertLines: { color: TV_GRID },
-        horzLines: { color: TV_GRID }
+        vertLines: { color: isMobileChart ? MOBILE_GRID_VERT : DESKTOP_GRID_VERT },
+        horzLines: { color: isMobileChart ? MOBILE_GRID_HORZ : DESKTOP_GRID_HORZ }
       },
       /** Hide empty left scale — all prices on the right (TradingView-style). */
       leftPriceScale: {
@@ -168,26 +179,35 @@ export function LightweightTradingChart({
       },
       crosshair: {
         mode: isMobileChart ? CrosshairMode.Magnet : CrosshairMode.Normal,
-        vertLine: { color: "rgba(197, 203, 206, 0.2)", width: 1 },
-        horzLine: { color: "rgba(197, 203, 206, 0.2)", width: 1 }
+        vertLine: {
+          color: isMobileChart ? "rgba(255, 255, 255, 0.12)" : "rgba(212, 175, 55, 0.22)",
+          width: 1
+        },
+        horzLine: {
+          color: isMobileChart ? "rgba(255, 255, 255, 0.1)" : "rgba(212, 175, 55, 0.18)",
+          width: 1
+        }
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
-        borderColor: "rgba(42, 46, 57, 0.85)",
+        borderColor: isMobileChart ? "rgba(255, 255, 255, 0.1)" : "rgba(148, 163, 184, 0.35)",
         // Extra gap so last candle + wicks aren’t flush against the price scale on narrow screens
         rightOffset: isMobileChart ? 14 : 8,
         fixLeftEdge: false,
+        fixRightEdge: false,
         lockVisibleTimeRangeOnResize: true,
-        minBarSpacing: 2
+        minBarSpacing: 2,
+        /** When the latest candle is in view, new ticks follow; when user scrolls left, view stays on history. */
+        shiftVisibleRangeOnNewBar: true
       },
       rightPriceScale: {
         visible: true,
         borderVisible: true,
         ticksVisible: true,
         entireTextOnly: false,
-        textColor: "#c4ced9",
-        borderColor: "rgba(56, 68, 82, 0.95)",
+        textColor: isMobileChart ? "#a8b0bd" : "#e2e8f0",
+        borderColor: isMobileChart ? "rgba(255, 255, 255, 0.08)" : "rgba(148, 163, 184, 0.4)",
         // Wide enough for "XAUUSD 4413.47" / JPY-style quotes on the axis
         minimumWidth: isMobileChart ? 80 : 88,
         // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
@@ -197,44 +217,44 @@ export function LightweightTradingChart({
         priceFormatter: (p: number) =>
           p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6)
       },
-      ...(isMobileChart
-        ? {
-            handleScroll: {
-              mouseWheel: false,
-              pressedMouseMove: true,
-              horzTouchDrag: true,
-              vertTouchDrag: false
-            },
-            handleScale: {
-              mouseWheel: false,
-              pinch: true,
-              axisPressedMouseMove: false,
-              axisDoubleClickReset: true
-            },
-            kineticScroll: {
-              mouse: false,
-              touch: true
-            }
-          }
-        : {})
+      /** Desktop: wheel / drag; mobile: finger pan + pinch zoom — both can scroll to older candles. */
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        vertTouchDrag: false
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: false,
+        axisDoubleClickReset: true
+      },
+      kineticScroll: {
+        mouse: true,
+        touch: true
+      },
+      /** Long-press crosshair no longer traps scroll until another tap (finger up returns to pan). */
+      trackingMode: {
+        exitMode: TrackingModeExitMode.OnTouchEnd
+      }
     });
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: TV_CANDLE_UP,
-      downColor: TV_CANDLE_DOWN,
-      borderUpColor: TV_CANDLE_UP_LINE,
-      borderDownColor: TV_CANDLE_DOWN_LINE,
-      wickUpColor: TV_CANDLE_UP_LINE,
-      wickDownColor: TV_CANDLE_DOWN_LINE,
+      upColor: CANDLE_UP,
+      downColor: CANDLE_DOWN,
+      borderUpColor: CANDLE_UP,
+      borderDownColor: CANDLE_DOWN,
+      wickUpColor: CANDLE_UP,
+      wickDownColor: CANDLE_DOWN,
       borderVisible: true,
       wickVisible: true,
-      /** Symbol next to last price on the right scale (e.g. USDJPY). */
-      title: assetTag,
+      /** Mobile: price-only pill on axis (ref). Desktop: symbol + price. */
+      title: isMobileChart ? "" : assetTag,
       lastValueVisible: true,
-      /** Red dashed last-price line like TradingView. */
       priceLineVisible: true,
-      priceLineColor: TV_LAST_RED,
-      priceLineWidth: 1,
+      priceLineColor: isMobileChart ? MOBILE_PRICE_PILL : TV_LAST_RED,
+      priceLineWidth: isMobileChart ? 1 : 2,
       priceLineStyle: LineStyle.Dashed
     });
 
@@ -265,8 +285,8 @@ export function LightweightTradingChart({
     const cd = candlestickDataFromCandles(candles);
     candleSeries.setData(cd);
     candleSeries.applyOptions({
-      title: assetTag,
-      priceLineColor: TV_LAST_RED
+      title: isMobileChart ? "" : assetTag,
+      priceLineColor: isMobileChart ? MOBILE_PRICE_PILL : TV_LAST_RED
     });
 
     chart.priceScale("right").applyOptions({

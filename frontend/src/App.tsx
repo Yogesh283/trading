@@ -2704,7 +2704,16 @@ function LiveChart({
         </div>
       </div>
       <div className="chart-svg-wrap chart-lw-wrap">
-        <div className="chart-touch-layer chart-lw-touch" ref={chartWrapRef} aria-hidden>
+        <div
+          className="chart-touch-layer chart-lw-touch"
+          ref={chartWrapRef}
+          aria-hidden
+          title={
+            isMobileChart
+              ? "Swipe sideways to view older candles · pinch to zoom in/out"
+              : "Drag sideways or scroll wheel to view older candles"
+          }
+        >
           <LightweightTradingChart
             key={chartResetKey}
             candles={allCandles}
