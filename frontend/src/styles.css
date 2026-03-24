@@ -298,6 +298,87 @@ select {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2) inset, 0 2px 12px rgba(16, 185, 129, 0.12);
 }
 
+/* Header: show demo + live balances side by side (tap to switch trading wallet). */
+.app-nav-dual-balances {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  max-width: min(340px, 52vw);
+}
+
+.app-nav-balance-col {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  text-align: center;
+  font: inherit;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.app-nav-balance-col:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline-offset: 2px;
+}
+
+.app-nav-balance-col--demo {
+  border-color: rgba(52, 211, 153, 0.28);
+  background: linear-gradient(180deg, rgba(6, 78, 59, 0.32) 0%, rgba(4, 47, 36, 0.4) 100%);
+}
+
+.app-nav-balance-col--demo.is-active {
+  border-color: rgba(110, 231, 183, 0.55);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2), 0 2px 14px rgba(16, 185, 129, 0.15);
+}
+
+.app-nav-balance-col--live {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: linear-gradient(180deg, rgba(12, 74, 110, 0.35) 0%, rgba(8, 47, 73, 0.42) 100%);
+}
+
+.app-nav-balance-col--live.is-active {
+  border-color: rgba(125, 211, 252, 0.55);
+  box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.22), 0 2px 14px rgba(14, 165, 233, 0.12);
+}
+
+.app-nav-balance-col-label {
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  line-height: 1.2;
+}
+
+.app-nav-balance-col--demo .app-nav-balance-col-label {
+  color: #6ee7b7;
+}
+
+.app-nav-balance-col--live .app-nav-balance-col-label {
+  color: #7dd3fc;
+}
+
+.app-nav-balance-col-amt {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-nav-text-btn {
   padding: 10px 15px;
   border-radius: 12px;

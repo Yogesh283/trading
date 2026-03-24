@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { DEFAULT_DEMO_BALANCE_INR } from "../config/demo";
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
@@ -195,8 +196,6 @@ export function extractBearerToken(authHeader?: string | null) {
 
   return value;
 }
-
-const DEFAULT_REGISTER_DEMO = 1000;
 
 /** Unique 4-digit string id (0000–9999), collision-checked against users.id */
 async function allocateUniqueFourDigitUserId(): Promise<string> {
@@ -395,12 +394,12 @@ export async function registerUser(input: {
         if (isMysqlMode()) {
           await getPool().execute(
             `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
-            [id, DEFAULT_REGISTER_DEMO, now]
+            [id, DEFAULT_DEMO_BALANCE_INR, now]
           );
         } else {
           await dbRun(
             `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
-            [id, DEFAULT_REGISTER_DEMO, now]
+            [id, DEFAULT_DEMO_BALANCE_INR, now]
           );
         }
       } catch {
@@ -429,7 +428,7 @@ export async function registerUser(input: {
         token: createToken(saved.id),
         wallet: {
           liveBalance: 0,
-          demoBalance: DEFAULT_REGISTER_DEMO
+          demoBalance: DEFAULT_DEMO_BALANCE_INR
         }
       };
     } catch (e) {
@@ -657,7 +656,7 @@ export function getAccountForWallet(userId: string, wallet: WalletType) {
     return existing;
   }
 
-  const startingBalance = wallet === "demo" ? 1_000 : 0;
+  const startingBalance = wallet === "demo" ? DEFAULT_DEMO_BALANCE_INR : 0;
   const account = new DemoAccount(startingBalance);
   demoAccounts.set(key, account);
   return account;
@@ -681,6 +680,8 @@ export type AdminUserRow = {
   self_referral_code: string | null;
   referral_code: string | null;
   role: string;
+  phone_country_code: string | null;
+  phone_local: string | null;
 };
 
 /** List + edit: wallet, upline (inviter), direct / total team size under this user. */
@@ -799,6 +800,12 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTotalLiveBalanceInr: number;
   /** Sum of credited USDT deposits across direct referrals only. */
   directTeamTotalDepositsUsdt: number;
+  /** Total referral commissions credited to your live wallet (betting + staking). */
+  totalReferralCommissionInr: number;
+  /** From team members’ live binary stakes (`level_income`). */
+  bettingCommissionInr: number;
+  /** From team members’ staking / investment deposits (`level_income_staking`). */
+  stakingCommissionInr: number;
 }> {
   await ready;
   const uid = String(userId ?? "").trim();
@@ -816,6 +823,24 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     throw new Error("User not found");
   }
   const myCode = String(me.self_referral_code ?? "").trim();
+
+  const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
+    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking') GROUP BY txn_type`,
+    [uid]
+  );
+  let bettingCommissionInr = 0;
+  let stakingCommissionInr = 0;
+  for (const r of commissionRows) {
+    const t = Number(r.total ?? 0);
+    if (r.txn_type === "level_income") {
+      bettingCommissionInr += t;
+    } else if (r.txn_type === "level_income_staking") {
+      stakingCommissionInr += t;
+    }
+  }
+  const totalReferralCommissionInr = Number((bettingCommissionInr + stakingCommissionInr).toFixed(4));
+  bettingCommissionInr = Number(bettingCommissionInr.toFixed(4));
+  stakingCommissionInr = Number(stakingCommissionInr.toFixed(4));
 
   let inviter: { name: string; email: string } | null = null;
   const mySignupRef = String(me.referral_code ?? "").trim();
@@ -884,7 +909,10 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     directCount: directTeam.length,
     totalTeamCount,
     directTotalLiveBalanceInr,
-    directTeamTotalDepositsUsdt
+    directTeamTotalDepositsUsdt,
+    totalReferralCommissionInr,
+    bettingCommissionInr,
+    stakingCommissionInr
   };
 }
 
@@ -911,12 +939,13 @@ async function buildGlobalWalletAndDepositMaps(): Promise<{
 
 const ADMIN_USER_SELECT = `
   u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
+  u.phone_country_code, u.phone_local,
   CASE
     WHEN u.withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(u.withdrawal_totp_secret, '')) <> '' THEN 1
     ELSE 0
   END AS withdrawal_totp_enabled,
   COALESCE(w.balance, 0) AS balance,
-  COALESCE(w.demo_balance, 1000) AS demo_balance,
+  COALESCE(w.demo_balance, ${DEFAULT_DEMO_BALANCE_INR}) AS demo_balance,
   inv.id AS inviter_id,
   inv.name AS inviter_name,
   inv.email AS inviter_email
@@ -940,6 +969,8 @@ function mapRawAdminUserRow(
     inviter_name: string | null;
     inviter_email: string | null;
     withdrawal_totp_enabled?: number | string | null;
+    phone_country_code?: string | null;
+    phone_local?: string | null;
   },
   childrenByParentId: Map<string, string[]>,
   walletByUser: Map<string, number>,
@@ -963,8 +994,10 @@ function mapRawAdminUserRow(
     self_referral_code: row.self_referral_code,
     referral_code: row.referral_code,
     role: row.role,
+    phone_country_code: row.phone_country_code ?? null,
+    phone_local: row.phone_local ?? null,
     balance: Number(row.balance ?? 0),
-    demo_balance: Number(row.demo_balance ?? 1000),
+    demo_balance: Number(row.demo_balance ?? DEFAULT_DEMO_BALANCE_INR),
     inviter_id: row.inviter_id != null ? String(row.inviter_id).trim() : null,
     inviter_name: row.inviter_name ?? null,
     inviter_email: row.inviter_email ?? null,
@@ -1077,12 +1110,14 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 
   const baseSql = isMysqlMode()
     ? `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+        phone_country_code, phone_local,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
           ELSE 0
         END AS withdrawal_totp_enabled
        FROM users WHERE id = ? LIMIT 1`
     : `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+        phone_country_code, phone_local,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
           ELSE 0
@@ -1157,7 +1192,7 @@ async function assembleAdminUserDetailFromBase(
   } = {
     ...base,
     balance: wallet?.balance ?? 0,
-    demo_balance: wallet?.demo_balance ?? 1000,
+    demo_balance: wallet?.demo_balance ?? DEFAULT_DEMO_BALANCE_INR,
     inviter_id,
     inviter_name,
     inviter_email,
@@ -1278,7 +1313,7 @@ export async function updateUserFromAdmin(
     const newB =
       body.balance !== undefined ? Number(body.balance) : Number(cur?.balance ?? 0);
     const newD =
-      body.demo_balance !== undefined ? Number(body.demo_balance) : Number(cur?.demo_balance ?? 1000);
+      body.demo_balance !== undefined ? Number(body.demo_balance) : Number(cur?.demo_balance ?? DEFAULT_DEMO_BALANCE_INR);
     if (!Number.isFinite(newB) || newB < 0) {
       throw new Error("Invalid live balance");
     }

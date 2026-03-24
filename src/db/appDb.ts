@@ -205,7 +205,7 @@ const WALLETS_SQL = `
   CREATE TABLE IF NOT EXISTS wallets (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     balance REAL NOT NULL DEFAULT 0,
-    demo_balance REAL NOT NULL DEFAULT 1000,
+    demo_balance REAL NOT NULL DEFAULT 10000,
     updated_at TEXT NOT NULL
   )
 `;
@@ -214,7 +214,7 @@ const WALLETS_SQL_MYSQL = `
   CREATE TABLE IF NOT EXISTS wallets (
     user_id VARCHAR(64) NOT NULL PRIMARY KEY,
     balance DOUBLE NOT NULL DEFAULT 0,
-    demo_balance DOUBLE NOT NULL DEFAULT 1000,
+    demo_balance DOUBLE NOT NULL DEFAULT 10000,
     updated_at VARCHAR(64) NOT NULL,
     CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -372,16 +372,16 @@ async function migrateWalletsDemoBalance(): Promise<void> {
     if (Number(row?.n) > 0) return;
     try {
       await dbRun(
-        "ALTER TABLE wallets ADD COLUMN demo_balance DOUBLE NOT NULL DEFAULT 1000 AFTER balance"
+        "ALTER TABLE wallets ADD COLUMN demo_balance DOUBLE NOT NULL DEFAULT 10000 AFTER balance"
       );
     } catch {
-      await dbRun("ALTER TABLE wallets ADD COLUMN demo_balance DOUBLE NOT NULL DEFAULT 1000");
+      await dbRun("ALTER TABLE wallets ADD COLUMN demo_balance DOUBLE NOT NULL DEFAULT 10000");
     }
     return;
   }
   const cols = await dbAll<{ name: string }>("PRAGMA table_info(wallets)");
   if (cols.some((c) => c.name === "demo_balance")) return;
-  await dbRun("ALTER TABLE wallets ADD COLUMN demo_balance REAL NOT NULL DEFAULT 1000");
+  await dbRun("ALTER TABLE wallets ADD COLUMN demo_balance REAL NOT NULL DEFAULT 10000");
 }
 
 async function migrateUsersReferral(): Promise<void> {

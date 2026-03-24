@@ -108,6 +108,8 @@ export function UserList() {
         <EditButton />
         <TextField source="id" />
         <TextField source="name" />
+        <TextField source="phone_country_code" label="Phone CC" emptyText="—" />
+        <TextField source="phone_local" label="Phone" emptyText="—" />
         <TextField source="email" />
         <TextField source="inviter_name" label="Upline / inviter" emptyText="—" />
         <TextField source="inviter_email" label="Inviter email" emptyText="—" />
@@ -142,6 +144,8 @@ export function UserEdit() {
       <SimpleForm>
         <TextInput source="id" label="Id" disabled fullWidth />
         <TextInput source="name" fullWidth required />
+        <TextInput source="phone_country_code" label="Phone country code" disabled fullWidth />
+        <TextInput source="phone_local" label="Phone (national digits)" disabled fullWidth />
         <TextInput source="email" type="email" fullWidth required />
         <TextInput source="created_at" label="Created at" disabled fullWidth />
         <SelectInput

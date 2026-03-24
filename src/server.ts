@@ -345,6 +345,7 @@ for (const apkPath of ANDROID_APK_PATHS) {
 
 app.post("/api/auth/register", async (req, res) => {
   try {
+    await initAppDb();
     const name = String(req.body?.name ?? "").trim();
     const password = String(req.body?.password ?? "");
     const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
@@ -366,11 +367,16 @@ app.post("/api/auth/register", async (req, res) => {
       phoneLocal: phone,
       referralCode
     });
+    const dbInfo = getDatabaseInfo();
     logger.info(
-      { userId: result.user.id, phone: `${result.user.phoneCountryCode ?? ""}${result.user.phoneLocal ?? ""}` },
-      "User registered — row saved in users table"
+      {
+        userId: result.user.id,
+        phone: `${result.user.phoneCountryCode ?? ""}${result.user.phoneLocal ?? ""}`,
+        database: dbInfo
+      },
+      "User registered — row committed to users table (check same DB in phpMyAdmin / admin Users)"
     );
-    return res.status(201).json({ ...result, database: getDatabaseInfo() });
+    return res.status(201).json({ ...result, database: dbInfo });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Registration failed";
     logger.warn({ err: error, countryCode: String(req.body?.countryCode ?? "") }, "Register failed");

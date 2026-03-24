@@ -7,6 +7,12 @@
 
 `git push` **direct server par nahi jaata**. Har baar server par SSH se commands chalani padti hain.
 
+### Mobile register → `users` table (phpMyAdmin “empty”?)
+
+- **`.env` mein `MYSQL_DATABASE=...` set hai** → users **MySQL** mein jaate hain → phpMyAdmin mein **usi database** (jaise `tradeing`) kholo; columns **`phone_country_code`**, **`phone_local`** mein mobile signup dikhega. Synthetic email: `{id}@m.updownfx.local`.
+- **`MYSQL_DATABASE` khali / unset** → users **`data/app.db` (SQLite)** mein jaate hain → phpMyAdmin mein **nahi** dikhenge jab tak aap MySQL use nahi kar rahe. Check: browser/open `GET /api/system/database` ya register ke baad success message par DB hint.
+- Admin panel **Users** list ab **Phone CC** + **Phone** columns dikhata hai.
+
 **Repo:** `https://github.com/Yogesh283/trading.git` · **Branch:** `main`  
 **PC folder:** `d:\xampp\htdocs\tradeing`  
 **Server folder (example):** `/home/updowanfx/htdocs/updowanfx.com`  

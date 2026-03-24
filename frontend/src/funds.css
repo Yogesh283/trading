@@ -934,6 +934,12 @@
   font-size: 13px;
 }
 
+.referral-commission-hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .referral-inviter {
   display: flex;
   flex-direction: column;

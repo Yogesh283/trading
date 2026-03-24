@@ -43,9 +43,25 @@ html.cap-native #admin-root {
   padding-top: 0;
 }
 
-html.cap-native .landing-nav-inner,
-html.cap-native .landing-nav-inner--bar {
+/**
+ * Landing top: Android WebView usually lays out below the status bar already; `env(safe-area-inset-top)`
+ * can still be large → empty black band above the logo. Use a small fixed inset on Android APK.
+ * iOS (notch / Dynamic Island) keeps real safe-area.
+ */
+html.cap-native.cap-android .landing-nav-inner,
+html.cap-native.cap-android .landing-nav-inner--bar {
+  padding-top: 8px;
+}
+
+html.cap-native.cap-ios .landing-nav-inner,
+html.cap-native.cap-ios .landing-nav-inner--bar {
   padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+/* Native platform unknown (older Capacitor): cap inset so we never get a huge dead band */
+html.cap-native:not(.cap-android):not(.cap-ios) .landing-nav-inner,
+html.cap-native:not(.cap-android):not(.cap-ios) .landing-nav-inner--bar {
+  padding-top: max(12px, min(env(safe-area-inset-top, 0px), 20px));
 }
 
 /**

@@ -134,6 +134,34 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section">
+              <h2 className="referral-h2">Your commissions (live wallet)</h2>
+              <p className="muted referral-commission-hint">
+                Credited to your <strong>live</strong> balance when your team trades (binary) or adds staking. Demo
+                trades do not pay upline commission.
+              </p>
+              <div className="referral-stats referral-stats--wide">
+                <div className="referral-stat">
+                  <span className="referral-stat-value referral-stat-value--inr">
+                    {formatInr(data.totalReferralCommissionInr ?? 0)}
+                  </span>
+                  <span className="referral-stat-label">Total earned</span>
+                </div>
+                <div className="referral-stat">
+                  <span className="referral-stat-value referral-stat-value--inr">
+                    {formatInr(data.bettingCommissionInr ?? 0)}
+                  </span>
+                  <span className="referral-stat-label">From betting (binary)</span>
+                </div>
+                <div className="referral-stat">
+                  <span className="referral-stat-value referral-stat-value--inr">
+                    {formatInr(data.stakingCommissionInr ?? 0)}
+                  </span>
+                  <span className="referral-stat-label">From staking</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="referral-section">
               <h2 className="referral-h2">Your team (direct)</h2>
               {data.directTeam.length === 0 ? (
                 <p className="muted">No direct referrals yet. Share your link above.</p>

@@ -36,8 +36,9 @@ import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
 import { APP_NAME, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
+import { PHONE_COUNTRY_OPTIONS } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
-import { formatInr } from "./fundsConfig";
+import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
   DockIconDeposit,
   DockIconMarkets,
@@ -231,6 +232,11 @@ export default function App() {
     return "demo";
   });
   const [timerTick, setTimerTick] = useState(0);
+  /** Logged-in: both wallets’ balances for header (always load demo + live so DB migration applies). */
+  const [dualBalances, setDualBalances] = useState<{ demo: number | null; live: number | null }>({
+    demo: null,
+    live: null
+  });
   const prevPricesRef = useRef<Record<string, number>>({});
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
@@ -459,16 +465,23 @@ export default function App() {
       if (!sessionToken) {
         setAccount(null);
         setTrades([]);
+        setDualBalances({ demo: null, live: null });
       } else {
-        const [accountData, tradeData] = await Promise.all([
-          loadAccount(sessionToken, wallet),
+        const [demoAcc, liveAcc, tradeData] = await Promise.all([
+          loadAccount(sessionToken, "demo"),
+          loadAccount(sessionToken, "live"),
           loadTrades(sessionToken, wallet)
         ]);
         if (mySeq !== refreshSeqRef.current) {
           return;
         }
+        const accountData = wallet === "demo" ? demoAcc : liveAcc;
         setAccount(accountData);
         setTrades(tradeData.trades);
+        setDualBalances({
+          demo: demoAcc.balance,
+          live: liveAcc.balance
+        });
       }
 
       if (mySeq !== refreshSeqRef.current) {
@@ -539,6 +552,10 @@ export default function App() {
         const applyUserSnap = session != null && isPersonalSnap && snapWallet === accountWallet;
         if (applyUserSnap) {
           setAccount(payload.data.account);
+          setDualBalances((prev) => ({
+            ...prev,
+            [accountWallet]: payload.data.account.balance
+          }));
           if (Array.isArray(payload.data.trades)) {
             setTrades(payload.data.trades);
           }
@@ -694,8 +711,14 @@ export default function App() {
         token: response.token,
         user: response.user
       });
+      const dbHint =
+        response.database?.kind === "mysql"
+          ? ` Data saved in MySQL database “${response.database.database ?? "?"}” (open this DB in phpMyAdmin).`
+          : response.database?.kind === "sqlite"
+            ? ` Data saved in SQLite file: ${response.database.file ?? "data/app.db"} (not visible in phpMyAdmin unless you import that file).`
+            : "";
       setAuthMessage(
-        `Account created — User ID ${response.user.id}. Log in with +${registerForm.countryCode} ${registerForm.phone} and your password.`
+        `Account created — User ID ${response.user.id}. Log in with +${registerForm.countryCode} ${registerForm.phone} and your password.${dbHint}`
       );
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Authentication failed");
@@ -713,6 +736,7 @@ export default function App() {
 
   const logout = () => {
     setSession(null);
+    setDualBalances({ demo: null, live: null });
     setMessage("");
     setAuthMessage("");
     setPublicScreen("landing");
@@ -781,6 +805,8 @@ export default function App() {
   const tradingAsDemo = accountWallet === "demo";
   /** Demo + live: stake and wallet shown in INR (same numeric units as server demo/live wallets). */
   const fmtWallet = (n: number) => formatInr(n);
+  const headerDemoBal = dualBalances.demo ?? DEFAULT_DEMO_BALANCE_INR;
+  const headerLiveBal = dualBalances.live ?? 0;
 
   return (
     <div
@@ -803,9 +829,11 @@ export default function App() {
           <div className="app-nav-brand-block">
             <BrandLogo className="app-nav-brand-logo" />
             <span className="app-nav-brand">{APP_NAME}</span>
-            <span className={`app-nav-mode-pill ${tradingAsDemo ? "demo" : "live"}`}>
-              {tradingAsDemo ? "Demo" : "Live"}
-            </span>
+            {!isPhone ? (
+              <span className={`app-nav-mode-pill ${tradingAsDemo ? "demo" : "live"}`}>
+                {tradingAsDemo ? "Demo" : "Live"}
+              </span>
+            ) : null}
             {!isPhone ? (
               <div className="app-nav-account-toggle" role="group" aria-label="Trading account">
                 <button
@@ -921,9 +949,32 @@ export default function App() {
             </nav>
           ) : null}
           <div className="app-nav-right">
-            <span className="app-nav-balance-pill" title="Balance">
-              {fmtWallet(account?.balance ?? 0)}
-            </span>
+            <div className="app-nav-dual-balances" role="group" aria-label="Demo and live wallet balances">
+              <button
+                type="button"
+                className={`app-nav-balance-col app-nav-balance-col--demo${accountWallet === "demo" ? " is-active" : ""}`}
+                title="Demo — virtual funds. Tap to trade on demo."
+                onClick={() => {
+                  setUserAccountWallet("demo");
+                  void refresh("demo").catch(() => undefined);
+                }}
+              >
+                <span className="app-nav-balance-col-label">Demo</span>
+                <span className="app-nav-balance-col-amt">{fmtWallet(headerDemoBal)}</span>
+              </button>
+              <button
+                type="button"
+                className={`app-nav-balance-col app-nav-balance-col--live${accountWallet === "live" ? " is-active" : ""}`}
+                title="Live — funded wallet. Tap to trade live."
+                onClick={() => {
+                  setUserAccountWallet("live");
+                  void refresh("live").catch(() => undefined);
+                }}
+              >
+                <span className="app-nav-balance-col-label">Live</span>
+                <span className="app-nav-balance-col-amt">{fmtWallet(headerLiveBal)}</span>
+              </button>
+            </div>
             {!isPhone ? (
               <button type="button" className="app-nav-text-btn" onClick={logout}>
                 Logout
@@ -1286,7 +1337,7 @@ export default function App() {
                       type="button"
                       className="mobile-pct-chip"
                       onClick={() => {
-                        const b = account?.balance ?? 1000;
+                        const b = account?.balance ?? DEFAULT_DEMO_BALANCE_INR;
                         setQuantity(String(Math.max(1, Math.floor((b * pct) / 100))));
                       }}
                     >

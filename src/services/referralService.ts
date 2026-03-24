@@ -77,15 +77,19 @@ export async function getLevelIncomeRecipientIds(bettorUserId: string): Promise<
   return recipients;
 }
 
-export async function distributeBinaryBetLevelIncome(
-  bettorUserId: string,
+type LevelIncomeKind = "level_income" | "level_income_staking";
+
+async function distributeLevelIncomeToUpline(
+  sourceUserId: string,
   stakeAmount: number,
-  tradeId: string
+  referenceBase: string,
+  ledgerTxnType: LevelIncomeKind,
+  logLabel: string
 ): Promise<void> {
   if (!Number.isFinite(stakeAmount) || stakeAmount <= 0) return;
 
   const { byLevel } = await getEffectiveLevelPercents();
-  const recipients = await getLevelIncomeRecipientIds(bettorUserId);
+  const recipients = await getLevelIncomeRecipientIds(sourceUserId);
   let level = 1;
   for (const userId of recipients) {
     const fraction = byLevel.get(level) ?? 0;
@@ -99,10 +103,34 @@ export async function distributeBinaryBetLevelIncome(
       continue;
     }
     try {
-      await applyLedger(userId, share, "level_income", `${tradeId}-L${level}`);
+      await applyLedger(userId, share, ledgerTxnType, `${referenceBase}-L${level}`);
     } catch (e) {
-      logger.warn({ e, userId, tradeId, level }, "Level income ledger failed");
+      logger.warn({ e, userId, referenceBase, level, logLabel }, "Level income ledger failed");
     }
     level += 1;
   }
+}
+
+/** Commission to upline when a referral places a live binary bet (stake). */
+export async function distributeBinaryBetLevelIncome(
+  bettorUserId: string,
+  stakeAmount: number,
+  tradeId: string
+): Promise<void> {
+  return distributeLevelIncomeToUpline(bettorUserId, stakeAmount, tradeId, "level_income", "binary");
+}
+
+/** Commission to upline when a referral adds principal to staking (investment) from live wallet. */
+export async function distributeInvestmentStakeLevelIncome(
+  investorUserId: string,
+  stakeAmount: number,
+  investmentRef: string
+): Promise<void> {
+  return distributeLevelIncomeToUpline(
+    investorUserId,
+    stakeAmount,
+    investmentRef,
+    "level_income_staking",
+    "staking"
+  );
 }

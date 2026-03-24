@@ -84,7 +84,7 @@ async function main() {
     CREATE TABLE IF NOT EXISTS wallets (
       user_id VARCHAR(64) NOT NULL PRIMARY KEY,
       balance DOUBLE NOT NULL DEFAULT 0,
-      demo_balance DOUBLE NOT NULL DEFAULT 1000,
+      demo_balance DOUBLE NOT NULL DEFAULT 10000,
       updated_at VARCHAR(64) NOT NULL,
       CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

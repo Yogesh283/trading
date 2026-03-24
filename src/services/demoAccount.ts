@@ -1,4 +1,5 @@
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "../config/binary";
+import { DEFAULT_DEMO_BALANCE_INR } from "../config/demo";
 
 export type TradeSide = "buy" | "sell";
 export type BinaryDirection = "up" | "down";
@@ -26,7 +27,7 @@ export class DemoAccount {
   private readonly trades: DemoTrade[] = [];
   private cash: number;
 
-  constructor(startingBalance = 1_000) {
+  constructor(startingBalance = DEFAULT_DEMO_BALANCE_INR) {
     this.cash = startingBalance;
   }
 

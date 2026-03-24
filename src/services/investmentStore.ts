@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { dbGet, dbRun, dbAll, initAppDb, isMysqlMode } from "../db/appDb";
 import { applyLedger, getWalletBalance } from "./walletStore";
+import { distributeInvestmentStakeLevelIncome } from "./referralService";
 import {
   dailyYieldFraction,
   INVESTMENT_LOCK_HOURS,
@@ -59,6 +60,9 @@ export async function investFromWallet(userId: string, amount: number): Promise<
 
   const ref = `inv-${crypto.randomUUID()}`;
   await applyLedger(userId, -amount, "investment_deposit", ref);
+  void distributeInvestmentStakeLevelIncome(userId, amount, ref).catch((e) =>
+    logger.warn({ e, userId, ref }, "Investment stake level income failed")
+  );
 
   const cur = await getOrCreateInvestment(userId);
   const newPrincipal = Number((cur.principal + amount).toFixed(8));

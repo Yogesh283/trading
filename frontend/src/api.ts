@@ -55,9 +55,19 @@ export interface AuthUser {
   withdrawalTotpSetupPending?: boolean;
 }
 
+export interface AuthDatabaseInfo {
+  kind: "mysql" | "sqlite";
+  /** MySQL database name when kind is mysql */
+  database?: string;
+  /** SQLite file path when kind is sqlite */
+  file?: string;
+}
+
 export interface AuthResponse {
   user: AuthUser;
   token: string;
+  /** Present on register/login from API — use to match phpMyAdmin vs SQLite file */
+  database?: AuthDatabaseInfo;
 }
 
 import { getBackendHttpOrigin } from "./backendOrigin";
@@ -273,6 +283,12 @@ export interface ReferralSummary {
   directTotalLiveBalanceInr: number;
   /** Sum of direct referrals’ credited deposits (USDT). */
   directTeamTotalDepositsUsdt: number;
+  /** Total commissions credited to your live wallet (betting + staking). */
+  totalReferralCommissionInr?: number;
+  /** From referrals’ live binary stakes. */
+  bettingCommissionInr?: number;
+  /** From referrals’ staking (investment) deposits. */
+  stakingCommissionInr?: number;
 }
 
 export async function loadReferralSummary(token: string) {

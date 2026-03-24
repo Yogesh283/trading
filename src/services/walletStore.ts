@@ -1,5 +1,10 @@
 import crypto from "node:crypto";
 import mysql from "mysql2/promise";
+import {
+  DEFAULT_DEMO_BALANCE_INR,
+  DEMO_MIGRATE_LEGACY_BALANCE,
+  LEGACY_DEMO_BALANCE_INR
+} from "../config/demo";
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 
 export type TransactionRow = {
@@ -43,12 +48,10 @@ export async function ensureWallet(userId: string): Promise<void> {
   if (row) return;
   const now = new Date().toISOString();
   await dbRun(
-    "INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, 1000, ?)",
-    [userId, now]
+    "INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)",
+    [userId, DEFAULT_DEMO_BALANCE_INR, now]
   );
 }
-
-const DEFAULT_DEMO_BALANCE = 1000;
 
 export async function getDemoBalanceFromDb(userId: string): Promise<number> {
   await initAppDb();
@@ -56,7 +59,24 @@ export async function getDemoBalanceFromDb(userId: string): Promise<number> {
     "SELECT demo_balance FROM wallets WHERE user_id = ?",
     [userId]
   );
-  return Number(row?.demo_balance ?? DEFAULT_DEMO_BALANCE);
+  const raw = Number(row?.demo_balance ?? DEFAULT_DEMO_BALANCE_INR);
+  if (
+    DEMO_MIGRATE_LEGACY_BALANCE &&
+    Number.isFinite(raw) &&
+    Math.abs(raw - LEGACY_DEMO_BALANCE_INR) < 0.01 &&
+    Math.abs(DEFAULT_DEMO_BALANCE_INR - LEGACY_DEMO_BALANCE_INR) > 0.01
+  ) {
+    const now = new Date().toISOString();
+    await dbRun("UPDATE wallets SET demo_balance = ?, updated_at = ? WHERE user_id = ?", [
+      DEFAULT_DEMO_BALANCE_INR,
+      now,
+      userId
+    ]);
+    const { evictInMemoryAccountsForUser } = await import("./authService");
+    evictInMemoryAccountsForUser(userId);
+    return DEFAULT_DEMO_BALANCE_INR;
+  }
+  return raw;
 }
 
 export async function saveDemoBalanceToDb(userId: string, demoBalance: number): Promise<void> {

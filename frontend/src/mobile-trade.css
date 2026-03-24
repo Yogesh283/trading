@@ -97,6 +97,35 @@
   max-width: 90px;
 }
 
+.app-mobile-trade .app-nav-dual-balances {
+  gap: 5px;
+  max-width: min(300px, 56vw);
+}
+
+.app-mobile-trade .app-nav-balance-col {
+  padding: 5px 6px;
+  border-radius: 10px;
+}
+
+.app-mobile-trade .app-nav-balance-col-label {
+  font-size: 8px;
+}
+
+.app-mobile-trade .app-nav-balance-col-amt {
+  font-size: 11px;
+}
+
+.app-mobile-trade .app-nav-brand-block {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.app-mobile-trade .app-nav-brand {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-mobile-trade .app-nav-icon-btn {
   width: 44px;
   height: 44px;
