@@ -39,6 +39,8 @@ async function main() {
       role VARCHAR(16) NOT NULL DEFAULT 'user',
       withdrawal_totp_secret VARCHAR(128) NULL,
       withdrawal_totp_pending VARCHAR(128) NULL,
+      last_login_at VARCHAR(64) NULL,
+      is_blocked TINYINT(1) NOT NULL DEFAULT 0,
       UNIQUE KEY uk_users_self_referral (self_referral_code),
       UNIQUE KEY uk_users_phone (phone_country_code, phone_local)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -114,6 +116,7 @@ async function main() {
       principal DOUBLE NOT NULL DEFAULT 0,
       locked_until VARCHAR(64) NULL,
       last_yield_date VARCHAR(32) NULL,
+      last_monthly_yield_ym VARCHAR(7) NULL,
       CONSTRAINT fk_invest_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
@@ -145,6 +148,21 @@ async function main() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   console.log("Table: referral_level_settings");
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
+      level_num INT NOT NULL PRIMARY KEY,
+      percent_of_gross_yield DOUBLE NOT NULL DEFAULT 0,
+      enabled TINYINT(1) NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: investment_roi_level_distribution");
+  for (let lv = 1; lv <= 5; lv++) {
+    await conn.query(
+      `INSERT IGNORE INTO investment_roi_level_distribution (level_num, percent_of_gross_yield, enabled) VALUES (?, 0, 1)`,
+      [lv]
+    );
+  }
 
   await conn.query(
     `INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES ('referral_program_enabled', '1')`

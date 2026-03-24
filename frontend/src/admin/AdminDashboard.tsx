@@ -1,5 +1,15 @@
+import BlockIcon from "@mui/icons-material/Block";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import { Box, Button, Card, CardContent, Grid, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Grid,
+  Stack,
+  TextField,
+  Typography
+} from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
 import { Title } from "react-admin";
 import { getAdminApiUrl } from "../backendOrigin";
@@ -14,6 +24,13 @@ type Stats = {
   totalDemoWalletInr: number;
   investorsWithPrincipal: number;
   totalInvestmentPrincipalInr: number;
+  usersLoggedInTodayUtc: number;
+  usersLoggedInTodayUtcDate: string;
+  totalDepositsCreditedUsdt?: number;
+  todayDepositsCreditedUsdt?: number;
+  todayCompanyBinaryGrossInr?: number;
+  todayCompanyReferralCostInr?: number;
+  todayCompanyNetProfitInr?: number;
   database?: { kind: string; database?: string; file?: string };
 };
 
@@ -49,6 +66,9 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [blockUserId, setBlockUserId] = useState("");
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [blockMsg, setBlockMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -79,6 +99,41 @@ export function AdminDashboard() {
     void load();
   }, [load]);
 
+  const postBlock = useCallback(
+    async (blocked: boolean) => {
+      setBlockMsg(null);
+      const uid = blockUserId.trim();
+      if (!uid) {
+        setBlockMsg("User ID enter karo (Users list se).");
+        return;
+      }
+      const token = localStorage.getItem(ADMIN_TOKEN_LS_KEY) ?? "";
+      setBlockBusy(true);
+      try {
+        const res = await fetch(getAdminApiUrl("admin/user-block"), {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ userId: uid, blocked })
+        });
+        const j = (await res.json().catch(() => null)) as { message?: string } | null;
+        if (!res.ok) {
+          throw new Error(j?.message ?? `HTTP ${res.status}`);
+        }
+        setBlockMsg(blocked ? `User ${uid} blocked.` : `User ${uid} unblocked.`);
+        void load();
+      } catch (e) {
+        setBlockMsg(e instanceof Error ? e.message : "Request failed");
+      } finally {
+        setBlockBusy(false);
+      }
+    },
+    [blockUserId, load]
+  );
+
   return (
     <Box sx={{ p: 2 }}>
       <Title title="Dashboard" />
@@ -106,9 +161,17 @@ export function AdminDashboard() {
       {loading && !stats ? (
         <Typography color="text.secondary">Loading…</Typography>
       ) : stats ? (
+        <>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard title="Registered users" value={String(stats.usersCount)} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Logins today (UTC)"
+              value={String(stats.usersLoggedInTodayUtc ?? 0)}
+              subtitle={`Window: ${stats.usersLoggedInTodayUtcDate ?? "—"} · successful app logins only`}
+            />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
@@ -149,7 +212,99 @@ export function AdminDashboard() {
             />
           </Grid>
         </Grid>
+
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
+          Company overview (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Deposits: credited USDT only. Profit: live binary settles today minus referral payouts (level income). Not full
+          accounting — excludes withdrawals, investment yield, fees.
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Total deposits credited"
+              value={`${(stats.totalDepositsCreditedUsdt ?? 0).toFixed(2)} USDT`}
+              subtitle="All-time, status credited"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Today deposits credited"
+              value={`${(stats.todayDepositsCreditedUsdt ?? 0).toFixed(2)} USDT`}
+              subtitle="By deposit updated_at (UTC day)"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Today binary gross (INR)"
+              value={`₹${(stats.todayCompanyBinaryGrossInr ?? 0).toFixed(2)}`}
+              subtitle="Stake kept − win payouts, settled today"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Today referral paid (INR)"
+              value={`₹${(stats.todayCompanyReferralCostInr ?? 0).toFixed(2)}`}
+              subtitle="level_income + level_income_staking"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Today net (estimate)"
+              value={`₹${(stats.todayCompanyNetProfitInr ?? 0).toFixed(2)}`}
+              subtitle="Binary gross − referral"
+            />
+          </Grid>
+        </Grid>
+        </>
       ) : null}
+
+      <Card variant="outlined" sx={{ mt: 3, maxWidth: 520, bgcolor: "background.paper" }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <BlockIcon color="warning" fontSize="small" />
+            <Typography variant="subtitle1" fontWeight={600}>
+              User block / unblock
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            User ID (jaise <code>0001</code>) — Users list se copy karo. Blocked user login nahi kar sakta; purana JWT bhi kaam
+            nahi karega.
+          </Typography>
+          <TextField
+            size="small"
+            label="User ID"
+            value={blockUserId}
+            onChange={(e) => setBlockUserId(e.target.value)}
+            fullWidth
+            sx={{ mb: 1.5 }}
+            autoComplete="off"
+          />
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="contained"
+              color="warning"
+              disabled={blockBusy}
+              onClick={() => void postBlock(true)}
+            >
+              Block
+            </Button>
+            <Button variant="outlined" disabled={blockBusy} onClick={() => void postBlock(false)}>
+              Unblock
+            </Button>
+          </Stack>
+          {blockMsg ? (
+            <Typography
+              variant="body2"
+              sx={{ mt: 1 }}
+              color={/^User \S+ (blocked|unblocked)\.$/.test(blockMsg) ? "success.main" : "error"}
+            >
+              {blockMsg}
+            </Typography>
+          ) : null}
+        </CardContent>
+      </Card>
 
       {stats?.database ? (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>

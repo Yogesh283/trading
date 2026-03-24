@@ -2,6 +2,7 @@ import { Button } from "@mui/material";
 import { useState } from "react";
 import {
   BooleanField,
+  BooleanInput,
   Datagrid,
   DateField,
   Edit,
@@ -126,6 +127,8 @@ export function UserList() {
           options={{ maximumFractionDigits: 2 }}
         />
         <BooleanField source="withdrawal_totp_enabled" label="Withdraw TPN" />
+        <BooleanField source="is_blocked" label="Blocked" />
+        <DateField source="last_login_at" label="Last login" showTime emptyText="—" />
         <NumberField source="balance" label="Live USDT" options={{ minimumFractionDigits: 2, maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
         <TextField source="role" />
@@ -156,6 +159,8 @@ export function UserEdit() {
           ]}
           required
         />
+        <BooleanInput source="is_blocked" label="Account blocked (login band)" />
+        <TextInput source="last_login_at" label="Last login (read-only)" disabled fullWidth />
         <TextInput source="self_referral_code" label="Self ref" fullWidth />
         <TextInput source="referral_code" label="Signup ref code (inviter’s code)" fullWidth />
         <TextInput source="inviter_name" label="Upline / inviter name" disabled fullWidth />
@@ -229,6 +234,7 @@ export function UserInvestmentList() {
         <NumberField source="principal" options={{ maximumFractionDigits: 2 }} />
         <TextField source="locked_until" label="Locked until" emptyText="—" />
         <TextField source="last_yield_date" label="Last yield" emptyText="—" />
+        <TextField source="last_monthly_yield_ym" label="Last ROI month (UTC)" emptyText="—" />
       </Datagrid>
     </List>
   );

@@ -8,6 +8,7 @@ import SavingsIcon from "@mui/icons-material/Savings";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import WalletIcon from "@mui/icons-material/Wallet";
+import PercentIcon from "@mui/icons-material/Percent";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Admin, Resource } from "react-admin";
@@ -17,6 +18,7 @@ import { adminDataProvider } from "./dataProvider";
 import { AdminLoginPage } from "./AdminLogin";
 import { AdminDashboard } from "./AdminDashboard";
 import { ReferralLevelSettingsPage } from "./ReferralLevelSettingsPage";
+import { InvestmentRoiSettingsPage } from "./InvestmentRoiSettingsPage";
 import {
   DepositList,
   MarketTickList,
@@ -82,6 +84,12 @@ ReactDOM.createRoot(adminMount).render(
           list={ReferralLevelSettingsPage}
           icon={AccountTreeIcon}
           options={{ label: "Referral / level %" }}
+        />
+        <Resource
+          name="investment_roi_settings"
+          list={InvestmentRoiSettingsPage}
+          icon={PercentIcon}
+          options={{ label: "Investment ROI %" }}
         />
       </Admin>
     </ThemeProvider>

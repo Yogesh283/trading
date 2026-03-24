@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(16) NOT NULL DEFAULT 'user',
   withdrawal_totp_secret VARCHAR(128) NULL,
   withdrawal_totp_pending VARCHAR(128) NULL,
+  last_login_at VARCHAR(64) NULL,
+  is_blocked TINYINT(1) NOT NULL DEFAULT 0,
   UNIQUE KEY uk_users_self_referral (self_referral_code),
   UNIQUE KEY uk_users_phone (phone_country_code, phone_local)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -82,6 +84,7 @@ CREATE TABLE IF NOT EXISTS user_investments (
   principal DOUBLE NOT NULL DEFAULT 0,
   locked_until VARCHAR(64) NULL,
   last_yield_date VARCHAR(32) NULL,
+  last_monthly_yield_ym VARCHAR(7) NULL,
   CONSTRAINT fk_invest_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -99,3 +102,12 @@ CREATE TABLE IF NOT EXISTS market_ticks (
   timestamp BIGINT NOT NULL,
   INDEX idx_market_ticks_sym_ts (symbol, timestamp)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
+  level_num INT NOT NULL PRIMARY KEY,
+  percent_of_gross_yield DOUBLE NOT NULL DEFAULT 0,
+  enabled TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO investment_roi_level_distribution (level_num, percent_of_gross_yield, enabled) VALUES
+(1, 0, 1), (2, 0, 1), (3, 0, 1), (4, 0, 1), (5, 0, 1);

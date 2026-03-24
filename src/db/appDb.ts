@@ -113,6 +113,8 @@ const USERS_SQL = `
     phone_country_code TEXT,
     phone_local TEXT,
     role TEXT NOT NULL DEFAULT 'user',
+    last_login_at TEXT NULL,
+    is_blocked INTEGER NOT NULL DEFAULT 0,
     UNIQUE(phone_country_code, phone_local)
   )
 `;
@@ -130,6 +132,8 @@ const USERS_SQL_MYSQL = `
     phone_country_code VARCHAR(8) NULL,
     phone_local VARCHAR(20) NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'user',
+    last_login_at VARCHAR(64) NULL,
+    is_blocked TINYINT(1) NOT NULL DEFAULT 0,
     UNIQUE KEY uk_users_self_referral (self_referral_code),
     UNIQUE KEY uk_users_phone (phone_country_code, phone_local)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -238,7 +242,8 @@ const USER_INVESTMENTS_SQL = `
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     principal REAL NOT NULL DEFAULT 0,
     locked_until TEXT,
-    last_yield_date TEXT
+    last_yield_date TEXT,
+    last_monthly_yield_ym TEXT NULL
   )
 `;
 
@@ -248,6 +253,7 @@ const USER_INVESTMENTS_SQL_MYSQL = `
     principal DOUBLE NOT NULL DEFAULT 0,
     locked_until VARCHAR(64) NULL,
     last_yield_date VARCHAR(32) NULL,
+    last_monthly_yield_ym VARCHAR(7) NULL,
     CONSTRAINT fk_invest_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
@@ -454,6 +460,31 @@ async function migrateUserInvestments(): Promise<void> {
   await dbRun(USER_INVESTMENTS_SQL);
 }
 
+async function migrateUserInvestmentsMonthlyYm(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'user_investments' AND COLUMN_NAME = 'last_monthly_yield_ym'`,
+      [dbName]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(
+        "ALTER TABLE user_investments ADD COLUMN last_monthly_yield_ym VARCHAR(7) NULL AFTER last_yield_date"
+      );
+    } catch {
+      await dbRun("ALTER TABLE user_investments ADD COLUMN last_monthly_yield_ym VARCHAR(7) NULL");
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(user_investments)");
+  if (!cols.length) return;
+  if (cols.some((c) => c.name === "last_monthly_yield_ym")) return;
+  await dbRun("ALTER TABLE user_investments ADD COLUMN last_monthly_yield_ym TEXT");
+}
+
 async function migrateMarketTicks(): Promise<void> {
   if (mysqlMode) {
     await getPool().execute(MARKET_TICKS_SQL_MYSQL);
@@ -536,6 +567,43 @@ const REFERRAL_LEVEL_SETTINGS_MYSQL = `
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
+const INVESTMENT_ROI_LEVEL_DIST_SQLITE = `
+  CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
+    level_num INTEGER NOT NULL PRIMARY KEY,
+    percent_of_gross_yield REAL NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1
+  )
+`;
+
+const INVESTMENT_ROI_LEVEL_DIST_MYSQL = `
+  CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
+    level_num INT NOT NULL PRIMARY KEY,
+    percent_of_gross_yield DOUBLE NOT NULL DEFAULT 0,
+    enabled TINYINT(1) NOT NULL DEFAULT 1
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+/** Per-upline share of **gross** monthly investment ROI (principal × monthly %), admin-editable. */
+async function migrateInvestmentRoiLevelDistribution(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(INVESTMENT_ROI_LEVEL_DIST_MYSQL);
+  } else {
+    await dbRun(INVESTMENT_ROI_LEVEL_DIST_SQLITE);
+  }
+  const levels = await dbAll<{ level_num: number }>(
+    "SELECT level_num FROM investment_roi_level_distribution ORDER BY level_num"
+  );
+  const have = new Set(levels.map((l) => l.level_num));
+  for (let lv = 1; lv <= LEVEL_INCOME_DEPTH; lv++) {
+    if (!have.has(lv)) {
+      await dbRun(
+        "INSERT INTO investment_roi_level_distribution (level_num, percent_of_gross_yield, enabled) VALUES (?, 0, 1)",
+        [lv]
+      );
+    }
+  }
+}
+
 /** Master switch + per-level % of stake for MLM / referral (admin-editable). */
 async function migrateReferralLevelAndAppSettings(): Promise<void> {
   if (mysqlMode) {
@@ -569,6 +637,17 @@ async function migrateReferralLevelAndAppSettings(): Promise<void> {
       );
     }
   }
+
+  const roiKey = "investment_monthly_roi_fraction";
+  const roiRow = await dbGet<{ c: number }>(
+    "SELECT COUNT(*) AS c FROM app_settings WHERE setting_key = ?",
+    [roiKey]
+  );
+  if (Number(roiRow?.c ?? 0) === 0) {
+    await dbRun("INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)", [roiKey, "0.1"]);
+  }
+
+  await migrateInvestmentRoiLevelDistribution();
 }
 
 async function migrateUsersRole(): Promise<void> {
@@ -594,6 +673,46 @@ async function migrateUsersRole(): Promise<void> {
 }
 
 /** Mobile signup: country dial code (e.g. 91, 92) + national number; UNIQUE pair. Legacy rows stay NULL. */
+/** Login analytics + admin block flag (migrated on existing DBs). */
+async function migrateUsersLoginAndBlock(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const hasCol = async (name: string) => {
+      const row = await dbGet<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+        [dbName, name]
+      );
+      return Number(row?.n) > 0;
+    };
+    if (!(await hasCol("last_login_at"))) {
+      try {
+        await dbRun("ALTER TABLE users ADD COLUMN last_login_at VARCHAR(64) NULL AFTER role");
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN last_login_at VARCHAR(64) NULL");
+      }
+    }
+    if (!(await hasCol("is_blocked"))) {
+      try {
+        await dbRun(
+          "ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0 AFTER last_login_at"
+        );
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN is_blocked TINYINT(1) NOT NULL DEFAULT 0");
+      }
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(users)");
+  if (!cols.some((c) => c.name === "last_login_at")) {
+    await dbRun("ALTER TABLE users ADD COLUMN last_login_at TEXT");
+  }
+  if (!cols.some((c) => c.name === "is_blocked")) {
+    await dbRun("ALTER TABLE users ADD COLUMN is_blocked INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
 async function migrateUsersPhone(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -659,10 +778,12 @@ export function initAppDb(): Promise<void> {
         await migrateWalletsDemoBalance();
         await migrateUsersReferral();
         await migrateUserInvestments();
+        await migrateUserInvestmentsMonthlyYm();
         await migrateMarketTicks();
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
+        await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
       } else {
         await runSqliteChain(getSqlite(), [
@@ -677,10 +798,12 @@ export function initAppDb(): Promise<void> {
         await migrateWalletsDemoBalance();
         await migrateUsersReferral();
         await migrateUserInvestments();
+        await migrateUserInvestmentsMonthlyYm();
         await migrateMarketTicks();
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
+        await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
       }
     })();

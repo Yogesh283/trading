@@ -56,6 +56,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
   TRADERMADE_KEY: z.string().optional(),
+  /** Set to 1 to force the old random-walk demo feed (no external APIs). */
+  FOREX_SIMULATED_ONLY: z
+    .string()
+    .optional()
+    .transform((s) => s === "1" || String(s).toLowerCase() === "true"),
   BINANCE_WS_URL: z.string().default("wss://stream.binance.com:9443/ws"),
   TELEGRAM_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),
@@ -109,5 +114,6 @@ export const env = {
   ...parsed,
   SKIP_CLEAR_CACHE_ON_REGISTER: Boolean(parsed.SKIP_CLEAR_CACHE_ON_REGISTER),
   SEED_CHROME_USER: Boolean(parsed.SEED_CHROME_USER),
-  INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS
+  INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS,
+  FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY)
 };

@@ -1,13 +1,11 @@
 import crypto from "node:crypto";
-import { dbGet, dbRun, dbAll, initAppDb, isMysqlMode } from "../db/appDb";
+import { dbGet, dbRun, dbAll, initAppDb } from "../db/appDb";
 import { applyLedger, getWalletBalance } from "./walletStore";
-import { distributeInvestmentStakeLevelIncome } from "./referralService";
-import {
-  dailyYieldFraction,
-  INVESTMENT_LOCK_HOURS,
-  INVESTMENT_MONTHLY_YIELD,
-  INVESTMENT_YIELD_DAYS
-} from "../config/investment";
+import { distributeInvestmentStakeLevelIncome, getLevelIncomeRecipientIds } from "./referralService";
+import { getInvestmentMonthlyRoiFraction } from "./investmentRoiConfigService";
+import { getEffectiveInvestmentRoiUplinePercents } from "./investmentRoiLevelService";
+import { INVESTMENT_LOCK_HOURS } from "../config/investment";
+import { LEVEL_INCOME_DEPTH } from "../config/referral";
 import { logger } from "../utils/logger";
 
 export type UserInvestmentRow = {
@@ -15,6 +13,7 @@ export type UserInvestmentRow = {
   principal: number;
   locked_until: string | null;
   last_yield_date: string | null;
+  last_monthly_yield_ym: string | null;
 };
 
 function lockMs(): number {
@@ -24,24 +23,26 @@ function lockMs(): number {
 export async function getOrCreateInvestment(userId: string): Promise<UserInvestmentRow> {
   await initAppDb();
   let row = await dbGet<UserInvestmentRow>(
-    "SELECT user_id, principal, locked_until, last_yield_date FROM user_investments WHERE user_id = ?",
+    "SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE user_id = ?",
     [userId]
   );
   if (!row) {
     await dbRun(
-      "INSERT INTO user_investments (user_id, principal, locked_until, last_yield_date) VALUES (?, 0, NULL, NULL)",
+      "INSERT INTO user_investments (user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym) VALUES (?, 0, NULL, NULL, NULL)",
       [userId]
     );
     row = {
       user_id: userId,
       principal: 0,
       locked_until: null,
-      last_yield_date: null
+      last_yield_date: null,
+      last_monthly_yield_ym: null
     };
   }
   return {
     ...row,
-    principal: Number(row.principal) || 0
+    principal: Number(row.principal) || 0,
+    last_monthly_yield_ym: row.last_monthly_yield_ym ?? null
   };
 }
 
@@ -97,7 +98,7 @@ export async function withdrawToWallet(userId: string, amount: number): Promise<
   const newPrincipal = Number((cur.principal - amount).toFixed(8));
   if (newPrincipal <= 1e-6) {
     await dbRun(
-      "UPDATE user_investments SET principal = 0, locked_until = NULL, last_yield_date = NULL WHERE user_id = ?",
+      "UPDATE user_investments SET principal = 0, locked_until = NULL, last_yield_date = NULL, last_monthly_yield_ym = NULL WHERE user_id = ?",
       [userId]
     );
   } else {
@@ -107,61 +108,123 @@ export async function withdrawToWallet(userId: string, amount: number): Promise<
   return getOrCreateInvestment(userId);
 }
 
-/** UTC date YYYY-MM-DD */
-export function utcDateString(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+/** UTC calendar month `YYYY-MM`. */
+export function utcMonthYm(d = new Date()): string {
+  return d.toISOString().slice(0, 7);
+}
+
+export function isFirstDayUtc(d = new Date()): boolean {
+  return d.getUTCDate() === 1;
 }
 
 /**
- * Pays one day's yield on current principal. Idempotent per user per UTC day.
- * Withdrawn principal no longer earns (only rows with principal > 0).
+ * Once per calendar month (UTC), on the 1st: gross = principal × monthly_roi.
+ * Investor gets gross × (1 − sum of admin upline %). Each upline level i gets gross × level_i % (referral chain).
  */
-export async function runInvestmentDailyYield(): Promise<{ paid: number; users: number }> {
+export async function runInvestmentMonthlyYield(): Promise<{
+  paid: number;
+  users: number;
+  skipped?: string;
+  monthYm?: string;
+}> {
   await initAppDb();
-  const today = utcDateString();
-  const frac = dailyYieldFraction();
+  const now = new Date();
+  if (!isFirstDayUtc(now)) {
+    return { paid: 0, users: 0, skipped: "not_first_utc" };
+  }
+
+  const ym = utcMonthYm(now);
+  const roi = await getInvestmentMonthlyRoiFraction();
+  const byLevel = await getEffectiveInvestmentRoiUplinePercents();
+  let configuredUplineSum = 0;
+  for (let lv = 1; lv <= LEVEL_INCOME_DEPTH; lv++) {
+    configuredUplineSum += byLevel.get(lv) ?? 0;
+  }
+  if (configuredUplineSum > 1 + 1e-6) {
+    logger.error(
+      { sum: configuredUplineSum },
+      "investment_roi_level_distribution sum > 1 — fix admin settings; skipping monthly yield run"
+    );
+    return { paid: 0, users: 0, skipped: "invalid_upline_roi_sum", monthYm: ym };
+  }
 
   const rows = await dbAll<UserInvestmentRow>(
-    "SELECT user_id, principal, locked_until, last_yield_date FROM user_investments WHERE principal > 0.0000001"
+    "SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE principal > 0.0000001"
   );
 
   let paid = 0;
   let users = 0;
 
   for (const row of rows) {
-    if (row.last_yield_date === today) {
+    const prevYm = String(row.last_monthly_yield_ym ?? "").trim();
+    if (prevYm === ym) {
       continue;
     }
 
     const principal = Number(row.principal);
-    const income = Number((principal * frac).toFixed(6));
-    if (income <= 0) {
-      await dbRun("UPDATE user_investments SET last_yield_date = ? WHERE user_id = ?", [today, row.user_id]);
+    const gross = Number((principal * roi).toFixed(8));
+    const yieldRef = `inv-yield-${ym}-${row.user_id}`;
+
+    if (gross <= 0) {
+      await dbRun("UPDATE user_investments SET last_monthly_yield_ym = ? WHERE user_id = ?", [ym, row.user_id]);
       continue;
     }
 
     try {
-      await applyLedger(row.user_id, income, "investment_yield", `inv-yield-${today}-${row.user_id}`);
-      await dbRun("UPDATE user_investments SET last_yield_date = ? WHERE user_id = ?", [
-        today,
+      const recipients = await getLevelIncomeRecipientIds(row.user_id);
+      let paidUpline = 0;
+      let level = 1;
+      for (const uid of recipients) {
+        const frac = byLevel.get(level) ?? 0;
+        if (frac > 0) {
+          const amt = Number((gross * frac).toFixed(6));
+          if (amt > 0) {
+            await applyLedger(uid, amt, "level_income_roi", `${yieldRef}-L${level}`);
+            paidUpline += amt;
+          }
+        }
+        level += 1;
+      }
+      const configuredUplineTotal = Number((gross * configuredUplineSum).toFixed(6));
+      const orphanUpline = Number(Math.max(0, configuredUplineTotal - paidUpline).toFixed(6));
+      const baseInvestor = Number((gross * (1 - configuredUplineSum)).toFixed(6));
+      const investorNet = Number((baseInvestor + orphanUpline).toFixed(6));
+      if (investorNet > 0) {
+        await applyLedger(row.user_id, investorNet, "investment_yield", yieldRef);
+      }
+      await dbRun("UPDATE user_investments SET last_monthly_yield_ym = ?, last_yield_date = ? WHERE user_id = ?", [
+        ym,
+        now.toISOString().slice(0, 10),
         row.user_id
       ]);
-      paid += income;
+      paid += gross;
       users += 1;
     } catch (e) {
-      logger.warn({ e, userId: row.user_id }, "investment_yield failed");
+      logger.warn({ e, userId: row.user_id }, "investment_yield monthly failed");
     }
   }
 
-  logger.info({ today, users, totalPaid: paid }, "Investment daily yield run");
-  return { paid, users };
+  logger.info({ monthYm: ym, users, totalPaid: paid, roi }, "Investment monthly yield run (1st UTC)");
+  return { paid, users, monthYm: ym };
 }
 
-export function investmentSnapshot(row: UserInvestmentRow, liveBalance: number) {
+/** @deprecated Use runInvestmentMonthlyYield — kept for external scripts that still import the old name. */
+export async function runInvestmentDailyYield() {
+  return runInvestmentMonthlyYield();
+}
+
+export function investmentSnapshot(
+  row: UserInvestmentRow,
+  liveBalance: number,
+  monthlyRoiFraction: number,
+  uplineFractionSumOfGross: number
+) {
   const unlockAt = row.locked_until ? new Date(row.locked_until).getTime() : 0;
   const locked = unlockAt > Date.now();
-  const dailyPct = (INVESTMENT_MONTHLY_YIELD / INVESTMENT_YIELD_DAYS) * 100;
-  const estDaily = row.principal * dailyYieldFraction();
+  const estGross = row.principal * monthlyRoiFraction;
+  const retain = Math.max(0, 1 - Math.min(uplineFractionSumOfGross, 1));
+  const estMonthly = estGross * retain;
+  const uplineCapped = Math.min(uplineFractionSumOfGross, 1);
 
   return {
     principal: row.principal,
@@ -169,10 +232,22 @@ export function investmentSnapshot(row: UserInvestmentRow, liveBalance: number) 
     locked,
     secondsUntilUnlock: locked ? Math.max(0, Math.ceil((unlockAt - Date.now()) / 1000)) : 0,
     liveWalletBalance: liveBalance,
-    monthlyYieldPercent: INVESTMENT_MONTHLY_YIELD * 100,
-    dailyYieldPercent: dailyPct,
-    estimatedDailyIncome: Number(estDaily.toFixed(6)),
+    monthlyYieldPercent: monthlyRoiFraction * 100,
+    /** @deprecated Daily accrual removed — same as monthly % for compatibility. */
+    dailyYieldPercent: 0,
+    /** Your estimated share of the gross monthly pool (after upline split). */
+    estimatedMonthlyIncome: Number(estMonthly.toFixed(6)),
+    /** Gross pool = principal × monthly % (before upline split). */
+    estimatedMonthlyGrossYield: Number(estGross.toFixed(6)),
+    /** Sum of admin-configured upline shares of gross (0–1). */
+    uplinePercentOfMonthlyGrossSum: Number(uplineCapped.toFixed(8)),
+    /** Your fraction of gross (1 − upline sum, capped). */
+    investorNetFractionOfGross: Number(retain.toFixed(8)),
+    /** @deprecated Use estimatedMonthlyIncome */
+    estimatedDailyIncome: 0,
     lastYieldDate: row.last_yield_date,
-    explanation: `${INVESTMENT_MONTHLY_YIELD * 100}% per month, paid daily (~${dailyPct.toFixed(3)}% of principal per day). After each investment add, funds are locked ${INVESTMENT_LOCK_HOURS}h. Withdrawing ends yield on that amount.`
+    lastMonthlyYieldYm: row.last_monthly_yield_ym,
+    payoutDayUtc: 1,
+    explanation: `${(monthlyRoiFraction * 100).toFixed(2)}% of principal per month is the gross pool, credited on the 1st (UTC). You keep about ${(retain * 100).toFixed(2)}% of that pool; up to 5 upline levels share the rest per admin “Investment ROI” settings (not the betting referral table). After each add, funds lock ${INVESTMENT_LOCK_HOURS}h before withdrawal.`
   };
 }

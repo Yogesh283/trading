@@ -121,6 +121,9 @@ interface UserRow {
   phone_country_code: string | null;
   phone_local: string | null;
   role: string;
+  /** 1 = blocked (login + API session denied). */
+  is_blocked?: number | string | null;
+  last_login_at?: string | null;
 }
 
 const GUEST_USER: AuthUser = {
@@ -492,7 +495,7 @@ export async function loginUser(input: {
   const local = normalizePhoneLocalDigits(String(input.phone ?? "").trim());
 
   const userSql =
-    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role, phone_country_code, phone_local FROM users WHERE ";
+    "SELECT id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, role, phone_country_code, phone_local, COALESCE(is_blocked, 0) AS is_blocked FROM users WHERE ";
 
   let user: UserRow | undefined;
   if (loweredEmail.includes("@")) {
@@ -505,6 +508,10 @@ export async function loginUser(input: {
 
   if (!user) {
     throw new Error("Invalid login or password");
+  }
+
+  if (Number(user.is_blocked ?? 0) === 1) {
+    throw new Error("Account is blocked");
   }
 
   const { hash } = hashPassword(input.password, user.password_salt);
@@ -522,6 +529,13 @@ export async function loginUser(input: {
     await ensureWallet(user.id);
   } catch {
     /* wallet row next time deposit/live API runs */
+  }
+
+  const nowIso = new Date().toISOString();
+  try {
+    await dbRun("UPDATE users SET last_login_at = ? WHERE id = ?", [nowIso, user.id]);
+  } catch {
+    /* ignore — column missing only if DB never migrated */
   }
 
   return {
@@ -543,10 +557,16 @@ export async function getUserFromToken(token?: string | null) {
   await ready;
 
   const user = await dbGet<UserRow>(
-    "SELECT id, name, email, created_at, self_referral_code, role, phone_country_code, phone_local FROM users WHERE id = ?",
+    isMysqlMode()
+      ? "SELECT id, name, email, created_at, self_referral_code, role, phone_country_code, phone_local, COALESCE(is_blocked, 0) AS is_blocked FROM users WHERE id = ? LIMIT 1"
+      : "SELECT id, name, email, created_at, self_referral_code, role, phone_country_code, phone_local, COALESCE(is_blocked, 0) AS is_blocked FROM users WHERE id = ?",
     [userId]
   );
   if (!user) {
+    return null;
+  }
+
+  if (Number(user.is_blocked ?? 0) === 1) {
     return null;
   }
 
@@ -580,13 +600,16 @@ export async function requireAdminSession(authHeader?: string | null) {
     throw new Error("Unauthorized");
   }
   await ready;
-  const row = await dbGet<{ id: string; email: string; role: string }>(
+  const row = await dbGet<{ id: string; email: string; role: string; is_blocked?: number | string | null }>(
     isMysqlMode()
-      ? "SELECT id, email, role FROM users WHERE id = ? LIMIT 1"
-      : "SELECT id, email, role FROM users WHERE id = ?",
+      ? "SELECT id, email, role, COALESCE(is_blocked, 0) AS is_blocked FROM users WHERE id = ? LIMIT 1"
+      : "SELECT id, email, role, COALESCE(is_blocked, 0) AS is_blocked FROM users WHERE id = ?",
     [userId]
   );
   if (!row) {
+    throw new Error("Unauthorized");
+  }
+  if (Number(row.is_blocked ?? 0) === 1) {
     throw new Error("Unauthorized");
   }
   if (row.role !== "admin") {
@@ -682,6 +705,9 @@ export type AdminUserRow = {
   role: string;
   phone_country_code: string | null;
   phone_local: string | null;
+  last_login_at: string | null;
+  /** Blocked users cannot log in or call user APIs; existing JWTs stop working. */
+  is_blocked: boolean;
 };
 
 /** List + edit: wallet, upline (inviter), direct / total team size under this user. */
@@ -701,6 +727,13 @@ export type AdminUserListRow = AdminUserRow & {
 };
 
 export type AdminUserDetailRow = AdminUserListRow;
+
+/** Row shape from `users` + computed `withdrawal_totp_enabled` (before mapRawAdminUserRow). */
+type AdminUserDbBase = Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+  last_login_at: string | null;
+  is_blocked: number | string | null;
+  withdrawal_totp_enabled?: number | string | null;
+};
 
 type ReferralGraphRow = { id: string; self_referral_code: string | null; referral_code: string | null };
 
@@ -800,12 +833,14 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTotalLiveBalanceInr: number;
   /** Sum of credited USDT deposits across direct referrals only. */
   directTeamTotalDepositsUsdt: number;
-  /** Total referral commissions credited to your live wallet (betting + staking). */
+  /** Total referral commissions credited to your live wallet (betting + staking + investment ROI). */
   totalReferralCommissionInr: number;
   /** From team members’ live binary stakes (`level_income`). */
   bettingCommissionInr: number;
   /** From team members’ staking / investment deposits (`level_income_staking`). */
   stakingCommissionInr: number;
+  /** From team members’ monthly investment ROI payouts (`level_income_roi`). */
+  investmentRoiCommissionInr: number;
 }> {
   await ready;
   const uid = String(userId ?? "").trim();
@@ -825,22 +860,28 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   const myCode = String(me.self_referral_code ?? "").trim();
 
   const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
-    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking') GROUP BY txn_type`,
+    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') GROUP BY txn_type`,
     [uid]
   );
   let bettingCommissionInr = 0;
   let stakingCommissionInr = 0;
+  let investmentRoiCommissionInr = 0;
   for (const r of commissionRows) {
     const t = Number(r.total ?? 0);
     if (r.txn_type === "level_income") {
       bettingCommissionInr += t;
     } else if (r.txn_type === "level_income_staking") {
       stakingCommissionInr += t;
+    } else if (r.txn_type === "level_income_roi") {
+      investmentRoiCommissionInr += t;
     }
   }
-  const totalReferralCommissionInr = Number((bettingCommissionInr + stakingCommissionInr).toFixed(4));
+  const totalReferralCommissionInr = Number(
+    (bettingCommissionInr + stakingCommissionInr + investmentRoiCommissionInr).toFixed(4)
+  );
   bettingCommissionInr = Number(bettingCommissionInr.toFixed(4));
   stakingCommissionInr = Number(stakingCommissionInr.toFixed(4));
+  investmentRoiCommissionInr = Number(investmentRoiCommissionInr.toFixed(4));
 
   let inviter: { name: string; email: string } | null = null;
   const mySignupRef = String(me.referral_code ?? "").trim();
@@ -912,7 +953,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     directTeamTotalDepositsUsdt,
     totalReferralCommissionInr,
     bettingCommissionInr,
-    stakingCommissionInr
+    stakingCommissionInr,
+    investmentRoiCommissionInr
   };
 }
 
@@ -940,6 +982,8 @@ async function buildGlobalWalletAndDepositMaps(): Promise<{
 const ADMIN_USER_SELECT = `
   u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
   u.phone_country_code, u.phone_local,
+  u.last_login_at,
+  COALESCE(u.is_blocked, 0) AS is_blocked,
   CASE
     WHEN u.withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(u.withdrawal_totp_secret, '')) <> '' THEN 1
     ELSE 0
@@ -962,7 +1006,7 @@ const ADMIN_USER_JOINS = `
 `;
 
 function mapRawAdminUserRow(
-  row: AdminUserRow & {
+  row: Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
     balance: number | string | null;
     demo_balance: number | string | null;
     inviter_id: string | null;
@@ -971,6 +1015,8 @@ function mapRawAdminUserRow(
     withdrawal_totp_enabled?: number | string | null;
     phone_country_code?: string | null;
     phone_local?: string | null;
+    last_login_at?: string | null;
+    is_blocked?: number | string | null;
   },
   childrenByParentId: Map<string, string[]>,
   walletByUser: Map<string, number>,
@@ -996,6 +1042,8 @@ function mapRawAdminUserRow(
     role: row.role,
     phone_country_code: row.phone_country_code ?? null,
     phone_local: row.phone_local ?? null,
+    last_login_at: row.last_login_at ?? null,
+    is_blocked: Number(row.is_blocked ?? 0) === 1,
     balance: Number(row.balance ?? 0),
     demo_balance: Number(row.demo_balance ?? DEFAULT_DEMO_BALANCE_INR),
     inviter_id: row.inviter_id != null ? String(row.inviter_id).trim() : null,
@@ -1022,7 +1070,9 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
     : `SELECT ${ADMIN_USER_SELECT} ${ADMIN_USER_JOINS} ORDER BY u.created_at DESC`;
 
   const raw = await dbAll<
-    AdminUserRow & {
+    Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+      last_login_at?: string | null;
+      is_blocked?: number | string | null;
       balance: number | string | null;
       demo_balance: number | string | null;
       inviter_id: string | null;
@@ -1038,7 +1088,7 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
 /**
  * Canonical `users.id` for admin GET/PUT — handles string vs numeric binding (MySQL INT/BIGINT/VARCHAR).
  */
-async function resolveAdminUserPrimaryKey(raw: string): Promise<string | null> {
+export async function resolveAdminUserPrimaryKey(raw: string): Promise<string | null> {
   await ready;
   const uid = String(raw ?? "").trim();
   if (!uid) {
@@ -1110,14 +1160,14 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 
   const baseSql = isMysqlMode()
     ? `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
-        phone_country_code, phone_local,
+        phone_country_code, phone_local, last_login_at, COALESCE(is_blocked, 0) AS is_blocked,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
           ELSE 0
         END AS withdrawal_totp_enabled
        FROM users WHERE id = ? LIMIT 1`
     : `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
-        phone_country_code, phone_local,
+        phone_country_code, phone_local, last_login_at, COALESCE(is_blocked, 0) AS is_blocked,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
           ELSE 0
@@ -1125,7 +1175,7 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
        FROM users WHERE id = ?`;
 
   if (resolvedId) {
-    const base = await dbGet<AdminUserRow & { withdrawal_totp_enabled?: number }>(baseSql, [resolvedId]);
+    const base = await dbGet<AdminUserDbBase>(baseSql, [resolvedId]);
     if (base) {
       return await assembleAdminUserDetailFromBase(base, resolvedId);
     }
@@ -1133,7 +1183,7 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 
   const scannedPk = await findUserPrimaryKeyByIdScan(target);
   if (scannedPk) {
-    const base = await dbGet<AdminUserRow & { withdrawal_totp_enabled?: number }>(baseSql, [scannedPk]);
+    const base = await dbGet<AdminUserDbBase>(baseSql, [scannedPk]);
     if (base) {
       return await assembleAdminUserDetailFromBase(base, scannedPk);
     }
@@ -1144,7 +1194,7 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
 }
 
 async function assembleAdminUserDetailFromBase(
-  base: AdminUserRow & { withdrawal_totp_enabled?: number | string | null },
+  base: AdminUserDbBase,
   resolvedId: string
 ): Promise<AdminUserDetailRow> {
   let wallet = await dbGet<{ balance: number | string | null; demo_balance: number | string | null }>(
@@ -1182,7 +1232,9 @@ async function assembleAdminUserDetailFromBase(
   const childrenByParentId = buildReferralChildrenMap(graph);
   const { walletByUser, depositSumByUser } = await buildGlobalWalletAndDepositMaps();
 
-  const raw: AdminUserRow & {
+  const raw: Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+    last_login_at?: string | null;
+    is_blocked?: number | string | null;
     balance: number | string | null;
     demo_balance: number | string | null;
     inviter_id: string | null;
@@ -1210,6 +1262,8 @@ export type AdminUserUpdatePayload = {
   referral_code?: string | null;
   balance?: number;
   demo_balance?: number;
+  /** Block login + invalidate session for this user. */
+  is_blocked?: boolean;
   /** Plain text only for this request — never stored; updates hash in DB. */
   new_password?: string;
 };
@@ -1298,6 +1352,10 @@ export async function updateUserFromAdmin(
     updates.push("referral_code = ?");
     vals.push(ref);
   }
+  if (body.is_blocked !== undefined) {
+    updates.push("is_blocked = ?");
+    vals.push(body.is_blocked ? 1 : 0);
+  }
 
   if (updates.length > 0) {
     vals.push(canonicalId);
@@ -1349,6 +1407,20 @@ export async function updateUserFromAdmin(
     throw new Error("User not found after update");
   }
   return out;
+}
+
+/** Dashboard quick action — cannot block your own admin id. */
+export async function setUserBlockedByAdmin(actorAdminId: string, targetUserIdRaw: string, blocked: boolean) {
+  await ready;
+  const actor = String(actorAdminId ?? "").trim();
+  const target = await resolveAdminUserPrimaryKey(String(targetUserIdRaw ?? "").trim());
+  if (!target) {
+    throw new Error("User not found");
+  }
+  if (blocked && target === actor) {
+    throw new Error("You cannot block your own account");
+  }
+  return updateUserFromAdmin(target, { is_blocked: blocked });
 }
 
 export async function hydrateLiveAccountFromWallet(userId: string) {

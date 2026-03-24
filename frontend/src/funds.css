@@ -1021,6 +1021,33 @@
   border-bottom: 0;
 }
 
+.referral-income-table-wrap {
+  margin-top: 4px;
+}
+
+.referral-income-table th:last-child,
+.referral-income-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.referral-income-total td {
+  background: rgba(126, 231, 135, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.referral-table-empty {
+  text-align: center;
+  color: #8da2c0;
+  font-size: 13px;
+  padding: 18px 14px !important;
+}
+
+.referral-section--income {
+  scroll-margin-top: 12px;
+}
+
 .referral-email {
   word-break: break-all;
   max-width: 200px;

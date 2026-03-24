@@ -119,6 +119,47 @@ export default function ReferralPage({ token, onBack }: Props) {
               )}
             </section>
 
+            <section className="referral-section referral-section--income">
+              <h2 className="referral-h2">Your income (commissions)</h2>
+              <p className="muted referral-commission-hint">
+                Live wallet mein credit hota hai jab team binary trade, staking add, ya monthly investment ROI (upline)
+                share. Demo par commission nahi. Binary/staking ke liye &quot;Referral / level %&quot; alag hai; monthly
+                investment ROI upline admin ke &quot;Investment ROI&quot; page se % of gross pool se split hota hai.
+              </p>
+              <div className="referral-table-wrap referral-income-table-wrap">
+                <table className="referral-table referral-income-table">
+                  <thead>
+                    <tr>
+                      <th>Source</th>
+                      <th>Amount (INR)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="referral-income-total">
+                      <td>
+                        <strong>Total earned</strong>
+                      </td>
+                      <td>
+                        <strong>{formatInr(data.totalReferralCommissionInr ?? 0)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Betting (binary)</td>
+                      <td>{formatInr(data.bettingCommissionInr ?? 0)}</td>
+                    </tr>
+                    <tr>
+                      <td>Staking (investment add)</td>
+                      <td>{formatInr(data.stakingCommissionInr ?? 0)}</td>
+                    </tr>
+                    <tr>
+                      <td>Investment monthly ROI (upline)</td>
+                      <td>{formatInr(data.investmentRoiCommissionInr ?? 0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
             <section className="referral-section">
               <h2 className="referral-h2">Team stats</h2>
               <div className="referral-stats">
@@ -134,52 +175,28 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Your commissions (live wallet)</h2>
-              <p className="muted referral-commission-hint">
-                Credited to your <strong>live</strong> balance when your team trades (binary) or adds staking. Demo
-                trades do not pay upline commission.
-              </p>
-              <div className="referral-stats referral-stats--wide">
-                <div className="referral-stat">
-                  <span className="referral-stat-value referral-stat-value--inr">
-                    {formatInr(data.totalReferralCommissionInr ?? 0)}
-                  </span>
-                  <span className="referral-stat-label">Total earned</span>
-                </div>
-                <div className="referral-stat">
-                  <span className="referral-stat-value referral-stat-value--inr">
-                    {formatInr(data.bettingCommissionInr ?? 0)}
-                  </span>
-                  <span className="referral-stat-label">From betting (binary)</span>
-                </div>
-                <div className="referral-stat">
-                  <span className="referral-stat-value referral-stat-value--inr">
-                    {formatInr(data.stakingCommissionInr ?? 0)}
-                  </span>
-                  <span className="referral-stat-label">From staking</span>
-                </div>
-              </div>
-            </section>
-
-            <section className="referral-section">
               <h2 className="referral-h2">Your team (direct)</h2>
-              {data.directTeam.length === 0 ? (
-                <p className="muted">No direct referrals yet. Share your link above.</p>
-              ) : (
-                <div className="referral-table-wrap">
-                  <table className="referral-table">
-                    <thead>
+              <div className="referral-table-wrap">
+                <table className="referral-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Joined</th>
+                      <th>Live wallet</th>
+                      <th>Deposits</th>
+                      <th>Their code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.directTeam.length === 0 ? (
                       <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Joined</th>
-                        <th>Live wallet</th>
-                        <th>Deposits</th>
-                        <th>Their code</th>
+                        <td colSpan={6} className="referral-table-empty">
+                          Abhi koi direct referral nahi — upar se link share karo.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {data.directTeam.map((m) => (
+                    ) : (
+                      data.directTeam.map((m) => (
                         <tr key={m.id}>
                           <td>{m.name}</td>
                           <td className="referral-email">{m.email}</td>
@@ -198,11 +215,11 @@ export default function ReferralPage({ token, onBack }: Props) {
                             <code className="referral-code-pill">{m.selfReferralCode}</code>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </>
         ) : !error ? (

@@ -77,7 +77,7 @@ export async function getLevelIncomeRecipientIds(bettorUserId: string): Promise<
   return recipients;
 }
 
-type LevelIncomeKind = "level_income" | "level_income_staking";
+type LevelIncomeKind = "level_income" | "level_income_staking" | "level_income_roi";
 
 async function distributeLevelIncomeToUpline(
   sourceUserId: string,
@@ -133,4 +133,15 @@ export async function distributeInvestmentStakeLevelIncome(
     "level_income_staking",
     "staking"
   );
+}
+
+/**
+ * @deprecated Monthly ROI upline split uses `investment_roi_level_distribution` in `runInvestmentMonthlyYield` instead of referral stake %.
+ */
+export async function distributeInvestmentRoiLevelIncome(
+  investorUserId: string,
+  yieldAmount: number,
+  yieldRef: string
+): Promise<void> {
+  return distributeLevelIncomeToUpline(investorUserId, yieldAmount, yieldRef, "level_income_roi", "roi-yield");
 }

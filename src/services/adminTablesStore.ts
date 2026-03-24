@@ -76,15 +76,17 @@ export async function listUserInvestmentsForAdmin(): Promise<Record<string, unkn
       principal: number;
       locked_until: string | null;
       last_yield_date: string | null;
+      last_monthly_yield_ym: string | null;
     }>(
-      "SELECT user_id, principal, locked_until, last_yield_date FROM user_investments ORDER BY user_id"
+      "SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments ORDER BY user_id"
     );
     return rows.map((r) => ({
       id: r.user_id,
       user_id: r.user_id,
       principal: Number(r.principal),
       locked_until: r.locked_until,
-      last_yield_date: r.last_yield_date
+      last_yield_date: r.last_yield_date,
+      last_monthly_yield_ym: r.last_monthly_yield_ym
     }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -119,12 +121,13 @@ export async function getAdminRaOne(
         principal: number | string | null;
         locked_until: string | null;
         last_yield_date: string | null;
+        last_monthly_yield_ym: string | null;
       } | undefined;
       try {
         row = await dbGet(
           mysql
-            ? `SELECT user_id, principal, locked_until, last_yield_date FROM user_investments WHERE user_id = ? OR ${trimUserId} LIMIT 1`
-            : `SELECT user_id, principal, locked_until, last_yield_date FROM user_investments WHERE user_id = ? OR ${trimUserId}`,
+            ? `SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE user_id = ? OR ${trimUserId} LIMIT 1`
+            : `SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE user_id = ? OR ${trimUserId}`,
           [id, id]
         );
       } catch (e) {
@@ -142,7 +145,8 @@ export async function getAdminRaOne(
         user_id: uid,
         principal: Number(row.principal),
         locked_until: row.locked_until,
-        last_yield_date: row.last_yield_date
+        last_yield_date: row.last_yield_date,
+        last_monthly_yield_ym: row.last_monthly_yield_ym
       };
     }
     case "wallets": {

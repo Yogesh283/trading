@@ -7,6 +7,8 @@ import {
   useRef,
   useState
 } from "react";
+import { buildCandles, candlePeriodEndMs } from "./chartCandles";
+import { LightweightTradingChart } from "./LightweightTradingChart";
 import {
   AccountSnapshot,
   AuthUser,
@@ -189,8 +191,10 @@ export default function App() {
   const [forexSymbolList, setForexSymbolList] = useState<string[]>([...FOREX_SYMBOLS_DEFAULT]);
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [quantity, setQuantity] = useState("1");
-  const [chartTimeframe, setChartTimeframe] = useState(60);
-  const [binaryTimeframe, setBinaryTimeframe] = useState(60);
+  /** Chart + trade candle period: 5s … 10m (see TIMEFRAME_OPTIONS). */
+  const [chartTimeframe, setChartTimeframe] = useState(5);
+  const [binaryTimeframe, setBinaryTimeframe] = useState(5);
+  const [mobileTfMenuOpen, setMobileTfMenuOpen] = useState(false);
 
   const onChartTimeframeChange = (sec: number) => {
     setChartTimeframe(sec);
@@ -250,6 +254,7 @@ export default function App() {
   const binaryCreatedTimerRef = useRef<number | null>(null);
   /** Ignore stale `refresh()` results so an older in-flight request cannot overwrite trades after a new order. */
   const refreshSeqRef = useRef(0);
+  const mobileTfWrapRef = useRef<HTMLDivElement>(null);
 
   const dismissOrderPlacedPopup = useCallback(() => {
     if (orderPopupTimeoutRef.current) {
@@ -338,6 +343,35 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [assetPickerOpen, mainNavOpen]);
+
+  useEffect(() => {
+    if (assetPickerOpen) {
+      setMobileTfMenuOpen(false);
+    }
+  }, [assetPickerOpen]);
+
+  useEffect(() => {
+    if (!mobileTfMenuOpen) {
+      return;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (mobileTfWrapRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setMobileTfMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileTfMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mobileTfMenuOpen]);
 
   useEffect(() => {
     if (!mainNavOpen) return;
@@ -1225,19 +1259,41 @@ export default function App() {
               </span>
             </button>
             <div className="mobile-topbar-right">
-            
-              <select
-                className="mobile-tf-pill"
-                value={chartTimeframe}
-                onChange={(e) => onChartTimeframeChange(Number(e.target.value))}
-                aria-label="Timeframe"
-              >
-                {TIMEFRAME_OPTIONS.map(({ value, label: lb }) => (
-                  <option key={value} value={value}>
-                    {lb}
-                  </option>
-                ))}
-              </select>
+              <div className="mobile-tf-wrap" ref={mobileTfWrapRef}>
+                <button
+                  type="button"
+                  className="mobile-tf-pill mobile-tf-pill-trigger"
+                  aria-expanded={mobileTfMenuOpen}
+                  aria-haspopup="listbox"
+                  aria-label="Candle timeframe"
+                  onClick={() => setMobileTfMenuOpen((o) => !o)}
+                >
+                  {tfLabel(chartTimeframe)}
+                  <span className="mobile-chevron" aria-hidden>
+                    ▾
+                  </span>
+                </button>
+                {mobileTfMenuOpen ? (
+                  <ul className="mobile-tf-dropdown" role="listbox">
+                    {TIMEFRAME_OPTIONS.map(({ value: tf, label: lb }) => (
+                      <li key={tf} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={chartTimeframe === tf}
+                          className={chartTimeframe === tf ? "active" : ""}
+                          onClick={() => {
+                            onChartTimeframeChange(tf);
+                            setMobileTfMenuOpen(false);
+                          }}
+                        >
+                          {lb}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <span className="mobile-live-badge">
                 <span className="live-dot" />
                 Live
@@ -2511,15 +2567,6 @@ const SLOT_WIDTHS_PX = [4, 6, 9, 13, 18, 24, 32, 42, 52, 64];
 const MOBILE_DEFAULT_ZOOM_INDEX = 3; // ~13px slot — more candles on screen, TV-like density
 const DESKTOP_DEFAULT_ZOOM_INDEX = 2;
 
-/** Narrower bodies + thin wicks — closer to TradingView-style candles than “fat” mobile bars. */
-const CANDLE_STYLE = {
-  slotBodyRatio: 0.62,
-  bodyStroke: 0.2,
-  bodyRx: 1,
-  bull: "rgb(44, 218, 117)",
-  bear: "#ef5350"
-} as const;
-
 function LiveChart({
   points,
   symbol,
@@ -2608,126 +2655,29 @@ function LiveChart({
     return <p className="muted">Waiting for live price data...</p>;
   }
 
-  const allCandles = buildCandles(points, timeframeSec);
+  const now = Date.now();
+  const allCandles = buildCandles(points, timeframeSec, now);
   if (allCandles.length === 0) {
     return <p className="muted">Waiting for live price data...</p>;
   }
 
-  const W = 960;
-  const H = 420;
-  const padL = 8;
-  const padR = isMobileChart ? 158 : 122;
-  const padT = 12;
-  const padB = isMobileChart ? 66 : 38;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
-
-  /** Max candle / slot width at strongest zoom (must be ≥ largest SLOT_WIDTHS_PX or top steps get clamped). */
-  const MAX_CANDLE_WIDTH_PX = 64;
-  const zoomCap = SLOT_WIDTHS_PX[Math.min(zoomIndex, SLOT_WIDTHS_PX.length - 1)];
-  const maxSlot = Math.min(zoomCap, MAX_CANDLE_WIDTH_PX);
-  /**
-   * When there are many candles, `plotW / n` was always the minimum — zoom buttons did nothing.
-   * Show a right-aligned window: at least ~`maxSlot` px per candle when possible (fewer candles = zoom in).
-   */
-  const nAll = allCandles.length;
-  const maxVisibleByZoom = Math.max(1, Math.floor(plotW / maxSlot));
-  const visibleCount = Math.min(nAll, maxVisibleByZoom);
-  const candles = allCandles.slice(-visibleCount);
-  const n = candles.length;
-  const slotWActual = n > 0 ? Math.min(plotW / n, maxSlot) : maxSlot;
-  const bodyW = Math.max(1.2, slotWActual * CANDLE_STYLE.slotBodyRatio);
-  /** Index of first candle in `candles` within full `allCandles` (for trade markers when zoomed). */
-  const firstVisibleGlobalIndex = Math.max(0, nAll - n);
-  /** Right-align: latest candle at right edge so all timeframes show candles in a consistent way. */
-  const cxAt = (index: number) => padL + plotW - (n - 1 - index) * slotWActual - slotWActual / 2;
-
-  const lows = candles.map((c) => c.low);
-  const highs = candles.map((c) => c.high);
-  const minP = Math.min(...lows);
-  const maxP = Math.max(...highs);
-  const range = maxP - minP || 1;
-  const padY = range * 0.06;
-  const yMin = minP - padY;
-  const yMax = maxP + padY;
-  const yRange = yMax - yMin || 1;
-
-  const toY = (price: number) => padT + (1 - (price - yMin) / yRange) * plotH;
-
-  const gridLevels = 6;
-  const gridPrices = Array.from({ length: gridLevels }, (_, i) => yMin + (yRange * i) / (gridLevels - 1));
-
-  const current = candles[candles.length - 1];
+  const current = allCandles[allCandles.length - 1]!;
   const change =
     allCandles.length > 1 ? current.close - allCandles[0].open : 0;
   const changePct = allCandles.length > 1 ? (change / allCandles[0].open) * 100 : 0;
   const openTrades = trades.filter((trade) => trade.status === "open");
-  const lastY = toY(current.close);
-
   const fmtPrice = (p: number) =>
     p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6);
 
   const pairLabel = formatForexPair(symbol);
 
-  const now = Date.now();
-  const bucketMs = timeframeSec * 1000;
-  const candleEndMs = Math.ceil(now / bucketMs) * bucketMs;
+  const candleEndMs = candlePeriodEndMs(now, timeframeSec);
   const msLeft = Math.max(0, candleEndMs - now);
   const totalSec = Math.ceil(msLeft / 1000);
   const cdSec = Math.min(3599, Math.max(0, totalSec));
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
 
-  const tagX = padL + plotW + 4;
-  const priceTagW = isMobileChart ? 140 : 88;
-  const priceTagH = isMobileChart ? 56 : 36;
-  const priceTagY = Math.min(Math.max(padT + 4, lastY - priceTagH / 2), padT + plotH - priceTagH - 4);
-
-  const lastCx = n > 0 ? cxAt(n - 1) : padL + plotW;
-  const timeLabelStep = Math.max(1, Math.floor(n / 8));
-  const timeLabels = Array.from({ length: n }, (_, i) => i)
-    .filter((i) => i % timeLabelStep === 0 || i === n - 1)
-    .map((i) => ({
-      index: i,
-      x: cxAt(i),
-      label:
-        timeframeSec >= 300
-          ? new Date(candles[i].timestamp).toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false
-            })
-          : timeframeSec < 60
-            ? new Date(candles[i].timestamp).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false
-              })
-            : new Date(candles[i].timestamp).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: false
-              })
-    }));
-  const timeLabelFontSize = isMobileChart ? 36 : 10;
-  const timeLabelY = padT + plotH + (isMobileChart ? 30 : 14);
-  const timerZoomed = isMobileChart && timerTextZoomed;
-  const timerBadgeW = timerZoomed ? 96 : isMobileChart ? 78 : 36;
-  const timerBadgeH = timerZoomed ? 48 : isMobileChart ? 40 : 20;
-  const timerBadgeRx = isMobileChart ? 10 : 3;
-  const timerTextSize = timerZoomed ? 32 : isMobileChart ? 25 : 10;
-  /** Keep countdown clear of the white price tag & right-axis tick at `lastY` (was overlapping). */
-  const timerGap = isMobileChart ? 10 : 6;
-  const priceTagBottom = priceTagY + priceTagH;
-  const plotBottom = padT + plotH;
-  let timerBadgeTop = priceTagBottom + timerGap;
-  if (timerBadgeTop + timerBadgeH > plotBottom - 4) {
-    timerBadgeTop = priceTagY - timerBadgeH - timerGap;
-  }
-  timerBadgeTop = Math.min(Math.max(timerBadgeTop, padT + 4), plotBottom - timerBadgeH - 4);
-  const timerTextY = timerBadgeTop + timerBadgeH / 2 + (timerZoomed ? 8 : isMobileChart ? 6 : 2);
+  const chartResetKey = `${symbol}-${timeframeSec}`;
 
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
@@ -2747,180 +2697,21 @@ function LiveChart({
           <span>Trades: {openTrades.length}</span>
         </div>
       </div>
-      <div className="chart-svg-wrap">
-        <div className="chart-touch-layer" ref={chartWrapRef} aria-hidden>
-          <svg
-            viewBox={`0 0 ${W} ${H}`}
-            className="chart-svg tv-chart-svg"
-            role="img"
-            aria-label={`${symbol} candlestick chart`}
-          >
-          <rect x="0" y="0" width={W} height={H} className="tv-bg" />
-
-          {gridPrices.map((price, i) => {
-            const y = toY(price);
-            return (
-              <g key={`h-${i}`}>
-                <line x1={padL} y1={y} x2={padL + plotW} y2={y} className="tv-grid-h" />
-                <text
-                  x={W - 6}
-                  y={y + (isMobileChart ? 6 : 5)}
-                  textAnchor="end"
-                  className="tv-price-label"
-                  style={{
-                    fontSize: isMobileChart ? 26 : 14,
-                    fontWeight: isMobileChart ? 700 : 600,
-                    fill: isMobileChart ? "#e4e7ec" : "#c8ccd4"
-                  }}
-                >
-                  {fmtPrice(price)}
-                </text>
-              </g>
-            );
-          })}
-
-          <line x1={padL + plotW} y1={padT} x2={padL + plotW} y2={padT + plotH} className="tv-axis-v" />
-
-          {n > 20
-            ? Array.from({ length: Math.floor(n / 20) }, (_, k) => {
-                const idx = (k + 1) * 20;
-                if (idx >= n) return null;
-                const x = cxAt(idx);
-                return <line key={`v-${idx}`} x1={x} y1={padT} x2={x} y2={padT + plotH} className="tv-grid-v" />;
-              })
-            : null}
-
-          {/* Time axis labels (bottom) */}
-          {timeLabels.map(({ index, x, label }) => (
-            <text
-              key={`t-${index}`}
-              x={x}
-              y={timeLabelY}
-              textAnchor="middle"
-              className="tv-time-label"
-              style={{ fontSize: timeLabelFontSize, fontWeight: isMobileChart ? 700 : 500 }}
-            >
-              {label}
-            </text>
-          ))}
-
-          {/* White dashed price line + current price box (TradingView style) */}
-          <line
-            x1={padL}
-            y1={lastY}
-            x2={padL + plotW + 2}
-            y2={lastY}
-            className="tv-price-crosshair-white"
-            strokeDasharray="4 4"
+      <div className="chart-svg-wrap chart-lw-wrap">
+        <div className="chart-touch-layer chart-lw-touch" ref={chartWrapRef} aria-hidden>
+          <LightweightTradingChart
+            key={chartResetKey}
+            candles={allCandles}
+            assetTag={symbol}
+            formatPrice={fmtPrice}
+            timeframeSec={timeframeSec}
+            zoomIndex={zoomIndex}
+            isMobileChart={isMobileChart}
+            chartResetKey={chartResetKey}
+            countdownStr={countdownStr}
+            timerTextZoomed={timerTextZoomed}
+            onTimerTap={() => setTimerTextZoomed((z) => !z)}
           />
-          <g className="tv-floating-tags">
-            <rect
-              x={tagX}
-              y={priceTagY}
-              width={priceTagW}
-              height={priceTagH}
-              rx={4}
-              className="tv-tag-price-bg-white"
-            />
-            <text
-              x={tagX + priceTagW / 2}
-              y={priceTagY + priceTagH / 2 + (isMobileChart ? 1 : 0)}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="tv-tag-price-val-white"
-              style={isMobileChart ? { fontSize: 28, fontWeight: 800 } : { fontSize: 15, fontWeight: 800 }}
-            >
-              {fmtPrice(current.close)}
-            </text>
-          </g>
-
-          {/* Timer badge next to last candle — tap on mobile to zoom time text */}
-          <g
-            className="tv-timer-badge"
-            role={isMobileChart ? "button" : undefined}
-            aria-label={isMobileChart ? "Tap to zoom timer" : undefined}
-            style={{ cursor: isMobileChart ? "pointer" : undefined }}
-            onClick={() => isMobileChart && setTimerTextZoomed((z) => !z)}
-          >
-            <rect
-              x={lastCx + bodyW / 2 + 4}
-              y={timerBadgeTop}
-              width={timerBadgeW}
-              height={timerBadgeH}
-              rx={timerBadgeRx}
-              className="tv-timer-badge-bg"
-            />
-            <text
-              x={lastCx + bodyW / 2 + 4 + timerBadgeW / 2}
-              y={timerTextY}
-              textAnchor="middle"
-              className="tv-timer-badge-text"
-              style={{ fontSize: timerTextSize, fontWeight: isMobileChart ? 700 : 600 }}
-            >
-              {countdownStr}
-            </text>
-          </g>
-
-          {candles.map((candle, index) => {
-            const cx = cxAt(index);
-            const yHigh = toY(candle.high);
-            const yLow = toY(candle.low);
-            const yOpen = toY(candle.open);
-            const yClose = toY(candle.close);
-            const isUp = candle.close >= candle.open;
-            const stroke = isUp ? CANDLE_STYLE.bull : CANDLE_STYLE.bear;
-            const fill = isUp ? CANDLE_STYLE.bull : CANDLE_STYLE.bear;
-            const bodyTop = Math.min(yOpen, yClose);
-            const bodyBottom = Math.max(yOpen, yClose);
-            const bodyH = Math.max(bodyBottom - bodyTop, 1.5);
-
-            return (
-              <g key={`${candle.timestamp}-${index}`}>
-                {/* Wick: thin line from high to low */}
-                <line
-                  x1={cx}
-                  y1={yHigh}
-                  x2={cx}
-                  y2={yLow}
-                  stroke={stroke}
-                  strokeWidth={isMobileChart ? 0.9 : 1.05}
-                />
-                {/* Body: open to close */}
-                <rect
-                  x={cx - bodyW / 2}
-                  y={bodyTop}
-                  width={bodyW}
-                  height={bodyH}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={CANDLE_STYLE.bodyStroke}
-                  rx={CANDLE_STYLE.bodyRx}
-                  ry={CANDLE_STYLE.bodyRx}
-                />
-              </g>
-            );
-          })}
-
-          {trades
-            .filter((trade) => trade.symbol === symbol && trade.status === "open")
-            .map((trade) => {
-              const tf = trade.timeframeSeconds ?? timeframeSec;
-              const gIdx = globalCandleIndexForOpen(allCandles, trade.openedAt, tf);
-              const localIdx = gIdx - firstVisibleGlobalIndex;
-              if (localIdx < 0 || localIdx >= n) return null;
-              const cx = cxAt(localIdx);
-              const cy = toY(trade.entryPrice);
-              return (
-                <g key={trade.id}>
-                  <circle cx={cx} cy={cy} r="4" className="tv-trade-dot" />
-                  <text x={cx + 6} y={cy - 6} className="tv-trade-tag">
-                    {formatTradeDirectionShort(trade.direction, trade.side)} {trade.entryPrice.toFixed(2)}
-                  </text>
-                </g>
-              );
-            })
-            .filter(Boolean)}
-          </svg>
         </div>
 
         {!hideSideToolbar ? (
@@ -3026,68 +2817,4 @@ function appendPoint(current: Record<string, MarketTick[]>, tick: MarketTick) {
     ...current,
     [tick.symbol]: nextSeries
   };
-}
-
-interface CandlePoint {
-  timestamp: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
-
-/** Build candles with given interval in seconds (1 = 1s, 5 = 5s). */
-function buildCandles(points: MarketTick[], intervalSeconds = 1): CandlePoint[] {
-  if (points.length === 0) {
-    return [];
-  }
-
-  const bucketMs = intervalSeconds * 1000;
-  const byBucket = new Map<number, MarketTick[]>();
-  for (const p of points) {
-    const bucket = Math.floor(p.timestamp / bucketMs) * bucketMs;
-    const list = byBucket.get(bucket);
-    if (list) {
-      list.push(p);
-    } else {
-      byBucket.set(bucket, [p]);
-    }
-  }
-
-  const buckets = Array.from(byBucket.keys()).sort((a, b) => a - b);
-  const candles: CandlePoint[] = [];
-
-  for (const bucket of buckets) {
-    const list = byBucket.get(bucket)!.sort((a, b) => a.timestamp - b.timestamp);
-    const prices = list.map((t) => t.price);
-    candles.push({
-      timestamp: bucket,
-      open: list[0].price,
-      high: Math.max(...prices),
-      low: Math.min(...prices),
-      close: list[list.length - 1].price
-    });
-  }
-
-  return candles;
-}
-
-/** Candle bucket index in `allCandles` for when a trade was opened (for markers when chart is zoomed). */
-function globalCandleIndexForOpen(allCandles: CandlePoint[], openedAt: string, intervalSeconds: number) {
-  if (allCandles.length === 0) return 0;
-  const bucketMs = intervalSeconds * 1000;
-  const t = new Date(openedAt).getTime();
-  const bucket = Math.floor(t / bucketMs) * bucketMs;
-  let idx = allCandles.findIndex((c) => c.timestamp === bucket);
-  if (idx >= 0) return idx;
-  let best = 0;
-  let bestD = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < allCandles.length; i++) {
-    const d = Math.abs(allCandles[i].timestamp - bucket);
-    if (d < bestD) {
-      bestD = d;
-      best = i;
-    }
-  }
-  return best;
 }

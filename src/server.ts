@@ -30,7 +30,9 @@ import {
   requireSession,
   resolveDemoUser,
   resolveWallet,
-  updateUserFromAdmin
+  updateUserFromAdmin,
+  setUserBlockedByAdmin,
+  resolveAdminUserPrimaryKey
 } from "./services/authService";
 import {
   createDepositIntent,
@@ -63,9 +65,15 @@ import {
   getOrCreateInvestment,
   investFromWallet,
   investmentSnapshot,
-  runInvestmentDailyYield,
+  runInvestmentMonthlyYield,
   withdrawToWallet
 } from "./services/investmentStore";
+import {
+  getInvestmentMonthlyRoiFraction,
+  getInvestmentRoiAdminPayload,
+  updateInvestmentRoiAdminPayload
+} from "./services/investmentRoiConfigService";
+import { getUplineFractionSumOfGrossYield } from "./services/investmentRoiLevelService";
 import {
   assertWithdrawalTotpCode,
   beginWithdrawalTotpSetup,
@@ -972,8 +980,9 @@ app.get("/api/admin/ra/users/:id", (req, res) => {
 
 app.put("/api/admin/ra/users/:id", (req, res) => {
   void (async () => {
+    let adminActor: { id: string; email: string };
     try {
-      await requireAdminSession(req.headers.authorization);
+      adminActor = await requireAdminSession(req.headers.authorization);
     } catch (e) {
       const m = e instanceof Error ? e.message : "";
       if (m === "Forbidden") {
@@ -989,6 +998,13 @@ app.put("/api/admin/ra/users/:id", (req, res) => {
 
     const body = req.body as Record<string, unknown>;
     try {
+      if (body.is_blocked === true) {
+        const targetPk = await resolveAdminUserPrimaryKey(id);
+        if (targetPk && targetPk === String(adminActor.id).trim()) {
+          return res.status(400).json({ message: "You cannot block your own account" });
+        }
+      }
+
       const payload: Parameters<typeof updateUserFromAdmin>[1] = {};
       if (typeof body.name === "string") {
         payload.name = body.name;
@@ -1013,6 +1029,9 @@ app.put("/api/admin/ra/users/:id", (req, res) => {
       }
       if (typeof body.new_password === "string") {
         payload.new_password = body.new_password;
+      }
+      if (typeof body.is_blocked === "boolean") {
+        payload.is_blocked = body.is_blocked;
       }
 
       const row = await updateUserFromAdmin(id, payload);
@@ -1075,6 +1094,90 @@ app.put("/api/admin/referral-level-settings", (req, res) => {
       return res.json(payload);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Update failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.get("/api/admin/investment-roi-settings", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const payload = await getInvestmentRoiAdminPayload();
+      return res.json(payload);
+    } catch (err) {
+      logger.error({ err }, "admin investment-roi get");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
+app.put("/api/admin/investment-roi-settings", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const body = req.body as {
+        monthlyRoiFraction?: number;
+        levels?: { level: number; percentOfGrossYield: number; enabled: boolean }[];
+      };
+      const fracRaw = body.monthlyRoiFraction;
+      const hasFrac = fracRaw !== undefined && fracRaw !== null && String(fracRaw).trim() !== "";
+      await updateInvestmentRoiAdminPayload({
+        monthlyRoiFraction: hasFrac ? Number(fracRaw) : undefined,
+        levels: Array.isArray(body.levels) ? body.levels : undefined
+      });
+      const payload = await getInvestmentRoiAdminPayload();
+      return res.json(payload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.post("/api/admin/user-block", (req, res) => {
+  void (async () => {
+    let admin: { id: string; email: string };
+    try {
+      admin = await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const userId = String(req.body?.userId ?? req.body?.id ?? "").trim();
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+    if (typeof req.body?.blocked !== "boolean") {
+      return res.status(400).json({ message: "blocked (boolean) is required" });
+    }
+    try {
+      const row = await setUserBlockedByAdmin(admin.id, userId, req.body.blocked);
+      return res.json(row);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed";
+      if (msg === "User not found") {
+        return res.status(404).json({ message: msg });
+      }
       return res.status(400).json({ message: msg });
     }
   })();
@@ -1524,7 +1627,9 @@ app.get("/api/investment", (req, res) => {
     const user = await requireSession(req.headers.authorization);
     const row = await getOrCreateInvestment(user.id);
     const live = await getWalletBalance(user.id);
-    return res.json(investmentSnapshot(row, live));
+    const roi = await getInvestmentMonthlyRoiFraction();
+    const uplineSum = await getUplineFractionSumOfGrossYield();
+    return res.json(investmentSnapshot(row, live, roi, uplineSum));
   })().catch((error) => {
     if (error instanceof Error && error.message === "Unauthorized") {
       return res.status(401).json({ message: "Unauthorized" });
@@ -1544,7 +1649,9 @@ app.post("/api/investment/deposit", (req, res) => {
     const row = await investFromWallet(user.id, amount);
     await hydrateLiveAccountFromWallet(user.id);
     const live = await getWalletBalance(user.id);
-    return res.json(investmentSnapshot(row, live));
+    const roi = await getInvestmentMonthlyRoiFraction();
+    const uplineSum = await getUplineFractionSumOfGrossYield();
+    return res.json(investmentSnapshot(row, live, roi, uplineSum));
   })().catch((error) => {
     if (error instanceof Error && error.message === "Unauthorized") {
       return res.status(401).json({ message: "Unauthorized" });
@@ -1564,7 +1671,9 @@ app.post("/api/investment/withdraw", (req, res) => {
     const row = await withdrawToWallet(user.id, amount);
     await hydrateLiveAccountFromWallet(user.id);
     const live = await getWalletBalance(user.id);
-    return res.json(investmentSnapshot(row, live));
+    const roi = await getInvestmentMonthlyRoiFraction();
+    const uplineSum = await getUplineFractionSumOfGrossYield();
+    return res.json(investmentSnapshot(row, live, roi, uplineSum));
   })().catch((error) => {
     if (error instanceof Error && error.message === "Unauthorized") {
       return res.status(401).json({ message: "Unauthorized" });
@@ -1584,7 +1693,7 @@ app.post("/api/system/investment-yield", (req, res) => {
     if (got !== secret) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const result = await runInvestmentDailyYield();
+    const result = await runInvestmentMonthlyYield();
     return res.json(result);
   })().catch((error) => {
     logger.error({ error }, "investment-yield system");
@@ -1775,13 +1884,13 @@ export async function startServer(): Promise<http.Server> {
       );
       if (env.INVESTMENT_CRON_IN_PROCESS) {
         cron.schedule(
-          "5 0 * * *",
+          "5 0 1 * *",
           () => {
-            void runInvestmentDailyYield().catch((e) => logger.error({ e }, "investment daily cron"));
+            void runInvestmentMonthlyYield().catch((e) => logger.error({ e }, "investment monthly cron"));
           },
           { timezone: "UTC" }
         );
-        logger.info("Investment yield cron scheduled: daily 00:05 UTC (~10%/month as 10/30 per day)");
+        logger.info("Investment yield cron: 1st of month 00:05 UTC (monthly ROI from DB + 5-level on yield)");
       }
       resolve(server);
     });

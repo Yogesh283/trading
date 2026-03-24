@@ -1,0 +1,162 @@
+import { FOREX_SYMBOLS } from "../config/symbols";
+import { logger } from "../utils/logger";
+
+/** Pyth Network Metal.XAU/USD spot — same family of feed TradingView “Pyth” uses. */
+const PYTH_HERMES_XAU_USD =
+  "0x765d2ba906dbc32ca17cc11f5310a89e9ee1f6420508c63861f2f8ba4ee34bb2";
+
+function pythMantissaToFloat(priceStr: string, expo: number): number {
+  const m = Number(priceStr);
+  if (!Number.isFinite(m)) {
+    return NaN;
+  }
+  return m * 10 ** expo;
+}
+
+function splitPair(symbol: string): [string, string] {
+  const s = symbol.toUpperCase();
+  return [s.slice(0, 3), s.slice(3, 6)];
+}
+
+/**
+ * ECB-based FX via Frankfurter (free, no key). `rates[X]` = how much of X you get for 1 USD.
+ * Derives all configured pairs from USD legs (plus optional gold spot).
+ */
+export async function fetchFrankfurterUsdMatrix(): Promise<Map<string, number>> {
+  const res = await fetch("https://api.frankfurter.app/latest?from=USD", {
+    headers: { Accept: "application/json" }
+  });
+  if (!res.ok) {
+    throw new Error(`Frankfurter HTTP ${res.status}`);
+  }
+  const j = (await res.json()) as { rates?: Record<string, number> };
+  const rates = j.rates ?? {};
+  /** USD value of 1 unit of currency (e.g. EUR → dollars per euro). */
+  const usdPerUnit: Record<string, number> = { USD: 1 };
+  for (const [cur, perUsd] of Object.entries(rates)) {
+    if (typeof perUsd === "number" && Number.isFinite(perUsd) && perUsd > 0) {
+      usdPerUnit[cur] = 1 / perUsd;
+    }
+  }
+
+  const out = new Map<string, number>();
+  for (const sym of FOREX_SYMBOLS) {
+    if (sym === "XAUUSD") {
+      continue;
+    }
+    const [base, quote] = splitPair(sym);
+    const ub = usdPerUnit[base];
+    const uq = usdPerUnit[quote];
+    if (
+      ub !== undefined &&
+      uq !== undefined &&
+      Number.isFinite(ub) &&
+      Number.isFinite(uq) &&
+      uq !== 0
+    ) {
+      out.set(sym, Number((ub / uq).toFixed(8)));
+    }
+  }
+  return out;
+}
+
+/** USD per troy oz from Pyth Hermes (parsed aggregate). No API key. */
+export async function fetchGoldUsdPyth(): Promise<number | null> {
+  try {
+    const url = new URL("https://hermes.pyth.network/v2/updates/price/latest");
+    url.searchParams.append("ids[]", PYTH_HERMES_XAU_USD);
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 12_000);
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      signal: ac.signal
+    }).finally(() => clearTimeout(to));
+    if (!res.ok) {
+      return null;
+    }
+    const j = (await res.json()) as {
+      parsed?: Array<{ price?: { price: string; expo: number } }>;
+    };
+    const raw = j.parsed?.[0]?.price;
+    if (!raw?.price || typeof raw.expo !== "number") {
+      return null;
+    }
+    const usdPerOz = pythMantissaToFloat(raw.price, raw.expo);
+    if (!Number.isFinite(usdPerOz) || usdPerOz < 500 || usdPerOz > 50_000) {
+      return null;
+    }
+    return usdPerOz;
+  } catch (e) {
+    logger.warn({ e }, "Gold Pyth Hermes fetch failed");
+  }
+  return null;
+}
+
+/** Spot-style XAUUSD (USD per troy oz) from Yahoo chart meta — fallback when Pyth unreachable. */
+export async function fetchGoldUsdYahoo(): Promise<number | null> {
+  try {
+    const url =
+      "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?range=1d&interval=5m";
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; UpDownFX/1.0; +https://example.invalid) AppleWebKit/537.36",
+        Accept: "application/json"
+      }
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const j = (await res.json()) as {
+      chart?: { result?: Array<{ meta?: { regularMarketPrice?: number } }> };
+    };
+    const p = j.chart?.result?.[0]?.meta?.regularMarketPrice;
+    if (typeof p === "number" && Number.isFinite(p) && p > 100) {
+      return p;
+    }
+  } catch (e) {
+    logger.warn({ e }, "Gold Yahoo fetch failed");
+  }
+  return null;
+}
+
+export async function fetchTraderMadeLive(
+  apiKey: string,
+  symbols: readonly string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const currency = symbols.join(",");
+  const url = new URL("https://marketdata.tradermade.com/api/v1/live");
+  url.searchParams.set("currency", currency);
+  url.searchParams.set("api_key", apiKey.trim());
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  const j = (await res.json()) as Record<string, unknown>;
+  if (!res.ok) {
+    const msg = typeof j.message === "string" ? j.message : res.statusText;
+    throw new Error(`TraderMade: ${msg}`);
+  }
+  const quotes = (j.quotes ?? j.data ?? []) as Record<string, unknown>[];
+  if (!Array.isArray(quotes)) {
+    logger.warn({ j }, "TraderMade: unexpected response shape");
+    return out;
+  }
+  for (const q of quotes) {
+    const sym = String(
+      q.requested_symbol ?? q.symbol ?? `${q.base_currency ?? ""}${q.quote_currency ?? ""}`
+    )
+      .trim()
+      .toUpperCase();
+    let mid = Number(q.mid);
+    if (!Number.isFinite(mid)) {
+      const bid = Number(q.bid);
+      const ask = Number(q.ask);
+      if (Number.isFinite(bid) && Number.isFinite(ask)) {
+        mid = (bid + ask) / 2;
+      }
+    }
+    if (sym && Number.isFinite(mid) && mid > 0) {
+      out.set(sym, mid);
+    }
+  }
+  return out;
+}

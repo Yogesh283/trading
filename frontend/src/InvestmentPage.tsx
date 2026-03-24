@@ -112,10 +112,11 @@ export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
           <h1>Investment</h1>
         </div>
         <p className="funds-lead">
-          Move funds from your <strong>live wallet</strong> into investment. Earn about{" "}
-          <strong>{info?.monthlyYieldPercent ?? 10}% per month</strong>, credited <strong>daily</strong> (cron). After
-          each investment, funds are <strong>locked 24 hours</strong> before you can withdraw back to your wallet.
-          Anything you withdraw stops earning.
+          Move funds from your <strong>live wallet</strong> into investment. Each month a <strong>gross pool</strong>{" "}
+          of <strong>{(info?.monthlyYieldPercent ?? 10).toFixed(2)}% of principal</strong> is calculated and paid on the{" "}
+          <strong>1st (UTC)</strong>. Up to five upline levels can receive a share of that pool (set by admin); you keep
+          the rest (see estimate below). After each add, funds are <strong>locked 24 hours</strong> before withdrawal.
+          Withdrawn amount stops earning.
         </p>
 
         {info ? (
@@ -129,12 +130,18 @@ export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
               <strong>{currency.format(info.liveWalletBalance)}</strong>
             </div>
             <div className="investment-stat">
-              <span>Est. daily income (on principal)</span>
-              <strong>{currency.format(info.estimatedDailyIncome)}</strong>
+              <span>Est. your monthly share (after upline split)</span>
+              <strong>{currency.format(info.estimatedMonthlyIncome ?? 0)}</strong>
             </div>
+            {info.estimatedMonthlyGrossYield != null && info.estimatedMonthlyGrossYield > 0 ? (
+              <div className="investment-stat">
+                <span>Est. gross monthly pool (before split)</span>
+                <strong>{currency.format(info.estimatedMonthlyGrossYield)}</strong>
+              </div>
+            ) : null}
             <div className="investment-stat">
-              <span>Last yield day (UTC)</span>
-              <strong>{info.lastYieldDate ?? "—"}</strong>
+              <span>Last monthly payout (UTC month)</span>
+              <strong>{info.lastMonthlyYieldYm ?? "—"}</strong>
             </div>
           </div>
         ) : null}
@@ -176,7 +183,7 @@ export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
         <section className="funds-card">
           <h2>Withdraw to wallet</h2>
           <p className="muted small">
-            Returns USDT to your live balance. That amount no longer receives daily yield.
+            Returns USDT to your live balance. That amount no longer receives monthly ROI.
           </p>
           <form onSubmit={onWd} className="funds-form">
             <label>

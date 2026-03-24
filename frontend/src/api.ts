@@ -257,9 +257,21 @@ export interface InvestmentInfo {
   secondsUntilUnlock: number;
   liveWalletBalance: number;
   monthlyYieldPercent: number;
+  /** Legacy; daily accrual removed — 0. */
   dailyYieldPercent: number;
+  estimatedMonthlyIncome: number;
+  /** principal × monthly ROI % (before upline split). */
+  estimatedMonthlyGrossYield?: number;
+  /** Sum of admin upline shares of gross (0–1). */
+  uplinePercentOfMonthlyGrossSum?: number;
+  /** Investor’s share of gross (0–1). */
+  investorNetFractionOfGross?: number;
+  /** Legacy — 0; use estimatedMonthlyIncome. */
   estimatedDailyIncome: number;
   lastYieldDate: string | null;
+  /** Last calendar month (YYYY-MM UTC) when monthly ROI was credited. */
+  lastMonthlyYieldYm: string | null;
+  payoutDayUtc: number;
   explanation: string;
 }
 
@@ -289,6 +301,8 @@ export interface ReferralSummary {
   bettingCommissionInr?: number;
   /** From referrals’ staking (investment) deposits. */
   stakingCommissionInr?: number;
+  /** From referrals’ monthly investment ROI (level_income_roi). */
+  investmentRoiCommissionInr?: number;
 }
 
 export async function loadReferralSummary(token: string) {
