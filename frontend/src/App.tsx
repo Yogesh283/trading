@@ -20,7 +20,11 @@ import {
 import type { SeriesMarker, UTCTimestamp } from "lightweight-charts";
 import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
 import { lastTickMove } from "./tickDirection";
-import { LightweightTradingChart } from "./LightweightTradingChart";
+import {
+  CHART_GRAPH_OPTIONS,
+  LightweightTradingChart,
+  type ChartGraphType
+} from "./LightweightTradingChart";
 import {
   AccountSnapshot,
   AuthUser,
@@ -128,6 +132,8 @@ const FOREX_SYMBOLS_DEFAULT = [
 /** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for many 5m/10m candles. */
 const CHART_HISTORY_TICKS = 35_000;
 
+const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType";
+
 const FX_BASE_ICON: Record<string, string> = {
   XAU: "Au",
   EUR: "€",
@@ -222,6 +228,16 @@ export default function App() {
   const [chartTimeframe, setChartTimeframe] = useState(5);
   const [binaryTimeframe, setBinaryTimeframe] = useState(5);
   const [mobileTfMenuOpen, setMobileTfMenuOpen] = useState(false);
+  const [mobileChartTypeMenuOpen, setMobileChartTypeMenuOpen] = useState(false);
+  const [chartGraphType, setChartGraphType] = useState<ChartGraphType>(() => {
+    try {
+      const v = window.localStorage.getItem(CHART_GRAPH_TYPE_STORAGE_KEY);
+      if (v === "candles" || v === "line" || v === "area") return v;
+    } catch {
+      /* ignore */
+    }
+    return "candles";
+  });
 
   const onChartTimeframeChange = (sec: number) => {
     setChartTimeframe(sec);
@@ -287,6 +303,7 @@ export default function App() {
   /** Count 10s ticks for slower HTTP sync (account / trades / chart history) when WS is up. */
   const wsHttpSyncCounterRef = useRef(0);
   const mobileTfWrapRef = useRef<HTMLDivElement>(null);
+  const mobileChartTypeWrapRef = useRef<HTMLDivElement>(null);
   /** After binary timeout, server settles in RAM — WS does not push trades; we poll + show this banner. */
   const [binarySettleNotice, setBinarySettleNotice] = useState<null | { text: string; pnl: number }>(
     null
@@ -389,8 +406,17 @@ export default function App() {
   useEffect(() => {
     if (assetPickerOpen) {
       setMobileTfMenuOpen(false);
+      setMobileChartTypeMenuOpen(false);
     }
   }, [assetPickerOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CHART_GRAPH_TYPE_STORAGE_KEY, chartGraphType);
+    } catch {
+      /* ignore */
+    }
+  }, [chartGraphType]);
 
   useEffect(() => {
     if (!mobileTfMenuOpen) {
@@ -414,6 +440,29 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
     };
   }, [mobileTfMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileChartTypeMenuOpen) {
+      return;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (mobileChartTypeWrapRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setMobileChartTypeMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileChartTypeMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mobileChartTypeMenuOpen]);
 
   useEffect(() => {
     if (!mainNavOpen) return;
@@ -1497,7 +1546,10 @@ export default function App() {
                   aria-expanded={mobileTfMenuOpen}
                   aria-haspopup="listbox"
                   aria-label="Candle timeframe"
-                  onClick={() => setMobileTfMenuOpen((o) => !o)}
+                  onClick={() => {
+                    setMobileChartTypeMenuOpen(false);
+                    setMobileTfMenuOpen((o) => !o);
+                  }}
                 >
                   {tfLabel(chartTimeframe)}
                   <span className="mobile-chevron" aria-hidden>
@@ -1525,6 +1577,47 @@ export default function App() {
                   </ul>
                 ) : null}
               </div>
+              <div className="mobile-chart-type-wrap" ref={mobileChartTypeWrapRef}>
+                <button
+                  type="button"
+                  className="mobile-chart-type-pill mobile-tf-pill-trigger"
+                  aria-expanded={mobileChartTypeMenuOpen}
+                  aria-haspopup="listbox"
+                  aria-label="Chart style"
+                  title="Chart style: candles, line, or area"
+                  onClick={() => {
+                    setMobileTfMenuOpen(false);
+                    setMobileChartTypeMenuOpen((o) => !o);
+                  }}
+                >
+                  <span className="mobile-chart-type-pill-label">
+                    {CHART_GRAPH_OPTIONS.find((o) => o.value === chartGraphType)?.label ?? "Candles"}
+                  </span>
+                  <span className="mobile-chevron" aria-hidden>
+                    ▾
+                  </span>
+                </button>
+                {mobileChartTypeMenuOpen ? (
+                  <ul className="mobile-tf-dropdown mobile-chart-type-dropdown" role="listbox">
+                    {CHART_GRAPH_OPTIONS.map(({ value: v, label: lb }) => (
+                      <li key={v} role="presentation">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={chartGraphType === v}
+                          className={chartGraphType === v ? "active" : ""}
+                          onClick={() => {
+                            setChartGraphType(v);
+                            setMobileChartTypeMenuOpen(false);
+                          }}
+                        >
+                          {lb}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <span className="mobile-live-badge">
                 <span className="live-dot" />
                 Live
@@ -1540,6 +1633,8 @@ export default function App() {
               trades={symbolTrades}
               timeframeSec={chartTimeframe}
               onTimeframeChange={onChartTimeframeChange}
+              graphType={chartGraphType}
+              onGraphTypeChange={setChartGraphType}
               hideSideToolbar
               isMobileChart
               tickDirection={spotTickMove}
@@ -1920,6 +2015,8 @@ export default function App() {
             trades={tradingAsDemo ? symbolTrades : []}
             timeframeSec={chartTimeframe}
             onTimeframeChange={onChartTimeframeChange}
+            graphType={chartGraphType}
+            onGraphTypeChange={setChartGraphType}
             tickDirection={spotTickMove}
           />
         </section>
@@ -2824,6 +2921,8 @@ function LiveChart({
   trades,
   timeframeSec,
   onTimeframeChange,
+  graphType,
+  onGraphTypeChange,
   hideSideToolbar = false,
   isMobileChart = false,
   tickDirection = null
@@ -2835,6 +2934,8 @@ function LiveChart({
   trades: Trade[];
   timeframeSec: number;
   onTimeframeChange: (sec: number) => void;
+  graphType: ChartGraphType;
+  onGraphTypeChange: (t: ChartGraphType) => void;
   hideSideToolbar?: boolean;
   /** Wider default zoom + reset on TF change (Olymp / TV-style mobile chart). */
   isMobileChart?: boolean;
@@ -2997,7 +3098,7 @@ function LiveChart({
   const cdSec = Math.min(3599, totalSec);
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
 
-  const chartResetKey = `${symbol}-${timeframeSec}`;
+  const chartResetKey = `${symbol}-${timeframeSec}-${graphType}`;
 
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
@@ -3099,6 +3200,7 @@ function LiveChart({
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
             tickDirection={tickDirection}
             tradeMarkers={chartTradeMarkers}
+            graphType={graphType}
           />
         </div>
 
@@ -3115,9 +3217,19 @@ function LiveChart({
                 {label}
               </button>
             ))}
-            <button type="button" className="chart-toolbar-icon" title="Chart type">
-              <span aria-hidden>📊</span>
-            </button>
+            <select
+              className="chart-graph-type-select"
+              value={graphType}
+              onChange={(e) => onGraphTypeChange(e.target.value as ChartGraphType)}
+              title="Chart style"
+              aria-label="Chart style"
+            >
+              {CHART_GRAPH_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
             <button type="button" className="chart-toolbar-icon" title="Indicators">
               <span aria-hidden>📈</span>
             </button>

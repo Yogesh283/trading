@@ -1536,34 +1536,39 @@ select {
   color: var(--candle-bear);
 }
 
-/* Last spot tick vs previous tick */
+/* Last spot tick vs previous tick — bear moves slower for a “heavy” down feel */
 .tv-spot-tick {
   display: inline-block;
   margin: 0 6px 0 4px;
   font-size: 15px;
   font-weight: 800;
   vertical-align: middle;
-  transition: color 1.2s ease, transform 1.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tv-spot-tick.up {
   color: var(--candle-bull);
   transform: translateY(-0.05em) scale(1.06);
+  transition: color 0.95s ease, transform 1.05s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tv-spot-tick.down {
   color: var(--candle-bear);
-  transform: translateY(0.06em) scale(1.06);
+  transform: translateY(0.08em) scale(1.05);
+  transition:
+    color 2.15s cubic-bezier(0.25, 0.46, 0.45, 1),
+    transform 2.35s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .chart-spot-price.up {
-  color: #0ecb81;
+  color: #33d996;
   border-color: rgba(14, 203, 129, 0.45);
+  transition: color 0.95s ease, border-color 1s ease;
 }
 
 .chart-spot-price.down {
   color: #f6465d;
   border-color: rgba(246, 70, 93, 0.45);
+  transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1), border-color 2s ease;
 }
 
 .tv-chart-meta {
@@ -1860,14 +1865,20 @@ select {
 .tv-chart-candle-timer--down {
   background: rgba(246, 70, 93, 0.14);
   border-color: rgba(246, 70, 93, 0.5);
+  transition:
+    background 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    border-color 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    box-shadow 2s ease;
 }
 
 .tv-chart-candle-timer--down .tv-chart-candle-timer-label {
   color: #f6465d;
+  transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1), opacity 1.6s ease;
 }
 
 .tv-chart-candle-timer--down .tv-chart-candle-timer-val {
   color: #ff5c6c;
+  transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1), letter-spacing 1.8s ease;
 }
 
 .tv-chart-meta-sep {
@@ -1953,6 +1964,15 @@ select {
 
 .chart-lw-axis-pill--down {
   background: #f6465d;
+  transition:
+    background 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    box-shadow 2s ease,
+    color 1.8s ease;
+}
+
+.chart-lw-axis-pill--down .chart-lw-axis-pill-timer,
+.chart-lw-axis-pill--down .chart-lw-axis-pill-price {
+  transition: color 1.85s cubic-bezier(0.25, 0.46, 0.45, 1), opacity 1.6s ease;
 }
 
 .chart-lw-axis-pill--neutral {
@@ -2094,7 +2114,10 @@ select {
   background: rgba(246, 70, 93, 0.18);
   border-color: #f6465d;
   color: #eaecef;
-  transition: background 1.2s ease, border-color 1.2s ease, color 1s ease;
+  transition:
+    background 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    border-color 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    color 1.75s ease;
 }
 
 .tv-live-badge--timer-only.tv-live-badge--tick-up {
@@ -2105,6 +2128,9 @@ select {
 .tv-live-badge--timer-only.tv-live-badge--tick-down {
   background: rgba(246, 70, 93, 0.14);
   border-color: #f6465d;
+  transition:
+    background 2s cubic-bezier(0.25, 0.46, 0.45, 1),
+    border-color 2s cubic-bezier(0.25, 0.46, 0.45, 1);
 }
 
 .tv-live-badge--timer-only.tv-live-badge--tick-up .tv-live-badge-cd {
@@ -2113,6 +2139,7 @@ select {
 
 .tv-live-badge--timer-only.tv-live-badge--tick-down .tv-live-badge-cd {
   color: #ff5c6c;
+  transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1);
 }
 
 .tv-chart-mobile .tv-live-badge {
@@ -2255,6 +2282,38 @@ button.desktop-demo-cta:disabled,
 .chart-toolbar-vertical .chart-toolbar-icon {
   font-size: 14px;
   line-height: 1;
+}
+
+.chart-toolbar-vertical .chart-graph-type-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 56px;
+  max-width: 88px;
+  height: 34px;
+  margin: 0;
+  padding: 0 4px 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: #eaecef;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #848e9c 50%),
+    linear-gradient(135deg, #848e9c 50%, transparent 50%);
+  background-position:
+    calc(100% - 10px) 14px,
+    calc(100% - 6px) 14px;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.chart-toolbar-vertical .chart-graph-type-select:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 .chart-zoom-controls {

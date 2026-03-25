@@ -511,6 +511,38 @@
   z-index: 261;
 }
 
+.mobile-chart-type-wrap {
+  position: relative;
+  z-index: 261;
+}
+
+.mobile-chart-type-pill {
+  min-height: 40px;
+  padding: 0 6px;
+  max-width: 80px;
+  border-radius: 10px;
+  border: 1px solid rgba(110, 160, 255, 0.28);
+  background: #000000;
+  color: #e5edf7;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mobile-chart-type-pill .mobile-chevron {
+  flex-shrink: 0;
+}
+
+.mobile-chart-type-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-chart-type-dropdown {
+  min-width: 118px;
+}
+
 .mobile-tf-pill {
   min-height: 40px;
   padding: 0 8px;
@@ -625,7 +657,7 @@
   width: 100%;
   box-sizing: border-box;
   position: relative;
-  background: #0d1117;
+  background: #070a0f;
   border-radius: 12px;
   /* visible so price scale + zoom pill are not clipped */
   overflow: visible;
@@ -639,7 +671,7 @@
 /* Lightweight-charts host (replaces old .tv-chart-svg). */
 .mobile-chart-wrap .chart-lw-outer {
   width: 100%;
-  min-height: min(22dvh, 220px);
+  min-height: min(28dvh, 260px);
   min-width: 0;
 }
 
@@ -697,7 +729,7 @@
 
 .tv-chart-mobile .chart-lw-host {
   flex: 1 1 auto;
-  min-height: 104px;
+  min-height: 148px;
 }
 
 /* Countdown pill — bottom-left; native chart shows symbol + price on right axis. */

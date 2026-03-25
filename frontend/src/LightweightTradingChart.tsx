@@ -15,16 +15,16 @@ import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
 /** Last-price line + axis pill (light neutral, readable on dark pane — exchange terminals). */
 const PRO_LAST_PRICE = "#eaecef";
-/** Binance-style candles + slightly darker borders for depth (VIP terminal). */
-const CANDLE_UP = "#0ecb81";
-const CANDLE_DOWN = "#f6465d";
-const CANDLE_BORDER_UP = "#078f6a";
-const CANDLE_BORDER_DOWN = "#c93545";
-const WICK_UP = "#12d991";
-const WICK_DOWN = "#ff5c6c";
-const CHART_BG = "#0d1117";
-const GRID_VERT = "rgba(43, 49, 57, 0.38)";
-const GRID_HORZ = "rgba(43, 49, 57, 0.5)";
+/** High-contrast candles: crisp bodies, deep borders, bright wicks (easier to read on mobile). */
+const CANDLE_UP = "#00c48c";
+const CANDLE_DOWN = "#ff4e5c";
+const CANDLE_BORDER_UP = "#007a55";
+const CANDLE_BORDER_DOWN = "#b31929";
+const WICK_UP = "#5fffd4";
+const WICK_DOWN = "#ffb0ba";
+const CHART_BG = "#070a0f";
+const GRID_VERT = "rgba(48, 55, 65, 0.42)";
+const GRID_HORZ = "rgba(48, 55, 65, 0.48)";
 const SCALE_TEXT = "#929aa4";
 const SCALE_BORDER = "#2b3139";
 /** TradingView-style crosshair gray */
@@ -49,8 +49,9 @@ function useMobileChartHeightPx(isMobile: boolean): number {
       return 200;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    const target = vh * 0.26;
-    return Math.round(Math.min(280, Math.max(168, target)));
+    /* Taller pane so full candles + wicks stay visible above the trade row */
+    const target = vh * 0.32;
+    return Math.round(Math.min(300, Math.max(188, target)));
   }, []);
 
   const [px, setPx] = useState(() => {
@@ -126,6 +127,52 @@ function candlestickDataFromCandles(candles: CandlePoint[]) {
   });
 }
 
+/** How OHLC buckets are drawn: full candles, close-only line, or filled area under the line. */
+export type ChartGraphType = "candles" | "line" | "area";
+
+export const CHART_GRAPH_OPTIONS: { value: ChartGraphType; label: string }[] = [
+  { value: "candles", label: "Candles" },
+  { value: "line", label: "Line" },
+  { value: "area", label: "Area" }
+];
+
+function lineLikeDataFromMergedCandles(
+  cd: ReturnType<typeof candlestickDataFromCandles>
+): { time: UTCTimestamp; value: number }[] {
+  return cd.map((c) => ({ time: c.time, value: c.close }));
+}
+
+function applySeriesTickColors(
+  series: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Area">,
+  graphType: ChartGraphType,
+  tickDirection: "up" | "down" | null
+) {
+  const lineCol = priceLineColorForTick(tickDirection);
+  if (graphType === "candles") {
+    (series as ISeriesApi<"Candlestick">).applyOptions({ priceLineColor: lineCol });
+    return;
+  }
+  if (graphType === "line") {
+    (series as ISeriesApi<"Line">).applyOptions({
+      color: lineCol,
+      priceLineColor: lineCol
+    });
+    return;
+  }
+  const fill =
+    tickDirection === "up"
+      ? { top: "rgba(0, 196, 140, 0.42)", bottom: "rgba(7, 10, 15, 0)" }
+      : tickDirection === "down"
+        ? { top: "rgba(255, 78, 92, 0.4)", bottom: "rgba(7, 10, 15, 0)" }
+        : { top: "rgba(146, 154, 164, 0.2)", bottom: "rgba(7, 10, 15, 0)" };
+  (series as ISeriesApi<"Area">).applyOptions({
+    lineColor: lineCol,
+    priceLineColor: lineCol,
+    topColor: fill.top,
+    bottomColor: fill.bottom
+  });
+}
+
 type Props = {
   candles: CandlePoint[];
   assetTag: string;
@@ -143,6 +190,7 @@ type Props = {
   tickDirection?: "up" | "down" | null;
   /** Open binary trades on this symbol — rendered as arrows on candles. */
   tradeMarkers?: SeriesMarker<UTCTimestamp>[];
+  graphType?: ChartGraphType;
 };
 
 export function LightweightTradingChart({
@@ -158,12 +206,22 @@ export function LightweightTradingChart({
   timerTextZoomed,
   onTimerTap,
   tickDirection = null,
-  tradeMarkers = []
+  tradeMarkers = [],
+  graphType = "candles"
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const mainSeriesRef = useRef<
+    ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Area"> | null
+  >(null);
   const lastResetKeyRef = useRef("");
+  /** Last applied series state — use `update()` for live ticks so the forming candle moves smoothly. */
+  const liveSeriesStateRef = useRef<{
+    resetKey: string;
+    len: number;
+    firstTime: number;
+    lastTime: number;
+  } | null>(null);
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   /** Y px for custom last-price pill (native label hidden — show TF + countdown + price). */
@@ -237,7 +295,7 @@ export function LightweightTradingChart({
         // Room for last-value pill: timeframe + MM:SS + price (desktop)
         minimumWidth: isMobileChart ? 76 : 124,
         // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
-        scaleMargins: isMobileChart ? { top: 0.1, bottom: 0.2 } : { top: 0.05, bottom: 0.1 }
+        scaleMargins: isMobileChart ? { top: 0.12, bottom: 0.22 } : { top: 0.05, bottom: 0.1 }
       },
       localization: {
         priceFormatter: (p: number) =>
@@ -266,38 +324,65 @@ export function LightweightTradingChart({
       }
     });
 
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: CANDLE_UP,
-      downColor: CANDLE_DOWN,
-      borderUpColor: CANDLE_BORDER_UP,
-      borderDownColor: CANDLE_BORDER_DOWN,
-      wickUpColor: WICK_UP,
-      wickDownColor: WICK_DOWN,
-      borderVisible: true,
-      wickVisible: true,
-      title: "",
-      lastValueVisible: false,
-      priceLineVisible: true,
-      priceLineColor: PRO_LAST_PRICE,
-      priceLineWidth: 1,
-      priceLineStyle: LineStyle.Solid
-    });
+    const priceLineW = isMobileChart ? 2 : 1;
+    const mainSeries =
+      graphType === "candles"
+        ? chart.addCandlestickSeries({
+            upColor: CANDLE_UP,
+            downColor: CANDLE_DOWN,
+            borderUpColor: CANDLE_BORDER_UP,
+            borderDownColor: CANDLE_BORDER_DOWN,
+            wickUpColor: WICK_UP,
+            wickDownColor: WICK_DOWN,
+            borderVisible: true,
+            wickVisible: true,
+            title: "",
+            lastValueVisible: false,
+            priceLineVisible: true,
+            priceLineColor: PRO_LAST_PRICE,
+            priceLineWidth: priceLineW,
+            priceLineStyle: LineStyle.Solid
+          })
+        : graphType === "line"
+          ? chart.addLineSeries({
+              color: PRO_LAST_PRICE,
+              lineWidth: isMobileChart ? 2 : 2,
+              title: "",
+              lastValueVisible: false,
+              priceLineVisible: true,
+              priceLineColor: PRO_LAST_PRICE,
+              priceLineWidth: priceLineW,
+              priceLineStyle: LineStyle.Solid
+            })
+          : chart.addAreaSeries({
+              lineColor: CANDLE_UP,
+              topColor: "rgba(0, 196, 140, 0.35)",
+              bottomColor: "rgba(7, 10, 15, 0)",
+              lineWidth: isMobileChart ? 2 : 2,
+              title: "",
+              lastValueVisible: false,
+              priceLineVisible: true,
+              priceLineColor: PRO_LAST_PRICE,
+              priceLineWidth: priceLineW,
+              priceLineStyle: LineStyle.Solid
+            });
 
     chartRef.current = chart;
-    candleRef.current = candleSeries;
+    mainSeriesRef.current = mainSeries;
 
     return () => {
       lastResetKeyRef.current = "";
+      liveSeriesStateRef.current = null;
       chart.remove();
       chartRef.current = null;
-      candleRef.current = null;
+      mainSeriesRef.current = null;
     };
-  }, [assetTag, isMobileChart, timeframeSec]);
+  }, [assetTag, graphType, isMobileChart, timeframeSec]);
 
   useEffect(() => {
     const chart = chartRef.current;
-    const candleSeries = candleRef.current;
-    if (!chart || !candleSeries || candles.length === 0) {
+    const series = mainSeriesRef.current;
+    if (!chart || !series || candles.length === 0) {
       return;
     }
 
@@ -308,7 +393,43 @@ export function LightweightTradingChart({
     });
 
     const cd = candlestickDataFromCandles(candles);
-    candleSeries.setData(cd);
+    const lastPt = cd[cd.length - 1]!;
+    const firstPt = cd[0]!;
+    const lastT = Number(lastPt.time);
+    const firstT = Number(firstPt.time);
+    const st = liveSeriesStateRef.current;
+
+    let useFullSet = true;
+    if (st && st.resetKey === chartResetKey && st.firstTime === firstT) {
+      const sameBar = cd.length === st.len && lastT === st.lastTime;
+      const oneNewBar = cd.length === st.len + 1 && lastT > st.lastTime;
+      if (sameBar || oneNewBar) {
+        if (graphType === "candles") {
+          (series as ISeriesApi<"Candlestick">).update(lastPt);
+        } else {
+          (series as ISeriesApi<"Line">).update({
+            time: lastPt.time,
+            value: lastPt.close
+          });
+        }
+        useFullSet = false;
+      }
+    }
+
+    if (useFullSet) {
+      if (graphType === "candles") {
+        (series as ISeriesApi<"Candlestick">).setData(cd);
+      } else {
+        (series as ISeriesApi<"Line">).setData(lineLikeDataFromMergedCandles(cd));
+      }
+    }
+
+    liveSeriesStateRef.current = {
+      resetKey: chartResetKey,
+      len: cd.length,
+      firstTime: firstT,
+      lastTime: lastT
+    };
 
     chart.priceScale("right").applyOptions({
       visible: true,
@@ -319,26 +440,24 @@ export function LightweightTradingChart({
       lastResetKeyRef.current = chartResetKey;
       chart.timeScale().fitContent();
     }
-  }, [assetTag, candles, chartResetKey, isMobileChart, timeframeSec]);
+  }, [assetTag, candles, chartResetKey, graphType, isMobileChart, timeframeSec]);
 
   useEffect(() => {
-    const candleSeries = candleRef.current;
-    if (!candleSeries) {
+    const series = mainSeriesRef.current;
+    if (!series) {
       return;
     }
-    candleSeries.setMarkers(tradeMarkers);
-  }, [tradeMarkers, chartResetKey, assetTag]);
+    series.setMarkers(tradeMarkers);
+  }, [tradeMarkers, chartResetKey, assetTag, graphType]);
 
   /** Custom HTML pill for TF + countdown + price; native last-value label stays off. */
   useEffect(() => {
-    const candleSeries = candleRef.current;
-    if (!candleSeries || candles.length === 0) {
+    const series = mainSeriesRef.current;
+    if (!series || candles.length === 0) {
       return;
     }
-    candleSeries.applyOptions({
-      priceLineColor: priceLineColorForTick(tickDirection)
-    });
-  }, [candles.length, tickDirection]);
+    applySeriesTickColors(series, graphType, tickDirection);
+  }, [candles.length, graphType, tickDirection]);
 
   const tailKey =
     candles.length > 0
@@ -347,7 +466,7 @@ export function LightweightTradingChart({
 
   useEffect(() => {
     const chart = chartRef.current;
-    const series = candleRef.current;
+    const series = mainSeriesRef.current;
     const el = containerRef.current;
     if (!chart || !series || !el) {
       return;
@@ -375,7 +494,7 @@ export function LightweightTradingChart({
       ts.unsubscribeVisibleLogicalRangeChange(sync);
       ts.unsubscribeVisibleTimeRangeChange(sync);
     };
-  }, [chartResetKey, assetTag, isMobileChart, timeframeSec, zoomIndex, tailKey]);
+  }, [chartResetKey, assetTag, graphType, isMobileChart, timeframeSec, zoomIndex, tailKey]);
 
   useEffect(() => {
     const chart = chartRef.current;
