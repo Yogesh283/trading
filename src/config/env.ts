@@ -56,6 +56,21 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
   TRADERMADE_KEY: z.string().optional(),
+  /**
+   * Alpha Vantage API key (https://www.alphavantage.co/support/#api-key) — optional chart history seed via FX_DAILY.
+   * Free tier has a strict daily request limit; keep key secret and do not commit it.
+   */
+  ALPHA_VANTAGE_API_KEY: z.string().optional(),
+  /**
+   * TraderMade live `/api/v1/live` poll interval (ms). Default 5000 — more frequent anchors for short TFs.
+   * Ignored without TRADERMADE_KEY.
+   */
+  TRADERMADE_LIVE_POLL_MS: z.coerce.number().int().positive().default(5000),
+  /**
+   * Extra synthetic ticks between live polls (ms). Lower = denser 5s/10s OHLC. Default 400.
+   * Ignored without TRADERMADE_KEY.
+   */
+  TRADERMADE_STREAM_PULSE_MS: z.coerce.number().int().positive().default(400),
   /** Set to 1 to force the old random-walk demo feed (no external APIs). */
   FOREX_SIMULATED_ONLY: z
     .string()

@@ -10,6 +10,8 @@ import cron from "node-cron";
 import { env } from "./config/env";
 import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
 import { getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
+import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
 import { TRADE_TIMEFRAMES_SEC, binaryCandleExpiresAtMs } from "./config/timeframes";
@@ -533,7 +535,7 @@ app.get("/api/markets/history", (req, res) => {
     const limit = Math.min(50000, Math.max(1, Number(req.query.limit) || 2000));
     await initAppDb();
     const fromDb = await getMarketTicks(symbol, limit);
-    /** Match client depth so merged history fills long TFs (5m/10m candles), not just the latest bucket. */
+    /** Match client depth so merged history fills long TFs (e.g. 5m), not just the latest bucket. */
     const memCap = Math.min(limit, 20000);
     const fromMemory = forexFeed.getHistory(symbol, memCap);
     const byKey = new Map<string, { symbol: string; price: number; timestamp: number }>();
@@ -1507,7 +1509,7 @@ app.post("/api/demo/orders", (req, res) => {
         !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
       ) {
         return res.status(400).json({
-          message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m, 10m"
+          message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m"
         });
       }
       if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -1589,7 +1591,7 @@ app.post("/api/orders", (req, res) => {
       !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
     ) {
       return res.status(400).json({
-        message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m, 10m"
+        message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m"
       });
     }
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -1870,6 +1872,15 @@ async function attachViteDevMiddleware(): Promise<void> {
   const { createServer: createViteServer } = await import("vite");
   const vite = await createViteServer({
     root: frontendRoot,
+    /**
+     * After `tsx watch` restarts this process, pre-bundled dep hashes change. Without a fresh
+     * optimize, the browser can keep requesting `echarts.js?v=…` and get `504 Outdated Optimize Dep`.
+     */
+    optimizeDeps: {
+      /** Match `frontend/vite.config.ts` — stale echarts hashes caused 504 after switching to lightweight-charts. */
+      include: ["lightweight-charts"],
+      force: true
+    },
     server: {
       middlewareMode: true,
       /**
@@ -1980,6 +1991,17 @@ export async function startServer(): Promise<http.Server> {
           ? `App + API → http://localhost:${env.PORT}`
           : "Trading backend listening"
       );
+      void initAppDb()
+        .then(async () => {
+          if (env.FOREX_SIMULATED_ONLY) return;
+          if (env.TRADERMADE_KEY?.trim()) {
+            await seedChartCandlesFromTraderMadeIfSparse(env.TRADERMADE_KEY.trim());
+          }
+          if (env.ALPHA_VANTAGE_API_KEY?.trim()) {
+            await seedChartCandlesFromAlphaVantageIfSparse(env.ALPHA_VANTAGE_API_KEY.trim());
+          }
+        })
+        .catch((e) => logger.warn({ e }, "chart_candles external seed skipped"));
       if (env.INVESTMENT_CRON_IN_PROCESS) {
         cron.schedule(
           "5 0 1 * *",

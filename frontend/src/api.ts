@@ -576,14 +576,13 @@ export async function loadAdminDeposits(adminToken: string) {
   return (await response.json()) as { deposits: DepositRecord[]; total: number };
 }
 
-/** Chart + binary: 5s–10m VIP ladder (matches server TRADE_TIMEFRAMES_SEC). */
+/** Chart + binary (matches server TRADE_TIMEFRAMES_SEC). */
 export const TIMEFRAME_OPTIONS = [
   { value: 5, label: "5s" },
   { value: 10, label: "10s" },
   { value: 60, label: "1m" },
   { value: 180, label: "3m" },
-  { value: 300, label: "5m" },
-  { value: 600, label: "10m" }
+  { value: 300, label: "5m" }
 ] as const;
 
 export type ChartTimeframeSec = (typeof TIMEFRAME_OPTIONS)[number]["value"];

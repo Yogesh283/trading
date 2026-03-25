@@ -17,13 +17,13 @@ import {
   mergeDbClosedWithLiveCandles,
   type CandlePoint
 } from "./chartCandles";
-import type { SeriesMarker, UTCTimestamp } from "lightweight-charts";
 import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
 import { lastTickMove } from "./tickDirection";
 import {
   CHART_GRAPH_OPTIONS,
   LightweightTradingChart,
-  type ChartGraphType
+  type ChartGraphType,
+  type ChartTradeMarker
 } from "./LightweightTradingChart";
 import {
   AccountSnapshot,
@@ -129,10 +129,12 @@ const FOREX_SYMBOLS_DEFAULT = [
   "XAUUSD"
 ] as const;
 
-/** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for many 5m/10m candles. */
+/** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for long TFs (e.g. 5m). */
 const CHART_HISTORY_TICKS = 35_000;
 
-const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType";
+/** v2: default + persist candlestick as primary chart (ignore legacy line/area from old key). */
+const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType.v2";
+const CHART_GRAPH_TYPE_LEGACY_KEY = "tradeing.chartGraphType";
 
 const FX_BASE_ICON: Record<string, string> = {
   XAU: "Au",
@@ -224,7 +226,8 @@ export default function App() {
   const [forexSymbolList, setForexSymbolList] = useState<string[]>([...FOREX_SYMBOLS_DEFAULT]);
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [quantity, setQuantity] = useState("1");
-  /** Chart + trade candle period: 5s … 10m (see TIMEFRAME_OPTIONS). */
+  /** Chart + trade candle period: 5s … 5m (see TIMEFRAME_OPTIONS). */
+  /** Default chart TF: 5s (see TIMEFRAME_OPTIONS). Binary default stays 5s unless user syncs TFs. */
   const [chartTimeframe, setChartTimeframe] = useState(5);
   const [binaryTimeframe, setBinaryTimeframe] = useState(5);
   const [mobileTfMenuOpen, setMobileTfMenuOpen] = useState(false);
@@ -232,7 +235,13 @@ export default function App() {
   const [chartGraphType, setChartGraphType] = useState<ChartGraphType>(() => {
     try {
       const v = window.localStorage.getItem(CHART_GRAPH_TYPE_STORAGE_KEY);
-      if (v === "candles" || v === "line" || v === "area") return v;
+      if (v === "candles" || v === "line" || v === "area") {
+        return v;
+      }
+      const legacy = window.localStorage.getItem(CHART_GRAPH_TYPE_LEGACY_KEY);
+      if (legacy === "candles") {
+        return "candles";
+      }
     } catch {
       /* ignore */
     }
@@ -697,22 +706,28 @@ export default function App() {
 
     const wsUrl = getBackendWsUrl(session ? { token: session.token, wallet: accountWallet } : undefined);
 
+    let cancelled = false;
     const ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
+
+    const onOpen = () => {
+      if (cancelled) {
+        ws.close();
+        return;
+      }
       wsMarketLiveRef.current = true;
       wsHttpSyncCounterRef.current = 0;
       setStatus("Live");
     };
-    ws.onclose = () => {
+    const onClose = () => {
       wsMarketLiveRef.current = false;
       wsHttpSyncCounterRef.current = 0;
       setStatus("Disconnected");
     };
-    ws.onerror = () => {
+    const onError = () => {
       wsMarketLiveRef.current = false;
       setStatus("Connection error");
     };
-    ws.onmessage = (event) => {
+    const onMessage = (event: MessageEvent) => {
       const payload = JSON.parse(event.data as string) as
         | {
             type: "snapshot";
@@ -765,6 +780,11 @@ export default function App() {
       setHistory((current) => appendPoint(current, payload.data));
     };
 
+    ws.addEventListener("open", onOpen);
+    ws.addEventListener("close", onClose);
+    ws.addEventListener("error", onError);
+    ws.addEventListener("message", onMessage);
+
     /**
      * Disconnected: full HTTP refresh every 10s (prices + account).
      * Connected: prices from WS only; light HTTP every ~60s for balances, trades, DB chart history.
@@ -783,10 +803,18 @@ export default function App() {
     }, 10_000);
 
     return () => {
+      cancelled = true;
       wsMarketLiveRef.current = false;
       wsHttpSyncCounterRef.current = 0;
-      ws.close();
+      ws.removeEventListener("open", onOpen);
+      ws.removeEventListener("close", onClose);
+      ws.removeEventListener("error", onError);
+      ws.removeEventListener("message", onMessage);
       window.clearInterval(interval);
+      /* Avoid closing while CONNECTING — React Strict Mode double-mount; `onOpen` closes stray sockets. */
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, [session, sessionToken, accountWallet]);
 
@@ -1999,7 +2027,7 @@ export default function App() {
                   {formatForexPair(symbol)}
                 </button>
               </h2>
-              <p className="muted">Top 20 forex · same chart for every period (5s–10m)</p>
+              <p className="muted">Top 20 forex · same chart for every period (5s–5m)</p>
             </div>
             <div className="chart-badges">
               <span className={`badge chart-spot-price${spotTickMove ? ` ${spotTickMove}` : ""}`}>
@@ -2951,10 +2979,10 @@ function LiveChart({
   const zoomIndexRef = useRef(zoomIndex);
   zoomIndexRef.current = zoomIndex;
 
-  const chartTradeMarkers = useMemo((): SeriesMarker<UTCTimestamp>[] => {
+  const chartTradeMarkers = useMemo((): ChartTradeMarker[] => {
     const fmt = (p: number) =>
       p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6);
-    const list: SeriesMarker<UTCTimestamp>[] = [];
+    const list: ChartTradeMarker[] = [];
     for (const t of trades) {
       if (
         t.status !== "open" ||
@@ -2968,7 +2996,7 @@ function LiveChart({
         continue;
       }
       const bucketStart = candleBucketStartMs(ms, timeframeSec);
-      const time = Math.floor(bucketStart / 1000) as UTCTimestamp;
+      const time = Math.floor(bucketStart / 1000);
       const up = t.direction === "up";
       list.push({
         time,
@@ -2983,7 +3011,7 @@ function LiveChart({
     return list;
   }, [trades, symbol, timeframeSec]);
 
-  /** 1s tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
+  /** 1 Hz tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
     return () => window.clearInterval(id);
@@ -3041,8 +3069,6 @@ function LiveChart({
   }, [isMobileChart, zoomIndex]);
 
   const now = Date.now();
-  const firstTickMs =
-    points.length > 0 ? Math.min(...points.map((p) => p.timestamp)) : null;
   const liveCandles =
     points.length > 0 ? buildCandles(points, timeframeSec, now) : [];
 
@@ -3053,12 +3079,7 @@ function LiveChart({
         ? extendClosedCandlesToNow(closedCandlesFromDb, timeframeSec, now)
         : [];
   } else if (closedCandlesFromDb.length > 0) {
-    allCandles = mergeDbClosedWithLiveCandles(
-      closedCandlesFromDb,
-      liveCandles,
-      timeframeSec,
-      firstTickMs
-    );
+    allCandles = mergeDbClosedWithLiveCandles(closedCandlesFromDb, liveCandles, timeframeSec);
   } else {
     allCandles = liveCandles;
   }

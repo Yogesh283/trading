@@ -1910,74 +1910,82 @@ select {
   overflow: visible;
 }
 
+/* Reference: dark chart + gray countdown chip + white price tag on right scale */
 .chart-lw-axis-pill {
   position: absolute;
   right: 2px;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 5px 8px 6px;
-  border-radius: 4px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-variant-numeric: tabular-nums;
-  color: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
   line-height: 1.15;
-  max-width: min(42vw, 140px);
+  max-width: min(52vw, 220px);
   text-align: right;
-  transition: background 1.15s ease, box-shadow 1.15s ease, color 1s ease;
 }
 
 .chart-lw-axis-pill-timer {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-end;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.95;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #d1d4dc;
+  background: #363a45;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .chart-lw-axis-pill-tf {
-  color: inherit;
+  color: #848e9c;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .chart-lw-axis-pill-cd {
   font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: none;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: #eaecef;
 }
 
 .chart-lw-axis-pill-price {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 3px;
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.02em;
+  color: #131722;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
-.chart-lw-axis-pill--up {
-  background: #0ecb81;
+.chart-lw-axis-pill--up .chart-lw-axis-pill-timer {
+  border-left: 2px solid #089981;
 }
 
-.chart-lw-axis-pill--down {
-  background: #f6465d;
-  transition:
-    background 2s cubic-bezier(0.25, 0.46, 0.45, 1),
-    box-shadow 2s ease,
-    color 1.8s ease;
+.chart-lw-axis-pill--down .chart-lw-axis-pill-timer {
+  border-left: 2px solid #f23645;
 }
 
-.chart-lw-axis-pill--down .chart-lw-axis-pill-timer,
-.chart-lw-axis-pill--down .chart-lw-axis-pill-price {
-  transition: color 1.85s cubic-bezier(0.25, 0.46, 0.45, 1), opacity 1.6s ease;
-}
-
-.chart-lw-axis-pill--neutral {
-  background: #474d57;
-  color: #f5f6f8;
+.chart-lw-axis-pill--neutral .chart-lw-axis-pill-timer {
+  border-left-color: transparent;
 }
 
 .tv-live-badge-cd-tf {

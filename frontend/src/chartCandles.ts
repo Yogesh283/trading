@@ -79,7 +79,7 @@ export const CHART_MAX_CANDLES = 1200;
 
 /**
  * Build OHLC candles: one bar per `intervalSeconds` aligned to UTC wall buckets (same idea as TradingView UTC forex).
- * 5s → new bar every 5 seconds; 10/60/180/300/600 → 10s through 10m bars.
+ * 5s/10s/60/180/300 → 5s through 5m bars (aligned to UTC buckets).
  * Empty buckets become flat bars (O=H=L=C=last price) so each period is its own candle.
  * Only the last `CHART_MAX_CANDLES` periods are kept so the series stays fast and readable.
  */
@@ -164,24 +164,22 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
 }
 
 /**
- * DB holds closed bars only; live WebSocket ticks rebuild the current window. Prefix = closed bars
- * that end strictly before the first live tick bucket so buckets are not duplicated.
+ * DB holds closed bars only; live ticks rebuild the visible window from `buildCandles`.
+ * Prefix = closed bars that end before the **first bucket in `liveFromTicks`** (same as
+ * `buildCandles`’s `effectiveFirst`). Using the first tick’s bucket was wrong when the chart
+ * window is trimmed by `CHART_MAX_CANDLES` — prefix became empty / misaligned (bad 5s/10s charts).
  */
 export function mergeDbClosedWithLiveCandles(
   closedAscending: CandlePoint[],
   liveFromTicks: CandlePoint[],
-  timeframeSec: number,
-  firstTickTimeMs: number | null
+  timeframeSec: number
 ): CandlePoint[] {
   if (liveFromTicks.length === 0) {
     return closedAscending;
   }
   const tfMs = timeframeSec * 1000;
-  const firstBucket =
-    firstTickTimeMs != null
-      ? Math.floor(firstTickTimeMs / tfMs) * tfMs
-      : liveFromTicks[0]!.timestamp;
-  const prefix = closedAscending.filter((c) => c.timestamp + tfMs <= firstBucket);
+  const liveStart = liveFromTicks[0]!.timestamp;
+  const prefix = closedAscending.filter((c) => c.timestamp + tfMs <= liveStart);
   return [...prefix, ...liveFromTicks];
 }
 

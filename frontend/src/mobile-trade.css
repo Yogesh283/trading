@@ -850,14 +850,18 @@
 
 /* Smaller on-chart last-price pill on narrow mobile card */
 .tv-chart-mobile .chart-lw-axis-pill {
-  padding: 3px 6px 4px;
-  gap: 2px;
-  max-width: min(38vw, 118px);
+  gap: 4px;
+  max-width: min(48vw, 200px);
 }
 
 .tv-chart-mobile .chart-lw-axis-pill-timer {
+  padding: 3px 6px !important;
   font-size: 0.65rem !important;
-  gap: 4px;
+  gap: 3px;
+}
+
+.tv-chart-mobile .chart-lw-axis-pill-tf {
+  font-size: 0.55rem !important;
 }
 
 .tv-chart-mobile .chart-lw-axis-pill-cd {
@@ -866,6 +870,7 @@
 
 .tv-chart-mobile .chart-lw-axis-pill-price {
   font-size: 11px !important;
+  padding: 3px 7px !important;
 }
 
 .tv-chart-mobile .chart-zoom-controls {

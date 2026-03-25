@@ -5,6 +5,10 @@ import react from "@vitejs/plugin-react";
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
     plugins: [react()],
+    /** Pre-bundle TradingView Lightweight Charts so unified `npm run dev` middleware does not 504 on stale dep hashes. */
+    optimizeDeps: {
+        include: ["lightweight-charts"]
+    },
     build: {
         rollupOptions: {
             input: {

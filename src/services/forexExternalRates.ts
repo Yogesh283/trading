@@ -160,3 +160,58 @@ export async function fetchTraderMadeLive(
   }
   return out;
 }
+
+export type TraderMadeHistoricalBar = {
+  bucketStartMs: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+/**
+ * TraderMade REST historical — `GET /api/v1/historical?currency=&date=YYYY-MM-DD&api_key=`
+ * Bar spacing depends on plan (hourly common on free tier). Used to seed DB when dense enough.
+ */
+export async function fetchTraderMadeHistoricalDay(
+  apiKey: string,
+  symbol: string,
+  dateYmd: string
+): Promise<TraderMadeHistoricalBar[]> {
+  const sym = symbol.trim().toUpperCase();
+  const url = new URL("https://marketdata.tradermade.com/api/v1/historical");
+  url.searchParams.set("currency", sym);
+  url.searchParams.set("date", dateYmd);
+  url.searchParams.set("api_key", apiKey.trim());
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" } });
+  const j = (await res.json()) as Record<string, unknown>;
+  if (!res.ok) {
+    const msg = typeof j.message === "string" ? j.message : res.statusText;
+    throw new Error(`TraderMade historical: ${msg}`);
+  }
+  const raw = (j.quotes ?? j.data ?? j.result ?? []) as unknown;
+  const quotes = Array.isArray(raw) ? raw : [];
+  const out: TraderMadeHistoricalBar[] = [];
+  for (const q of quotes as Record<string, unknown>[]) {
+    const open = Number(q.open ?? q.o ?? q.Open);
+    const high = Number(q.high ?? q.h ?? q.High);
+    const low = Number(q.low ?? q.l ?? q.Low);
+    const close = Number(q.close ?? q.c ?? q.Close);
+    const ds = q.date ?? q.datetime ?? q.time ?? q.timestamp;
+    let t: number;
+    if (typeof ds === "number" && Number.isFinite(ds)) {
+      t = ds < 1e12 ? ds * 1000 : ds;
+    } else if (typeof ds === "string") {
+      t = new Date(ds).getTime();
+    } else {
+      continue;
+    }
+    if (![open, high, low, close].every((x) => Number.isFinite(x))) {
+      continue;
+    }
+    const hi = Math.max(open, high, low, close);
+    const lo = Math.min(open, high, low, close);
+    out.push({ bucketStartMs: t, open, high: hi, low: lo, close });
+  }
+  return out.sort((a, b) => a.bucketStartMs - b.bucketStartMs);
+}

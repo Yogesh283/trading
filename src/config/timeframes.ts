@@ -1,5 +1,5 @@
-/** Chart + binary trade candle periods (seconds). Single source for server. 5s–10m VIP ladder (no 1s/2m). */
-export const TRADE_TIMEFRAMES_SEC = [5, 10, 60, 180, 300, 600] as const;
+/** Chart + binary trade candle periods (seconds). Single source for server. */
+export const TRADE_TIMEFRAMES_SEC = [5, 10, 60, 180, 300] as const;
 
 /**
  * Unix ms when the current candle CLOSES (aligned to epoch — same buckets as chart `buildCandles`).

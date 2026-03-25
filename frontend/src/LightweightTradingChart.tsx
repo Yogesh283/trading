@@ -1,55 +1,66 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AreaSeries,
+  CandlestickSeries,
   ColorType,
   createChart,
+  createSeriesMarkers,
   CrosshairMode,
-  LineStyle,
-  TrackingModeExitMode,
-  type IChartApi,
-  type ISeriesApi,
-  type SeriesMarker,
-  type UTCTimestamp
+  LineSeries
 } from "lightweight-charts";
+import type {
+  IChartApi,
+  IPriceLine,
+  ISeriesApi,
+  ISeriesMarkersPluginApi,
+  SeriesMarker,
+  Time,
+  UTCTimestamp
+} from "lightweight-charts";
+import type { CandlestickData, LineData } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
 import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
 
-/** Last-price line + axis pill (light neutral, readable on dark pane — exchange terminals). */
-const PRO_LAST_PRICE = "#eaecef";
-/** High-contrast candles: crisp bodies, deep borders, bright wicks (easier to read on mobile). */
-const CANDLE_UP = "#00c48c";
-const CANDLE_DOWN = "#ff4e5c";
-const CANDLE_BORDER_UP = "#007a55";
-const CANDLE_BORDER_DOWN = "#b31929";
-const WICK_UP = "#5fffd4";
-const WICK_DOWN = "#ffb0ba";
-const CHART_BG = "#070a0f";
-const GRID_VERT = "rgba(48, 55, 65, 0.42)";
-const GRID_HORZ = "rgba(48, 55, 65, 0.48)";
+/**
+ * TradingView [Lightweight Charts](https://github.com/tradingview/lightweight-charts) — same family many brokers
+ * (Olymp-style web terminals often use canvas OHLC engines like this; exact stack of olymptrade.com is not public).
+ */
+
+const PRO_LAST_PRICE = "#d1d4dc";
+const CANDLE_UP = "#089981";
+const CANDLE_DOWN = "#f23645";
+const CANDLE_BORDER_UP = "#068f76";
+const CANDLE_BORDER_DOWN = "#d12e3a";
+const CHART_BG = "#0b0d12";
+const GRID_VERT = "rgba(42, 46, 58, 0.35)";
+const GRID_HORZ = "rgba(42, 46, 58, 0.4)";
 const SCALE_TEXT = "#929aa4";
 const SCALE_BORDER = "#2b3139";
-/** TradingView-style crosshair gray */
 const CROSSHAIR = "rgba(117, 134, 150, 0.55)";
 const CHART_FONT =
   'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif';
 
 function priceLineColorForTick(dir: "up" | "down" | null | undefined): string {
-  if (dir === "up") {
-    return CANDLE_UP;
-  }
-  if (dir === "down") {
-    return CANDLE_DOWN;
-  }
+  if (dir === "up") return CANDLE_UP;
+  if (dir === "down") return CANDLE_DOWN;
   return PRO_LAST_PRICE;
 }
 
-/** Responsive chart height for phone — minimal so dock + order row dominate the screen. */
+export type ChartTradeMarker = {
+  time: number;
+  position: "belowBar" | "aboveBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown";
+  text?: string;
+  id?: string;
+};
+
 function useMobileChartHeightPx(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
       return 200;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    /* Taller pane so full candles + wicks stay visible above the trade row */
     const target = vh * 0.32;
     return Math.round(Math.min(300, Math.max(188, target)));
   }, []);
@@ -83,17 +94,20 @@ function useMobileChartHeightPx(isMobile: boolean): number {
   return isMobile ? px : 480;
 }
 
-/**
- * One point per chart bucket, time = unix seconds (lightweight-charts).
- * Coerces OHLC so high/low always wrap open/close (avoids broken candle geometry).
- * Duplicate unix seconds (should be rare) merge into one bar.
- */
-function candlestickDataFromCandles(candles: CandlePoint[]) {
+type MergedCandle = {
+  bucketMs: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+};
+
+function candlestickDataFromCandles(candles: CandlePoint[]): MergedCandle[] {
   if (candles.length === 0) {
     return [];
   }
   const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
-  const merged = new Map<number, { open: number; high: number; low: number; close: number }>();
+  const out: MergedCandle[] = [];
   for (const c of sorted) {
     const o = Number(c.open);
     const h0 = Number(c.high);
@@ -104,30 +118,22 @@ function candlestickDataFromCandles(candles: CandlePoint[]) {
     }
     const high = Math.max(o, cl, h0, l0);
     const low = Math.min(o, cl, h0, l0);
-    const t = Math.floor(c.timestamp / 1000);
-    const m = merged.get(t);
-    if (!m) {
-      merged.set(t, { open: o, high, low, close: cl });
-    } else {
-      m.high = Math.max(m.high, high);
-      m.low = Math.min(m.low, low);
-      m.close = cl;
-    }
+    out.push({ bucketMs: c.timestamp, open: o, high, low, close: cl });
   }
-  const secs = Array.from(merged.keys()).sort((a, b) => a - b);
-  return secs.map((sec) => {
-    const m = merged.get(sec)!;
-    return {
-      time: sec as UTCTimestamp,
-      open: m.open,
-      high: m.high,
-      low: m.low,
-      close: m.close
-    };
-  });
+  return out;
 }
 
-/** How OHLC buckets are drawn: full candles, close-only line, or filled area under the line. */
+function candlestickOHLCForDisplay(c: MergedCandle): [number, number, number, number] {
+  const { open, close, low, high } = c;
+  const range = high - low;
+  if (Number.isFinite(range) && range > 1e-12) {
+    return [open, close, low, high];
+  }
+  const p = (open + close) / 2;
+  const t = Math.max(Math.abs(p) * 1e-6, 1e-6);
+  return [p - t / 2, p + t / 2, p - t, p + t];
+}
+
 export type ChartGraphType = "candles" | "line" | "area";
 
 export const CHART_GRAPH_OPTIONS: { value: ChartGraphType; label: string }[] = [
@@ -136,47 +142,107 @@ export const CHART_GRAPH_OPTIONS: { value: ChartGraphType; label: string }[] = [
   { value: "area", label: "Area" }
 ];
 
-function lineLikeDataFromMergedCandles(
-  cd: ReturnType<typeof candlestickDataFromCandles>
-): { time: UTCTimestamp; value: number }[] {
-  return cd.map((c) => ({ time: c.time, value: c.close }));
+function yExtentFromCandlesRobust(cd: MergedCandle[]): { min: number; max: number } {
+  if (cd.length === 0) {
+    return { min: 0, max: 1 };
+  }
+  const vals: number[] = [];
+  for (const c of cd) {
+    vals.push(c.open, c.close, c.low, c.high);
+  }
+  const finite = vals.filter((v) => Number.isFinite(v));
+  if (finite.length === 0) {
+    return { min: 0, max: 1 };
+  }
+  finite.sort((a, b) => a - b);
+  const n = finite.length;
+  const loIdx = Math.max(0, Math.floor(n * 0.03));
+  const hiIdx = Math.min(n - 1, Math.ceil(n * 0.97) - 1);
+  let lo = finite[loIdx]!;
+  let hi = finite[hiIdx]!;
+  if (hi < lo) {
+    [lo, hi] = [hi, lo];
+  }
+  const mid = (lo + hi) / 2;
+  if (hi - lo < 1e-9) {
+    const pad = Math.max(Math.abs(mid) * 0.002, 5e-5);
+    return { min: mid - pad, max: mid + pad };
+  }
+  const pad = (hi - lo) * 0.12;
+  return { min: lo - pad, max: hi + pad };
 }
 
-function applySeriesTickColors(
-  series: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Area">,
-  graphType: ChartGraphType,
-  tickDirection: "up" | "down" | null
-) {
-  const lineCol = priceLineColorForTick(tickDirection);
-  if (graphType === "candles") {
-    (series as ISeriesApi<"Candlestick">).applyOptions({ priceLineColor: lineCol });
-    return;
+function alignYAxisToNiceStep(ext: { min: number; max: number }): { min: number; max: number } {
+  const { min, max } = ext;
+  const span = max - min;
+  if (!(span > 0) || !Number.isFinite(span)) {
+    return { min, max };
   }
-  if (graphType === "line") {
-    (series as ISeriesApi<"Line">).applyOptions({
-      color: lineCol,
-      priceLineColor: lineCol
+  const mid = (min + max) / 2;
+  const rough = span / 5.5;
+  const exp = Math.floor(Math.log10(Math.max(rough, 1e-12)));
+  const frac = rough / 10 ** exp;
+  let nf = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  let interval = nf * 10 ** exp;
+  if (Math.abs(mid) >= 300 && span >= 2 && span <= 16 && interval > 1) {
+    interval = 1;
+  }
+  const amin = Math.floor(min / interval + 1e-12) * interval;
+  let amax = Math.ceil(max / interval - 1e-12) * interval;
+  if (amax <= amin) {
+    amax = amin + interval;
+  }
+  return { min: amin, max: amax };
+}
+
+function yExtentForDisplay(cd: MergedCandle[], zoomStartPct: number, zoomEndPct: number): { min: number; max: number } {
+  const n = cd.length;
+  if (n === 0) {
+    return { min: 0, max: 1 };
+  }
+  const z0 = Math.max(0, Math.min(100, zoomStartPct));
+  const z1 = Math.max(0, Math.min(100, zoomEndPct));
+  const i0 = Math.floor((n * z0) / 100);
+  const i1 = Math.min(n, Math.ceil((n * z1) / 100));
+  const slice = cd.slice(i0, Math.max(i0 + 1, i1));
+  return yExtentFromCandlesRobust(slice.length > 0 ? slice : cd);
+}
+
+function dataZoomRange(zoomIndex: number, barCount: number): { start: number; end: number } {
+  if (barCount <= 1) {
+    return { start: 0, end: 100 };
+  }
+  const sp = CHART_ZOOM_BAR_SPACING[Math.min(zoomIndex, CHART_ZOOM_BAR_SPACING.length - 1)] ?? 15;
+  const approxVisible = Math.max(8, Math.min(barCount, Math.floor(520 / sp)));
+  const startPct = Math.max(0, ((barCount - approxVisible) / barCount) * 100);
+  return { start: startPct, end: 100 };
+}
+
+function toUtcTime(ms: number): UTCTimestamp {
+  return Math.floor(ms / 1000) as UTCTimestamp;
+}
+
+function buildSeriesMarkers(cd: MergedCandle[], markers: ChartTradeMarker[]): SeriesMarker<Time>[] {
+  const out: SeriesMarker<Time>[] = [];
+  for (const m of markers) {
+    const idx = cd.findIndex((c) => Math.floor(c.bucketMs / 1000) === m.time);
+    if (idx < 0) continue;
+    const bar = cd[idx]!;
+    const t = toUtcTime(bar.bucketMs);
+    out.push({
+      time: t,
+      position: m.position === "belowBar" ? "belowBar" : "aboveBar",
+      color: m.color,
+      shape: m.shape === "arrowUp" ? "arrowUp" : "arrowDown",
+      text: m.text
     });
-    return;
   }
-  const fill =
-    tickDirection === "up"
-      ? { top: "rgba(0, 196, 140, 0.42)", bottom: "rgba(7, 10, 15, 0)" }
-      : tickDirection === "down"
-        ? { top: "rgba(255, 78, 92, 0.4)", bottom: "rgba(7, 10, 15, 0)" }
-        : { top: "rgba(146, 154, 164, 0.2)", bottom: "rgba(7, 10, 15, 0)" };
-  (series as ISeriesApi<"Area">).applyOptions({
-    lineColor: lineCol,
-    priceLineColor: lineCol,
-    topColor: fill.top,
-    bottomColor: fill.bottom
-  });
+  return out;
 }
 
 type Props = {
   candles: CandlePoint[];
   assetTag: string;
-  /** Same short label as toolbar (e.g. 10S, 1M) — shown in the right-axis last-price pill with the countdown. */
   timeframeLabel: string;
   formatPrice: (p: number) => string;
   timeframeSec: number;
@@ -186,10 +252,8 @@ type Props = {
   countdownStr: string;
   timerTextZoomed: boolean;
   onTimerTap: () => void;
-  /** Last spot tick vs previous (green ↑ / red ↓). */
   tickDirection?: "up" | "down" | null;
-  /** Open binary trades on this symbol — rendered as arrows on candles. */
-  tradeMarkers?: SeriesMarker<UTCTimestamp>[];
+  tradeMarkers?: ChartTradeMarker[];
   graphType?: ChartGraphType;
 };
 
@@ -211,253 +275,225 @@ export function LightweightTradingChart({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const mainSeriesRef = useRef<
-    ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> | ISeriesApi<"Area"> | null
-  >(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick" | "Line" | "Area"> | null>(null);
+  const priceLineRef = useRef<IPriceLine | null>(null);
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const lastResetKeyRef = useRef("");
-  /** Last applied series state — use `update()` for live ticks so the forming candle moves smoothly. */
-  const liveSeriesStateRef = useRef<{
-    resetKey: string;
-    len: number;
-    firstTime: number;
-    lastTime: number;
-  } | null>(null);
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
-  /** Y px for custom last-price pill (native label hidden — show TF + countdown + price). */
   const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
 
   const height = useMobileChartHeightPx(isMobileChart);
+
+  const updateAxisPill = useCallback(() => {
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series || seriesRef.current === null) {
+      setAxisPillTop(null);
+      return;
+    }
+    const list = candlesRef.current;
+    const cd = candlestickDataFromCandles(list);
+    if (cd.length === 0) {
+      setAxisPillTop(null);
+      return;
+    }
+    const lastBar = cd[cd.length - 1]!;
+    const y = series.priceToCoordinate(lastBar.close);
+    setAxisPillTop(y != null && Number.isFinite(y) ? y : null);
+  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) {
       return;
     }
-
-    lastResetKeyRef.current = "";
-
     const chart = createChart(el, {
-      /** ResizeObserver on container — avoids wrong clientWidth on first paint + keeps right price scale laid out. */
-      autoSize: true,
-      width: 0,
-      height: 0,
       layout: {
-        background: {
-          type: ColorType.Solid,
-          color: CHART_BG
-        },
+        background: { type: ColorType.Solid, color: CHART_BG },
         textColor: SCALE_TEXT,
-        fontSize: isMobileChart ? 12 : 13,
-        fontFamily: CHART_FONT
+        fontFamily: CHART_FONT,
+        attributionLogo: false
       },
       grid: {
         vertLines: { color: GRID_VERT },
         horzLines: { color: GRID_HORZ }
       },
-      /** Hide empty left scale — all prices on the right (TradingView-style). */
-      leftPriceScale: {
-        visible: false
-      },
-      crosshair: {
-        mode: isMobileChart ? CrosshairMode.Magnet : CrosshairMode.Normal,
-        vertLine: {
-          color: CROSSHAIR,
-          width: 1,
-          style: LineStyle.LargeDashed
-        },
-        horzLine: {
-          color: CROSSHAIR,
-          width: 1,
-          style: LineStyle.LargeDashed
-        }
+      rightPriceScale: {
+        borderColor: SCALE_BORDER,
+        scaleMargins: { top: 0.08, bottom: 0.08 }
       },
       timeScale: {
+        borderColor: SCALE_BORDER,
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
-        borderColor: SCALE_BORDER,
-        // Extra gap so last candle + wicks aren’t flush against the price scale on narrow screens
-        rightOffset: isMobileChart ? 14 : 8,
-        fixLeftEdge: false,
-        fixRightEdge: false,
-        lockVisibleTimeRangeOnResize: true,
-        minBarSpacing: 2,
-        /** When the latest candle is in view, new ticks follow; when user scrolls left, view stays on history. */
-        shiftVisibleRangeOnNewBar: true
+        rightOffset: 4
       },
-      rightPriceScale: {
-        visible: true,
-        borderVisible: true,
-        ticksVisible: true,
-        entireTextOnly: false,
-        textColor: SCALE_TEXT,
-        borderColor: SCALE_BORDER,
-        // Room for last-value pill: timeframe + MM:SS + price (desktop)
-        minimumWidth: isMobileChart ? 76 : 124,
-        // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
-        scaleMargins: isMobileChart ? { top: 0.12, bottom: 0.22 } : { top: 0.05, bottom: 0.1 }
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: CROSSHAIR, width: 1, style: 2, labelBackgroundColor: "#1e222d" },
+        horzLine: { color: CROSSHAIR, width: 1, style: 2, labelBackgroundColor: "#1e222d" }
       },
       localization: {
-        priceFormatter: (p: number) =>
-          p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6)
+        locale: "en-US"
       },
-      /** Desktop: wheel / drag; mobile: finger pan + pinch zoom — both can scroll to older candles. */
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-        vertTouchDrag: false
-      },
-      handleScale: {
-        mouseWheel: true,
-        pinch: true,
-        axisPressedMouseMove: false,
-        axisDoubleClickReset: true
-      },
-      kineticScroll: {
-        mouse: true,
-        touch: true
-      },
-      /** Long-press crosshair no longer traps scroll until another tap (finger up returns to pan). */
-      trackingMode: {
-        exitMode: TrackingModeExitMode.OnTouchEnd
-      }
+      width: el.clientWidth,
+      height,
+      autoSize: true
     });
-
-    const priceLineW = isMobileChart ? 2 : 1;
-    const mainSeries =
-      graphType === "candles"
-        ? chart.addCandlestickSeries({
-            upColor: CANDLE_UP,
-            downColor: CANDLE_DOWN,
-            borderUpColor: CANDLE_BORDER_UP,
-            borderDownColor: CANDLE_BORDER_DOWN,
-            wickUpColor: WICK_UP,
-            wickDownColor: WICK_DOWN,
-            borderVisible: true,
-            wickVisible: true,
-            title: "",
-            lastValueVisible: false,
-            priceLineVisible: true,
-            priceLineColor: PRO_LAST_PRICE,
-            priceLineWidth: priceLineW,
-            priceLineStyle: LineStyle.Solid
-          })
-        : graphType === "line"
-          ? chart.addLineSeries({
-              color: PRO_LAST_PRICE,
-              lineWidth: isMobileChart ? 2 : 2,
-              title: "",
-              lastValueVisible: false,
-              priceLineVisible: true,
-              priceLineColor: PRO_LAST_PRICE,
-              priceLineWidth: priceLineW,
-              priceLineStyle: LineStyle.Solid
-            })
-          : chart.addAreaSeries({
-              lineColor: CANDLE_UP,
-              topColor: "rgba(0, 196, 140, 0.35)",
-              bottomColor: "rgba(7, 10, 15, 0)",
-              lineWidth: isMobileChart ? 2 : 2,
-              title: "",
-              lastValueVisible: false,
-              priceLineVisible: true,
-              priceLineColor: PRO_LAST_PRICE,
-              priceLineWidth: priceLineW,
-              priceLineStyle: LineStyle.Solid
-            });
-
     chartRef.current = chart;
-    mainSeriesRef.current = mainSeries;
-
+    const ro = new ResizeObserver(() => {
+      chart.resize(el.clientWidth, height);
+      updateAxisPill();
+    });
+    ro.observe(el);
     return () => {
-      lastResetKeyRef.current = "";
-      liveSeriesStateRef.current = null;
+      ro.disconnect();
+      markersPluginRef.current = null;
+      priceLineRef.current = null;
+      seriesRef.current = null;
       chart.remove();
       chartRef.current = null;
-      mainSeriesRef.current = null;
+      lastResetKeyRef.current = "";
     };
-  }, [assetTag, graphType, isMobileChart, timeframeSec]);
+  }, [assetTag, height, isMobileChart, timeframeSec, updateAxisPill]);
 
   useEffect(() => {
     const chart = chartRef.current;
-    const series = mainSeriesRef.current;
-    if (!chart || !series || candles.length === 0) {
+    const el = containerRef.current;
+    if (!chart || !el || candles.length === 0) {
       return;
     }
-
-    chart.applyOptions({
-      timeScale: {
-        secondsVisible: timeframeSec < 60
-      }
-    });
 
     const cd = candlestickDataFromCandles(candles);
+    if (cd.length === 0) {
+      return;
+    }
+
     const lastPt = cd[cd.length - 1]!;
-    const firstPt = cd[0]!;
-    const lastT = Number(lastPt.time);
-    const firstT = Number(firstPt.time);
-    const st = liveSeriesStateRef.current;
+    const dz = dataZoomRange(zoomIndex, cd.length);
+    const yExt = yExtentForDisplay(cd, dz.start, dz.end);
+    const yScaled = alignYAxisToNiceStep(yExt);
+    const lineCol = priceLineColorForTick(tickDirection);
 
-    let useFullSet = true;
-    if (st && st.resetKey === chartResetKey && st.firstTime === firstT) {
-      const sameBar = cd.length === st.len && lastT === st.lastTime;
-      const oneNewBar = cd.length === st.len + 1 && lastT > st.lastTime;
-      if (sameBar || oneNewBar) {
-        if (graphType === "candles") {
-          (series as ISeriesApi<"Candlestick">).update(lastPt);
-        } else {
-          (series as ISeriesApi<"Line">).update({
-            time: lastPt.time,
-            value: lastPt.close
-          });
-        }
-        useFullSet = false;
-      }
+    const n = cd.length;
+    const fromIdx = Math.floor((n * dz.start) / 100);
+    const toIdx = Math.max(fromIdx, n - 1);
+
+    if (seriesRef.current) {
+      chart.removeSeries(seriesRef.current);
+      seriesRef.current = null;
+      priceLineRef.current = null;
+      markersPluginRef.current = null;
     }
 
-    if (useFullSet) {
-      if (graphType === "candles") {
-        (series as ISeriesApi<"Candlestick">).setData(cd);
-      } else {
-        (series as ISeriesApi<"Line">).setData(lineLikeDataFromMergedCandles(cd));
-      }
-    }
-
-    liveSeriesStateRef.current = {
-      resetKey: chartResetKey,
-      len: cd.length,
-      firstTime: firstT,
-      lastTime: lastT
-    };
-
-    chart.priceScale("right").applyOptions({
-      visible: true,
-      minimumWidth: isMobileChart ? 76 : 124
+    const autoscale = () => ({
+      priceRange: { minValue: yScaled.min, maxValue: yScaled.max }
     });
 
-    if (lastResetKeyRef.current !== chartResetKey) {
-      lastResetKeyRef.current = chartResetKey;
-      chart.timeScale().fitContent();
-    }
-  }, [assetTag, candles, chartResetKey, graphType, isMobileChart, timeframeSec]);
+    if (graphType === "candles") {
+      const candleRows: CandlestickData<UTCTimestamp>[] = [];
+      const seen = new Map<number, CandlestickData<UTCTimestamp>>();
+      for (const c of cd) {
+        const [open, close, low, high] = candlestickOHLCForDisplay(c);
+        const t = toUtcTime(c.bucketMs);
+        seen.set(t as number, { time: t, open, high, low, close });
+      }
+      for (const v of seen.values()) {
+        candleRows.push(v);
+      }
+      candleRows.sort((a, b) => (a.time as number) - (b.time as number));
 
-  useEffect(() => {
-    const series = mainSeriesRef.current;
-    if (!series) {
-      return;
+      const series = chart.addSeries(CandlestickSeries, {
+        upColor: CANDLE_UP,
+        downColor: CANDLE_DOWN,
+        borderVisible: true,
+        wickUpColor: CANDLE_BORDER_UP,
+        wickDownColor: CANDLE_BORDER_DOWN,
+        borderUpColor: CANDLE_BORDER_UP,
+        borderDownColor: CANDLE_BORDER_DOWN,
+        autoscaleInfoProvider: autoscale
+      });
+      series.setData(candleRows);
+      priceLineRef.current = series.createPriceLine({
+        price: lastPt.close,
+        color: PRO_LAST_PRICE,
+        lineWidth: 1,
+        lineStyle: 0,
+        axisLabelVisible: false
+      });
+      if (tradeMarkers.length > 0) {
+        markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
+      }
+      seriesRef.current = series;
+    } else if (graphType === "line") {
+      const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
+        time: toUtcTime(c.bucketMs),
+        value: c.close
+      }));
+      const series = chart.addSeries(LineSeries, {
+        color: lineCol,
+        lineWidth: 2,
+        crosshairMarkerVisible: true,
+        autoscaleInfoProvider: autoscale
+      });
+      series.setData(lineData);
+      priceLineRef.current = series.createPriceLine({
+        price: lastPt.close,
+        color: lineCol,
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: false
+      });
+      if (tradeMarkers.length > 0) {
+        markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
+      }
+      seriesRef.current = series;
+    } else {
+      const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
+        time: toUtcTime(c.bucketMs),
+        value: c.close
+      }));
+      const fillTop =
+        tickDirection === "up"
+          ? "rgba(0, 196, 140, 0.42)"
+          : tickDirection === "down"
+            ? "rgba(255, 78, 92, 0.4)"
+            : "rgba(146, 154, 164, 0.2)";
+      const series = chart.addSeries(AreaSeries, {
+        lineColor: lineCol,
+        topColor: fillTop,
+        bottomColor: "rgba(7, 10, 15, 0)",
+        lineWidth: 2,
+        autoscaleInfoProvider: autoscale
+      });
+      series.setData(lineData);
+      if (tradeMarkers.length > 0) {
+        markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
+      }
+      seriesRef.current = series;
     }
-    series.setMarkers(tradeMarkers);
-  }, [tradeMarkers, chartResetKey, assetTag, graphType]);
 
-  /** Custom HTML pill for TF + countdown + price; native last-value label stays off. */
-  useEffect(() => {
-    const series = mainSeriesRef.current;
-    if (!series || candles.length === 0) {
-      return;
-    }
-    applySeriesTickColors(series, graphType, tickDirection);
-  }, [candles.length, graphType, tickDirection]);
+    chart.timeScale().setVisibleLogicalRange({ from: fromIdx, to: toIdx });
+    lastResetKeyRef.current = chartResetKey;
+
+    requestAnimationFrame(() => {
+      chart.resize(el.clientWidth, height);
+      updateAxisPill();
+    });
+  }, [
+    assetTag,
+    candles,
+    chartResetKey,
+    graphType,
+    height,
+    isMobileChart,
+    tickDirection,
+    timeframeSec,
+    tradeMarkers,
+    updateAxisPill,
+    zoomIndex
+  ]);
 
   const tailKey =
     candles.length > 0
@@ -466,46 +502,20 @@ export function LightweightTradingChart({
 
   useEffect(() => {
     const chart = chartRef.current;
-    const series = mainSeriesRef.current;
     const el = containerRef.current;
-    if (!chart || !series || !el) {
+    if (!chart || !el) {
       return;
     }
-
-    const sync = () => {
-      const list = candlesRef.current;
-      const last = list[list.length - 1];
-      if (!last) {
-        setAxisPillTop(null);
-        return;
-      }
-      const y = series.priceToCoordinate(last.close);
-      setAxisPillTop(y == null ? null : Number(y));
-    };
-
-    sync();
-    const ro = new ResizeObserver(() => sync());
+    const onRange = () => updateAxisPill();
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
+    const ro = new ResizeObserver(() => updateAxisPill());
     ro.observe(el);
-    const ts = chart.timeScale();
-    ts.subscribeVisibleLogicalRangeChange(sync);
-    ts.subscribeVisibleTimeRangeChange(sync);
+    updateAxisPill();
     return () => {
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       ro.disconnect();
-      ts.unsubscribeVisibleLogicalRangeChange(sync);
-      ts.unsubscribeVisibleTimeRangeChange(sync);
     };
-  }, [chartResetKey, assetTag, graphType, isMobileChart, timeframeSec, zoomIndex, tailKey]);
-
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart) {
-      return;
-    }
-    const sp =
-      CHART_ZOOM_BAR_SPACING[Math.min(zoomIndex, CHART_ZOOM_BAR_SPACING.length - 1)] ?? 15;
-    const minSp = Math.min(5, Math.max(2, sp * 0.28));
-    chart.timeScale().applyOptions({ barSpacing: sp, minBarSpacing: minSp });
-  }, [zoomIndex]);
+  }, [chartResetKey, assetTag, graphType, isMobileChart, tailKey, updateAxisPill, zoomIndex]);
 
   const last = candles.length > 0 ? candles[candles.length - 1]! : null;
   const mobileTimerMod =
@@ -528,7 +538,7 @@ export function LightweightTradingChart({
         {last != null && axisPillTop != null ? (
           <div className="chart-lw-axis-pill-layer" aria-hidden>
             <div
-              className={`chart-lw-axis-pill${pillMod}`}
+              className={`chart-lw-axis-pill chart-lw-axis-pill--terminal${pillMod}`}
               style={{ top: axisPillTop, transform: "translateY(-50%)" }}
             >
               <span className="chart-lw-axis-pill-timer">

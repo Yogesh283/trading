@@ -4,6 +4,10 @@
   "description": "Node.js trading bot scaffold",
   "main": "dist/index.js",
   "scripts": {
+    "setup": "npm install && npm run frontend:install",
+    "setup:env": "node scripts/setup-env.mjs",
+    "setup:charts": "npm run setup:env && npm run setup && npm run db:create && npm run frontend:clear-vite-cache",
+    "chart:dev": "npm run dev",
     "dev": "tsx watch src/index.ts",
     "dev:api-only": "cross-env SEPARATE_FRONTEND=1 tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json && npm run verify:dist",

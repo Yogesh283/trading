@@ -16,7 +16,7 @@ export interface ForexTick {
   source: "forex";
 }
 
-/** ~5h at 1 tick/sec — enough 3m/5m/10m candles when DB is empty (see seedIntradayBackfill). */
+/** ~5h at 1 tick/sec — enough 3m/5m candles when DB is empty (see seedIntradayBackfill). */
 const HISTORY_MAX_TICKS_PER_SYMBOL = 18000;
 
 /** Simulated + stream pulse: one visible update per second for UI / 5s candles. */
@@ -59,8 +59,9 @@ export class ForexFeed extends EventEmitter {
     if (apiKey) {
       void this.bootstrapExternal(
         () => fetchTraderMadeLive(apiKey, FOREX_SYMBOLS),
-        15_000,
-        "tradermade"
+        env.TRADERMADE_LIVE_POLL_MS,
+        "tradermade",
+        env.TRADERMADE_STREAM_PULSE_MS
       );
     } else {
       void this.bootstrapExternal(
@@ -73,7 +74,8 @@ export class ForexFeed extends EventEmitter {
           return m;
         },
         90_000,
-        "frankfurter"
+        "frankfurter",
+        STREAM_PULSE_MS
       );
     }
   }
@@ -145,7 +147,7 @@ export class ForexFeed extends EventEmitter {
 
   private seedIntradayBackfill() {
     const now = Date.now();
-    /** Match HISTORY_MAX_TICKS_PER_SYMBOL at 1 Hz (~5h) so 3m/5m/10m charts get many buckets, not one bar. */
+    /** Match HISTORY_MAX_TICKS_PER_SYMBOL at 1 Hz (~5h) so 3m/5m charts get many buckets, not one bar. */
     const stepMs = 1000;
     const backfillMs = (HISTORY_MAX_TICKS_PER_SYMBOL - 1) * stepMs;
 
@@ -275,7 +277,8 @@ export class ForexFeed extends EventEmitter {
   private async bootstrapExternal(
     fetcher: () => Promise<Map<string, number>>,
     intervalMs: number,
-    name: string
+    name: string,
+    streamPulseMs: number = STREAM_PULSE_MS
   ) {
     try {
       const map = await fetcher();
@@ -296,8 +299,11 @@ export class ForexFeed extends EventEmitter {
         clearInterval(this.streamPulseTimer);
         this.streamPulseTimer = null;
       }
-      this.streamPulseTimer = setInterval(() => this.emitStreamPulse(), STREAM_PULSE_MS);
-      logger.info({ source: name, quotes: map.size }, "Forex live rates active");
+      this.streamPulseTimer = setInterval(() => this.emitStreamPulse(), streamPulseMs);
+      logger.info(
+        { source: name, quotes: map.size, streamPulseMs, pollMs: intervalMs },
+        "Forex live rates active"
+      );
       this.externalTimer = setInterval(() => {
         void fetcher()
           .then((m) => {
@@ -315,7 +321,7 @@ export class ForexFeed extends EventEmitter {
       this.pendingExternalRetry = setTimeout(() => {
         this.pendingExternalRetry = null;
         if (!this.externalTimer) {
-          void this.bootstrapExternal(fetcher, intervalMs, name);
+          void this.bootstrapExternal(fetcher, intervalMs, name, streamPulseMs);
         }
       }, 30_000);
     }
