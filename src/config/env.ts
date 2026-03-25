@@ -86,7 +86,7 @@ const envSchema = z.object({
   /** Admin USDT BEP20 receive address (BSC) — empty .env value uses default (change for production). */
   USDT_BEP20_DEPOSIT_ADDRESS: evmAddress(
     "USDT_BEP20_DEPOSIT_ADDRESS",
-    "0x742d35cc6634c0532925a3b844bc9e7595f8be12"
+    "0x8777E891031Fd954E72A96E541E956E28C658520"
   ),
   BSC_USDT_CONTRACT: evmAddress("BSC_USDT_CONTRACT", "0x55d398326f99059ff775485246999027b3197955"),
   BSC_CHAIN_ID: z.coerce.number().int().default(56),
@@ -94,7 +94,16 @@ const envSchema = z.object({
   ADMIN_DEPOSITS_SECRET: z.string().optional(),
   /** On server start: SET role='admin' for this user email (then remove from .env in production). */
   ADMIN_PROMOTE_EMAIL: z.string().optional(),
-  /** XAMPP MySQL: set MYSQL_DATABASE (e.g. tradeing) to use MySQL instead of SQLite */
+  /**
+   * Set to 1 to use MySQL when `MYSQL_DATABASE` is omitted — defaults database name to `tradeing`
+   * (same as `npm run init-mysql`). Without this and without `MYSQL_DATABASE`, the app uses SQLite `data/app.db`
+   * (registrations will not appear in phpMyAdmin).
+   */
+  USE_MYSQL: z
+    .string()
+    .optional()
+    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true"),
+  /** XAMPP MySQL: e.g. tradeing — or leave unset and set USE_MYSQL=1 to default to tradeing */
   MYSQL_HOST: z.string().default("127.0.0.1"),
   MYSQL_PORT: z.coerce.number().int().positive().default(3306),
   MYSQL_USER: z.string().default("root"),
@@ -125,8 +134,15 @@ const envSchema = z.object({
 });
 
 const parsed = envSchema.parse(process.env);
+
+const mysqlDatabaseEffective =
+  parsed.MYSQL_DATABASE?.trim() || (parsed.USE_MYSQL ? "tradeing" : undefined);
+
 export const env = {
   ...parsed,
+  /** Resolved DB name: explicit `MYSQL_DATABASE`, or `tradeing` when `USE_MYSQL=1`, else undefined (SQLite). */
+  MYSQL_DATABASE: mysqlDatabaseEffective,
+  USE_MYSQL: Boolean(parsed.USE_MYSQL),
   SKIP_CLEAR_CACHE_ON_REGISTER: Boolean(parsed.SKIP_CLEAR_CACHE_ON_REGISTER),
   SEED_CHROME_USER: Boolean(parsed.SEED_CHROME_USER),
   INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS,

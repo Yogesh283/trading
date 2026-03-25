@@ -3,8 +3,7 @@ import { env } from "../config/env";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "../config/symbols";
 import {
   fetchFrankfurterUsdMatrix,
-  fetchGoldUsdPyth,
-  fetchGoldUsdYahoo,
+  fetchGoldUsdSpot,
   fetchTraderMadeLive
 } from "./forexExternalRates";
 import { logger } from "../utils/logger";
@@ -58,7 +57,14 @@ export class ForexFeed extends EventEmitter {
 
     if (apiKey) {
       void this.bootstrapExternal(
-        () => fetchTraderMadeLive(apiKey, FOREX_SYMBOLS),
+        async () => {
+          const m = await fetchTraderMadeLive(apiKey, FOREX_SYMBOLS);
+          const gold = await fetchGoldUsdSpot();
+          if (gold != null) {
+            m.set("XAUUSD", gold);
+          }
+          return m;
+        },
         env.TRADERMADE_LIVE_POLL_MS,
         "tradermade",
         env.TRADERMADE_STREAM_PULSE_MS
@@ -67,7 +73,7 @@ export class ForexFeed extends EventEmitter {
       void this.bootstrapExternal(
         async () => {
           const m = await fetchFrankfurterUsdMatrix();
-          const gold = (await fetchGoldUsdPyth()) ?? (await fetchGoldUsdYahoo());
+          const gold = await fetchGoldUsdSpot();
           if (gold != null) {
             m.set("XAUUSD", gold);
           }

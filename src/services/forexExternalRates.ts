@@ -13,6 +13,27 @@ function pythMantissaToFloat(priceStr: string, expo: number): number {
   return m * 10 ** expo;
 }
 
+type PythPriceObj = { price?: string | number; expo?: number };
+
+function pythPriceToUsdPerOz(raw: PythPriceObj | undefined): number | null {
+  if (!raw?.price) {
+    return null;
+  }
+  const priceStr = String(raw.price);
+  const expo =
+    typeof raw.expo === "number" && Number.isFinite(raw.expo)
+      ? raw.expo
+      : Number(raw.expo ?? NaN);
+  if (!Number.isFinite(expo)) {
+    return null;
+  }
+  const usdPerOz = pythMantissaToFloat(priceStr, expo);
+  if (!Number.isFinite(usdPerOz) || usdPerOz < 500 || usdPerOz > 50_000) {
+    return null;
+  }
+  return usdPerOz;
+}
+
 function splitPair(symbol: string): [string, string] {
   const s = symbol.toUpperCase();
   return [s.slice(0, 3), s.slice(3, 6)];
@@ -75,24 +96,21 @@ export async function fetchGoldUsdPyth(): Promise<number | null> {
       return null;
     }
     const j = (await res.json()) as {
-      parsed?: Array<{ price?: { price: string; expo: number } }>;
+      parsed?: Array<{ price?: PythPriceObj; ema_price?: PythPriceObj }>;
     };
-    const raw = j.parsed?.[0]?.price;
-    if (!raw?.price || typeof raw.expo !== "number") {
-      return null;
+    const row = j.parsed?.[0];
+    const fromAgg = pythPriceToUsdPerOz(row?.price);
+    if (fromAgg != null) {
+      return fromAgg;
     }
-    const usdPerOz = pythMantissaToFloat(raw.price, raw.expo);
-    if (!Number.isFinite(usdPerOz) || usdPerOz < 500 || usdPerOz > 50_000) {
-      return null;
-    }
-    return usdPerOz;
+    return pythPriceToUsdPerOz(row?.ema_price);
   } catch (e) {
     logger.warn({ e }, "Gold Pyth Hermes fetch failed");
   }
   return null;
 }
 
-/** Spot-style XAUUSD (USD per troy oz) from Yahoo chart meta — fallback when Pyth unreachable. */
+/** Spot-style XAUUSD (USD per troy oz) from Yahoo chart — aligns with common retail spot (TradingView family). */
 export async function fetchGoldUsdYahoo(): Promise<number | null> {
   try {
     const url =
@@ -100,7 +118,7 @@ export async function fetchGoldUsdYahoo(): Promise<number | null> {
     const res = await fetch(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; UpDownFX/1.0; +https://example.invalid) AppleWebKit/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         Accept: "application/json"
       }
     });
@@ -108,16 +126,40 @@ export async function fetchGoldUsdYahoo(): Promise<number | null> {
       return null;
     }
     const j = (await res.json()) as {
-      chart?: { result?: Array<{ meta?: { regularMarketPrice?: number } }> };
+      chart?: {
+        result?: Array<{
+          meta?: {
+            regularMarketPrice?: number;
+            chartPreviousClose?: number;
+          };
+          indicators?: { quote?: Array<{ close?: Array<number | null> }> };
+        }>;
+      };
     };
-    const p = j.chart?.result?.[0]?.meta?.regularMarketPrice;
-    if (typeof p === "number" && Number.isFinite(p) && p > 100) {
-      return p;
+    const result = j.chart?.result?.[0];
+    const meta = result?.meta;
+    const fromMeta = meta?.regularMarketPrice ?? meta?.chartPreviousClose;
+    if (typeof fromMeta === "number" && Number.isFinite(fromMeta) && fromMeta > 100) {
+      return fromMeta;
+    }
+    const closes = result?.indicators?.quote?.[0]?.close;
+    if (Array.isArray(closes)) {
+      for (let i = closes.length - 1; i >= 0; i--) {
+        const c = closes[i];
+        if (typeof c === "number" && Number.isFinite(c) && c > 100) {
+          return c;
+        }
+      }
     }
   } catch (e) {
     logger.warn({ e }, "Gold Yahoo fetch failed");
   }
   return null;
+}
+
+/** Yahoo spot first (TV-like), then Pyth — use for all feed modes so XAU is not stuck on simulated ~4400 seed. */
+export async function fetchGoldUsdSpot(): Promise<number | null> {
+  return (await fetchGoldUsdYahoo()) ?? (await fetchGoldUsdPyth());
 }
 
 export async function fetchTraderMadeLive(

@@ -1,6 +1,7 @@
 /** Forex + gold — `base` seeds chart/sim only; fiat from ECB, gold from Pyth Hermes when live feed runs. */
 export const FOREX_PAIRS = [
-  { symbol: "XAUUSD", name: "Gold / US Dollar", base: 4400 },
+  /** When live spot fails briefly, sim stays near real gold (not ~4400). */
+  { symbol: "XAUUSD", name: "Gold / US Dollar", base: 4550 },
   { symbol: "EURUSD", name: "Euro / US Dollar", base: 1.085 },
   { symbol: "GBPUSD", name: "British Pound / US Dollar", base: 1.265 },
   { symbol: "USDJPY", name: "US Dollar / Japanese Yen", base: 149.5 },

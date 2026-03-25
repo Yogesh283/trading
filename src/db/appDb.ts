@@ -6,6 +6,9 @@ import sqlite3 from "sqlite3";
 import { env } from "../config/env";
 import { LEVEL_INCOME_DEPTH, LEVEL_INCOME_FRACTION } from "../config/referral";
 
+/** Repo root (same idea as `.env` next to `src/` / `dist/`) — do not use `process.cwd()` or SQLite lands in the wrong folder when PM2/systemd cwd ≠ project dir. */
+const APP_ROOT = path.resolve(__dirname, "..", "..");
+
 const REF_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function randomSelfReferralCode(): string {
   let s = "";
@@ -37,7 +40,7 @@ export function getPool(): mysql.Pool {
 
 function getSqlite(): sqlite3.Database {
   if (!sqliteDb) {
-    const dataDir = path.join(process.cwd(), "data");
+    const dataDir = path.join(APP_ROOT, "data");
     fs.mkdirSync(dataDir, { recursive: true });
     sqliteDb = new sqlite3.Database(path.join(dataDir, "app.db"));
   }
@@ -48,12 +51,16 @@ export function isMysqlMode(): boolean {
   return mysqlMode;
 }
 
-/** Where user rows are stored (check this if phpMyAdmin looks empty but SQLite has data). */
+/**
+ * Where `users` / `wallets` rows are stored.
+ * If `kind` is `sqlite`, data is **not** in MySQL — open this file (absolute path on the server), not phpMyAdmin.
+ */
 export function getDatabaseInfo(): { kind: "mysql" | "sqlite"; database?: string; file?: string } {
   if (mysqlMode) {
     return { kind: "mysql", database: env.MYSQL_DATABASE ?? "" };
   }
-  return { kind: "sqlite", file: path.join(process.cwd(), "data", "app.db") };
+  const file = path.join(APP_ROOT, "data", "app.db");
+  return { kind: "sqlite", file: path.resolve(file) };
 }
 
 export async function dbRun(

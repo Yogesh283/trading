@@ -522,6 +522,8 @@ app.get("/api/referrals/summary", (req, res) => {
 });
 
 app.get("/api/markets", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
   res.json({
     symbols: FOREX_SYMBOLS,
     ticks: forexFeed.snapshot(),
@@ -542,6 +544,8 @@ app.get("/api/markets/history", (req, res) => {
     for (const t of fromDb) byKey.set(`${t.symbol}:${t.timestamp}`, t);
     for (const t of fromMemory) byKey.set(`${t.symbol}:${t.timestamp}`, { symbol: t.symbol, price: t.price, timestamp: t.timestamp });
     const merged = [...byKey.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json({ ticks: merged });
   })().catch((err) => {
     logger.warn({ err }, "Markets history failed");
@@ -560,6 +564,8 @@ app.get("/api/markets/candles", (req, res) => {
     }
     await initAppDb();
     const rows = await getChartCandles(symbol, timeframeSec, limit);
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
     res.json({
       candles: rows.map((r) => ({
         t: r.bucket_start_ms,
@@ -1993,6 +1999,13 @@ export async function startServer(): Promise<http.Server> {
       );
       void initAppDb()
         .then(async () => {
+          const db = getDatabaseInfo();
+          logger.info(db, "User/wallet storage — registrations persist here (open this DB in phpMyAdmin / Heidi)");
+          if (db.kind === "sqlite" && env.NODE_ENV === "production") {
+            logger.warn(
+              "MYSQL_DATABASE / USE_MYSQL not configured — users are saved only to SQLite (data/app.db). Set USE_MYSQL=1 or MYSQL_DATABASE=tradeing in .env and restart."
+            );
+          }
           if (env.FOREX_SIMULATED_ONLY) return;
           if (env.TRADERMADE_KEY?.trim()) {
             await seedChartCandlesFromTraderMadeIfSparse(env.TRADERMADE_KEY.trim());

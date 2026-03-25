@@ -110,8 +110,11 @@ async function parseJson<T>(response: Response) {
   return (await response.json()) as T;
 }
 
+/** Always hit the backend — never serve stale asset prices from the browser cache. */
+const FETCH_MARKETS_LIVE: RequestInit = { cache: "no-store" };
+
 export async function loadMarkets() {
-  const response = await fetch(`${apiBase()}/api/markets`);
+  const response = await fetch(`${apiBase()}/api/markets`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load markets");
   }
@@ -128,7 +131,7 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
   const params = new URLSearchParams();
   if (symbol) params.set("symbol", symbol);
   params.set("limit", String(limit));
-  const response = await fetch(`${apiBase()}/api/markets/history?${params}`);
+  const response = await fetch(`${apiBase()}/api/markets/history?${params}`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load chart history");
   }
@@ -138,7 +141,7 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
 /** Closed OHLC from DB (merge with WebSocket LivePrice ticks on the chart). */
 export async function loadMarketCandles(symbol: string, timeframeSec: number, limit = 500) {
   const params = new URLSearchParams({ symbol, timeframe: String(timeframeSec), limit: String(limit) });
-  const response = await fetch(`${apiBase()}/api/markets/candles?${params}`);
+  const response = await fetch(`${apiBase()}/api/markets/candles?${params}`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load chart candles");
   }
