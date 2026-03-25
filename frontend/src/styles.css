@@ -1496,6 +1496,46 @@ select {
   font-weight: 600;
 }
 
+/* Second row of chart chrome: current candle range, body, vs previous close */
+.tv-chart-extra-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin-top: 5px;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #9aa4b2;
+  line-height: 1.35;
+}
+
+.tv-chart-toolbar .tv-stat-label {
+  opacity: 0.8;
+  font-weight: 700;
+  margin-right: 2px;
+  letter-spacing: 0.05em;
+  font-size: 0.95em;
+}
+
+.tv-stat-sep {
+  opacity: 0.4;
+  user-select: none;
+}
+
+.tv-stat--range {
+  color: #9aa4b2;
+}
+
+.tv-stat--bull {
+  color: var(--candle-bull);
+}
+
+.tv-stat--bear {
+  color: var(--candle-bear);
+}
+
 /* Last spot tick vs previous tick */
 .tv-spot-tick {
   display: inline-block;
@@ -2470,7 +2510,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-grid-scroll {
-  max-height: min(380px, 50vh);
+  max-height: min(480px, 58vh);
   overflow-y: auto;
   margin-top: 10px;
   padding-right: 6px;
@@ -2491,18 +2531,95 @@ button.desktop-demo-cta:disabled,
   gap: 12px;
 }
 
+/* Vertical markets list (modal + desktop panel) */
+.asset-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.asset-picker-list-item {
+  margin: 0;
+  padding: 0;
+}
+
+.asset-picker-list--modal {
+  gap: 8px;
+}
+
 .asset-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   padding: 14px 12px;
+  width: 100%;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(110, 160, 255, 0.2);
   border-radius: 14px;
   color: #e5edf7;
   cursor: pointer;
+  text-align: inherit;
+  font: inherit;
   transition: background 0.2s, border-color 0.2s;
+}
+
+.asset-tile--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.asset-tile--row .asset-tile-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+}
+
+.asset-tile-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.asset-tile--row .asset-tile-name {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.asset-tile--row .asset-tile-pair {
+  font-size: 12px;
+}
+
+.asset-tile--row .asset-tile-price {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.asset-tile--row .asset-tile-price.muted {
+  color: #787b86;
+  font-weight: 600;
 }
 
 .asset-tile:hover {
@@ -2618,14 +2735,24 @@ button.desktop-demo-cta:disabled,
 
 .asset-picker-modal {
   width: 100%;
-  max-width: 720px;
-  max-height: min(85vh, 640px);
-  overflow-y: auto;
-  padding: 20px 22px 24px;
-  background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+  max-width: 520px;
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 18px 20px;
+  background: linear-gradient(180deg, #0f1418 0%, #06080c 100%);
   border: 1px solid rgba(110, 160, 255, 0.22);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.asset-picker-modal .asset-picker-list--modal {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding-right: 4px;
 }
 
 .asset-picker-head {
@@ -2676,7 +2803,39 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-picker-sub {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
+  flex-shrink: 0;
+}
+
+.asset-picker-modal .asset-picker-head,
+.asset-picker-modal .asset-picker-sub {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .asset-picker-backdrop {
+    align-items: stretch;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 10px max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .asset-picker-modal {
+    max-width: none;
+    max-height: none;
+    flex: 1;
+    min-height: 0;
+    border-radius: 18px;
+  }
+
+  .asset-tile--row {
+    padding: 14px 12px;
+    min-height: 56px;
+  }
+
+  .asset-tile--row .asset-tile-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
 }
 
 .asset-grid-modal {

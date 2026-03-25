@@ -709,79 +709,111 @@
 /* Compact OHLC row so more vertical space stays for the chart */
 .tv-chart-mobile.chart-card .chart-meta.tv-chart-toolbar {
   justify-content: flex-start;
+  gap: 4px;
+  margin-bottom: 0 !important;
 }
 
 .tv-chart-mobile.chart-card .tv-chart-toolbar {
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 0;
-  padding: 6px 6px 6px;
+  padding: 2px 3px 4px;
   border-bottom: 1px solid #2b3139;
   background: linear-gradient(180deg, #161a22 0%, #12161c 55%, #0f1318 100%);
 }
 
 .tv-chart-mobile .tv-toolbar-left {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100% - 108px);
+  max-width: calc(100% - 96px);
+  gap: 1px 4px;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-symbol {
-  display: block;
+  display: inline;
   margin-bottom: 0;
-  font-size: 14px !important;
-  line-height: 1.15;
-  letter-spacing: 0.06em;
+  font-size: 11px !important;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-ohlc {
   display: block;
-  font-size: 9px !important;
-  line-height: 1.25;
+  font-size: 7px !important;
+  line-height: 1.15;
   word-break: break-all;
+  margin-top: 0;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-change,
 .tv-chart-mobile .tv-chart-toolbar .tv-change.up,
 .tv-chart-mobile .tv-chart-toolbar .tv-change.down {
-  font-size: 10px !important;
+  display: block;
+  font-size: 8px !important;
   font-weight: 600 !important;
-  margin-top: 1px;
+  margin-top: 0;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-spot-tick {
-  font-size: 12px !important;
-  margin: 0 4px 0 2px;
+  display: inline;
+  font-size: 10px !important;
+  margin: 0 2px 0 1px;
+  vertical-align: middle;
 }
 
 .tv-chart-mobile .tv-chart-meta-right,
 .tv-chart-mobile .tv-chart-toolbar .chart-meta-right {
   flex: 0 0 auto;
   flex-direction: row;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px 4px;
+  gap: 0 2px;
   margin-left: auto;
-  font-size: 9px !important;
-  opacity: 0.9;
+  max-width: 96px;
+  font-size: 7px !important;
+  opacity: 0.92;
+}
+
+.tv-chart-mobile .tv-chart-meta-right > span:last-of-type {
+  font-size: 6px !important;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer {
-  padding: 2px 8px;
-  gap: 4px;
+  padding: 0 4px;
+  gap: 2px;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer-label {
-  font-size: 9px !important;
+  font-size: 7px !important;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer-val {
-  font-size: 10px !important;
+  font-size: 8px !important;
 }
 
 .tv-chart-mobile .tv-chart-meta-sep {
-  margin: 0 3px;
+  margin: 0 1px;
+  opacity: 0.45;
+}
+
+.tv-chart-mobile .tv-chart-extra-stats {
+  margin-top: 1px;
+  gap: 0 4px;
+  font-size: 7px !important;
+  line-height: 1.2;
+}
+
+.tv-chart-mobile .tv-chart-extra-stats--compact {
+  gap: 0 2px;
+  letter-spacing: -0.03em;
+}
+
+.tv-chart-mobile .tv-chart-toolbar .tv-stat-label {
+  font-size: 7px !important;
+  margin-right: 1px;
 }
 
 /* Smaller on-chart last-price pill on narrow mobile card */
@@ -1527,74 +1559,108 @@
 
 .mobile-history-compact {
   font-size: 12px;
-  max-height: min(52vh, 320px);
+  max-height: min(52vh, 360px);
   overflow-y: auto;
 }
 
-.mobile-hist-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 6px;
-  margin-bottom: 4px;
+.mobile-hist-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -2px;
+  padding: 0 2px;
 }
 
-.mobile-hist-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
+.mobile-hist-table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: #e5edf7;
+}
+
+.mobile-hist-table thead th {
+  padding: 6px 4px 8px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7a8f;
+  text-align: left;
+  vertical-align: bottom;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mobile-hist-table thead th:nth-child(1) {
+  width: 18%;
+}
+
+.mobile-hist-table thead th:nth-child(2) {
+  width: 14%;
+}
+
+.mobile-hist-table thead th:nth-child(3) {
+  width: 14%;
+}
+
+.mobile-hist-table thead th:nth-child(4),
+.mobile-hist-table thead th:nth-child(5) {
+  width: 18%;
+}
+
+.mobile-hist-table thead th:nth-child(6) {
+  width: 18%;
+  text-align: right;
+}
+
+.mobile-hist-table tbody td {
+  padding: 6px 4px;
+  vertical-align: middle;
+  word-break: break-word;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-hist-table tbody td:last-child {
+  text-align: right;
+}
+
+.mobile-hist-tr-main td {
+  padding-top: 8px;
+}
+
+.mobile-hist-table .dir-up {
+  color: #5ee4a3;
+  font-weight: 600;
+}
+
+.mobile-hist-table .dir-down {
+  color: #ff8a8a;
+  font-weight: 600;
+}
+
+.mobile-hist-close {
+  font-size: 10px;
+  font-weight: 600;
+  color: #dbe4f0;
 }
 
 .mobile-hist-meta {
-  margin: 2px 4px 0;
-  font-size: 11px;
+  margin: 0;
+  padding: 4px 4px 8px !important;
+  font-size: 10px;
   line-height: 1.35;
   color: rgba(184, 197, 217, 0.88);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .mobile-hist-meta--settled {
   color: #d7e2f0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .mobile-hist-meta--settled strong {
   color: #8ab4f8;
   font-weight: 700;
-}
-
-.mobile-hist-row .dir-up {
-  color: #5ee4a3;
-  font-weight: 600;
-}
-
-.mobile-hist-row .dir-down {
-  color: #ff8a8a;
-  font-weight: 600;
-}
-
-.mobile-hist-legend {
-  display: grid;
-  grid-template-columns: 0.88fr 0.38fr 0.52fr 0.68fr 0.68fr 0.58fr;
-  gap: 4px;
-  padding: 4px 4px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #6b7a8f;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.mobile-hist-row {
-  display: grid;
-  grid-template-columns: 0.88fr 0.38fr 0.52fr 0.68fr 0.68fr 0.58fr;
-  gap: 4px;
-  padding: 8px 4px 4px;
-  align-items: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.mobile-hist-close {
-  font-size: 11px;
-  font-weight: 600;
-  color: #dbe4f0;
 }

@@ -1,4 +1,5 @@
 import {
+  Fragment,
   type Dispatch,
   type SetStateAction,
   FormEvent,
@@ -1677,106 +1678,118 @@ export default function App() {
             </div>
             <div className="mobile-history-compact" id="app-mobile-history">
               {trades.length > 0 ? (
-                <div className="mobile-hist-legend">
-                  <span>Pair</span>
-                  <span>Up / Down</span>
-                  <span>Stake</span>
-                  <span>Entry</span>
-                  <span>Close</span>
-                  <span>P&amp;L</span>
+                <div className="mobile-hist-table-wrap">
+                  <table className="mobile-hist-table" aria-label="Trade history">
+                    <thead>
+                      <tr>
+                        <th scope="col">Pair</th>
+                        <th scope="col">Up / Down</th>
+                        <th scope="col">Stake</th>
+                        <th scope="col">Entry</th>
+                        <th scope="col">Close</th>
+                        <th scope="col">P&amp;L</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trades.slice(0, 20).map((trade) => {
+                        const dir = formatTradeDirectionLabel(trade.direction, trade.side);
+                        const isBinary = trade.direction === "up" || trade.direction === "down";
+                        return (
+                          <Fragment key={trade.id}>
+                            <tr className="mobile-hist-tr-main">
+                              <td title={trade.symbol}>{formatForexPair(trade.symbol)}</td>
+                              <td
+                                className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
+                                title={isBinary ? `Direction: ${dir}` : undefined}
+                              >
+                                {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
+                              </td>
+                              <td title="Stake (₹)">{fmtWallet(trade.quantity)}</td>
+                              <td title="Price when order was placed (execution / entry)">
+                                {formatFxPrice(trade.symbol, trade.entryPrice)}
+                              </td>
+                              <td
+                                className="mobile-hist-close"
+                                title={
+                                  trade.status === "closed"
+                                    ? typeof trade.closePrice === "number"
+                                      ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                      : "Close price not recorded"
+                                    : "Shows close price after trade settles"
+                                }
+                              >
+                                {formatTradeCloseCell(trade)}
+                              </td>
+                              <td
+                                className={
+                                  typeof trade.pnl === "number"
+                                    ? trade.pnl >= 0
+                                      ? "pnl-win"
+                                      : "pnl-loss"
+                                    : ""
+                                }
+                                title={
+                                  trade.status === "closed" && trade.closePrice != null
+                                    ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                    : undefined
+                                }
+                              >
+                                {trade.status === "closed" && trade.pnl != null
+                                  ? trade.pnl >= 0
+                                    ? `+${fmtWallet(trade.pnl)}`
+                                    : fmtWallet(trade.pnl)
+                                  : trade.status === "open"
+                                    ? "Open"
+                                    : trade.status}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td
+                                colSpan={6}
+                                className={
+                                  trade.status === "closed" && isBinary && trade.closePrice != null
+                                    ? "mobile-hist-meta mobile-hist-meta--settled"
+                                    : "mobile-hist-meta muted"
+                                }
+                              >
+                                {isBinary ? (
+                                  trade.status === "open" ? (
+                                    <>
+                                      <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
+                                      {formatFxPrice(trade.symbol, trade.entryPrice)}
+                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
+                                    </>
+                                  ) : trade.closePrice != null ? (
+                                    <>
+                                      <strong>Close</strong> {formatFxPrice(trade.symbol, trade.closePrice)} ·{" "}
+                                      <strong>Entry</strong> {formatFxPrice(trade.symbol, trade.entryPrice)}
+                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s candle` : ""}
+                                    </>
+                                  ) : (
+                                    <>
+                                      Settled · entry {formatFxPrice(trade.symbol, trade.entryPrice)}
+                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
+                                    </>
+                                  )
+                                ) : (
+                                  <>
+                                    Open @ {formatFxPrice(trade.symbol, trade.entryPrice)}
+                                    {trade.status === "closed" && trade.closePrice != null
+                                      ? ` → closed @ ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                      : null}
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ) : null}
-              {trades.slice(0, 20).map((trade) => {
-                const dir = formatTradeDirectionLabel(trade.direction, trade.side);
-                const isBinary = trade.direction === "up" || trade.direction === "down";
-                return (
-                  <div key={trade.id} className="mobile-hist-item">
-                    <div className="mobile-hist-row">
-                      <span title={trade.symbol}>{formatForexPair(trade.symbol)}</span>
-                      <span
-                        className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
-                        title={isBinary ? `Direction: ${dir}` : undefined}
-                      >
-                        {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
-                      </span>
-                      <span title="Stake (₹)">{fmtWallet(trade.quantity)}</span>
-                      <span title="Price when order was placed (execution / entry)">
-                        {formatFxPrice(trade.symbol, trade.entryPrice)}
-                      </span>
-                      <span
-                        className="mobile-hist-close"
-                        title={
-                          trade.status === "closed"
-                            ? typeof trade.closePrice === "number"
-                              ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                              : "Close price not recorded"
-                            : "Shows close price after trade settles"
-                        }
-                      >
-                        {formatTradeCloseCell(trade)}
-                      </span>
-                      <span
-                        className={
-                          typeof trade.pnl === "number"
-                            ? trade.pnl >= 0
-                              ? "pnl-win"
-                              : "pnl-loss"
-                            : ""
-                        }
-                        title={
-                          trade.status === "closed" && trade.closePrice != null
-                            ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                            : undefined
-                        }
-                      >
-                        {trade.status === "closed" && trade.pnl != null
-                          ? trade.pnl >= 0
-                            ? `+${fmtWallet(trade.pnl)}`
-                            : fmtWallet(trade.pnl)
-                          : trade.status === "open"
-                            ? "Open"
-                            : trade.status}
-                      </span>
-                    </div>
-                    <p
-                      className={
-                        trade.status === "closed" && isBinary && trade.closePrice != null
-                          ? "mobile-hist-meta mobile-hist-meta--settled"
-                          : "mobile-hist-meta muted"
-                      }
-                    >
-                      {isBinary ? (
-                        trade.status === "open" ? (
-                          <>
-                            <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
-                            {formatFxPrice(trade.symbol, trade.entryPrice)}
-                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
-                          </>
-                        ) : trade.closePrice != null ? (
-                          <>
-                            <strong>Close</strong> {formatFxPrice(trade.symbol, trade.closePrice)} ·{" "}
-                            <strong>Entry</strong> {formatFxPrice(trade.symbol, trade.entryPrice)}
-                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s candle` : ""}
-                          </>
-                        ) : (
-                          <>
-                            Settled · entry {formatFxPrice(trade.symbol, trade.entryPrice)}
-                            {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
-                          </>
-                        )
-                      ) : (
-                        <>
-                          Open @ {formatFxPrice(trade.symbol, trade.entryPrice)}
-                          {trade.status === "closed" && trade.closePrice != null
-                            ? ` → closed @ ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                            : null}
-                        </>
-                      )}
-                    </p>
-                  </div>
-                );
-              })}
-              {trades.length === 0 ? <p className="muted">No trades yet.</p> : null}
+              ) : (
+                <p className="muted">No trades yet.</p>
+              )}
             </div>
           </section>
         </main>
@@ -1832,32 +1845,39 @@ export default function App() {
               ))}
             </select>
           </label>
-          <p className="muted asset-select-or">Or select a tile</p>
+          <p className="muted asset-select-or">Or pick from the list</p>
           <div className="asset-grid-scroll">
-            <div className="asset-grid">
+            <ul className="asset-picker-list" role="list">
               {forexSymbolList.map((s) => {
                 const tick = markets.find((t) => t.symbol === s);
                 const tileMove = lastTickMove(history[s]);
                 return (
-                  <button
-                    key={s}
-                    type="button"
-                    className={`asset-tile ${s === symbol ? "active" : ""}`}
-                    onClick={() => setSymbol(s)}
-                  >
-                    <span className="asset-tile-icon">{getAssetIcon(s)}</span>
-                    <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
-                    <span className="asset-tile-pair">{formatForexPair(s)}</span>
-                    {tick ? (
-                      <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
-                        {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
-                        {formatFxPrice(s, tick.price)}
+                  <li key={s} className="asset-picker-list-item">
+                    <button
+                      type="button"
+                      className={`asset-tile asset-tile--row ${s === symbol ? "active" : ""}`}
+                      onClick={() => setSymbol(s)}
+                    >
+                      <span className="asset-tile-icon" aria-hidden>
+                        {getAssetIcon(s)}
                       </span>
-                    ) : null}
-                  </button>
+                      <span className="asset-tile-row-text">
+                        <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
+                        <span className="asset-tile-pair">{formatForexPair(s)}</span>
+                      </span>
+                      {tick ? (
+                        <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
+                          {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
+                          {formatFxPrice(s, tick.price)}
+                        </span>
+                      ) : (
+                        <span className="asset-tile-price muted">—</span>
+                      )}
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         </section>
 
@@ -2230,34 +2250,41 @@ export default function App() {
                 ×
               </button>
             </div>
-            <p className="muted asset-picker-sub">All pairs · click to open chart</p>
-            <div className="asset-grid asset-grid-modal">
+            <p className="muted asset-picker-sub">All pairs · tap a row to open chart</p>
+            <ul className="asset-picker-list asset-picker-list--modal" role="list">
               {forexSymbolList.map((s) => {
                 const tick = markets.find((t) => t.symbol === s);
                 const tileMove = lastTickMove(history[s]);
                 return (
-                  <button
-                    key={s}
-                    type="button"
-                    className={`asset-tile ${s === symbol ? "active" : ""}`}
-                    onClick={() => {
-                      setSymbol(s);
-                      setAssetPickerOpen(false);
-                    }}
-                  >
-                    <span className="asset-tile-icon">{getAssetIcon(s)}</span>
-                    <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
-                    <span className="asset-tile-pair">{formatForexPair(s)}</span>
-                    {tick ? (
-                      <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
-                        {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
-                        {formatFxPrice(s, tick.price)}
+                  <li key={s} className="asset-picker-list-item">
+                    <button
+                      type="button"
+                      className={`asset-tile asset-tile--row ${s === symbol ? "active" : ""}`}
+                      onClick={() => {
+                        setSymbol(s);
+                        setAssetPickerOpen(false);
+                      }}
+                    >
+                      <span className="asset-tile-icon" aria-hidden>
+                        {getAssetIcon(s)}
                       </span>
-                    ) : null}
-                  </button>
+                      <span className="asset-tile-row-text">
+                        <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
+                        <span className="asset-tile-pair">{formatForexPair(s)}</span>
+                      </span>
+                      {tick ? (
+                        <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
+                          {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
+                          {formatFxPrice(s, tick.price)}
+                        </span>
+                      ) : (
+                        <span className="asset-tile-price muted">—</span>
+                      )}
+                    </button>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         </div>
       ) : null}
@@ -2943,9 +2970,23 @@ function LiveChart({
   const change = allCandles.length > 1 ? current.close - allCandles[0].open : 0;
   const changePct =
     allCandles.length > 1 && allCandles[0].open !== 0 ? (change / allCandles[0].open) * 100 : 0;
+  const prevCandle = allCandles.length >= 2 ? allCandles[allCandles.length - 2]! : null;
+  const candleRange = current.high - current.low;
+  const candleBody = current.close - current.open;
+  const vsPrevClose =
+    prevCandle != null ? current.close - prevCandle.close : null;
   const openTrades = trades.filter((trade) => trade.status === "open");
   const fmtPrice = (p: number) =>
     p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6);
+  /** Narrow toolbar on phone — fewer decimals so OHLC + R/Δ/P fit. */
+  const fmtM = (p: number) => {
+    const a = Math.abs(p);
+    if (a >= 1000) return p.toFixed(2);
+    if (a >= 10) return p.toFixed(2);
+    if (a >= 1) return p.toFixed(3);
+    return p.toFixed(4);
+  };
+  const fp = isMobileChart ? fmtM : fmtPrice;
 
   const pairLabel = formatForexPair(symbol);
 
@@ -2969,12 +3010,46 @@ function LiveChart({
             </span>
           ) : null}
           <span className="tv-ohlc">
-            O {fmtPrice(current.open)} H {fmtPrice(current.high)} L {fmtPrice(current.low)} C{" "}
-            {fmtPrice(current.close)}
+            O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
           </span>
           <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
             {change >= 0 ? "+" : ""}
-            {change.toFixed(4)} ({changePct.toFixed(2)}%)
+            {isMobileChart ? change.toFixed(2) : change.toFixed(4)} ({changePct.toFixed(2)}%)
+          </span>
+          <span
+            className={`tv-chart-extra-stats${isMobileChart ? " tv-chart-extra-stats--compact" : ""}`}
+            aria-label="Current candle metrics"
+          >
+            <span className="tv-stat tv-stat--range" title="Range (high − low), this candle">
+              <span className="tv-stat-label">R</span>
+              {fp(candleRange)}
+            </span>
+            <span className="tv-stat-sep" aria-hidden>
+              ·
+            </span>
+            <span
+              className={`tv-stat tv-stat--body ${candleBody >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
+              title="Body (close − open), this candle"
+            >
+              <span className="tv-stat-label">Δ</span>
+              {candleBody >= 0 ? "+" : ""}
+              {fp(candleBody)}
+            </span>
+            {vsPrevClose != null ? (
+              <>
+                <span className="tv-stat-sep" aria-hidden>
+                  ·
+                </span>
+                <span
+                  className={`tv-stat tv-stat--prev ${vsPrevClose >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
+                  title="Change vs previous candle close"
+                >
+                  <span className="tv-stat-label">{isMobileChart ? "P" : "Prev"}</span>
+                  {vsPrevClose >= 0 ? "+" : ""}
+                  {fp(vsPrevClose)}
+                </span>
+              </>
+            ) : null}
           </span>
         </div>
         <div className="chart-meta-right tv-chart-meta">
