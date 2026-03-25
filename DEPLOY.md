@@ -61,6 +61,52 @@ git log -1 --oneline origin/main
 git log -1 --oneline
 ```
 
+**`.env` check (same path par):**
+
+- **Linux VPS par** `curl` use karo — `curl.exe` sirf Windows / PowerShell hai (`command not found` aayega).
+
+```bash
+cd /home/updowanfx/htdocs/updowanfx.com
+
+# File hai ya nahi (project root = jahan package.json hai)
+test -f .env && echo ".env OK" || echo "MISSING: copy .env.example to .env and edit"
+
+# Active MySQL lines (bina #) — agar kuch nahi aaya = MySQL off
+grep -E '^USE_MYSQL=|^MYSQL_' .env 2>/dev/null || echo "(no active MYSQL_* — app uses SQLite)"
+
+# Chal raha Node app kaunsa DB use kar raha hai
+curl -sS "http://127.0.0.1:3000/api/system/database"
+# HTTPS:
+# curl -sS "https://updowanfx.com/api/system/database"
+```
+
+- `kind: "mysql"` + `database: "tradeing"` → naye user **phpMyAdmin / MySQL** mein.
+- `kind: "sqlite"` + `file: ".../data/app.db"` → **MySQL abhi band hai.**  
+  Sirf `grep` mein `# MYSQL_...` (comment) dikhna = **uncomment nahi** kiya. Neeche jaisa **bina `#`** likho, phir `pm2 restart`.
+
+**MySQL on (example — apna password / user):**
+
+```env
+USE_MYSQL=1
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
+```
+
+(`USE_MYSQL=1` se database name default `tradeing` ho jata hai — pehle MySQL mein `tradeing` DB banao.)
+
+Phir:
+
+```bash
+pm2 restart updowanfx
+curl -sS "http://127.0.0.1:3000/api/system/database"
+```
+
+Dubara `kind: "mysql"` aana chahiye.
+
+---
+
 Agar **server wala hash purana** hai:
 
 ```bash

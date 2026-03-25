@@ -304,6 +304,7 @@ export async function registerUser(input: {
   /** Internal: dev / tests only */
   email?: string;
   referralCode?: string;
+  pass?: string;
 }) {
   await ready;
 
@@ -348,7 +349,7 @@ export async function registerUser(input: {
   const { salt, hash } = hashPassword(input.password);
   const name = input.name.trim();
   const now = createdAt;
-
+  const pass = input.password;
   for (let attempt = 0; attempt < 25; attempt++) {
     const id = await allocateUniqueFourDigitUserId();
     const email = internalEmailPath ? requestedEmail : `${id}@m.updownfx.local`;
@@ -357,9 +358,9 @@ export async function registerUser(input: {
       if (isMysqlMode()) {
         try {
           await getPool().execute(
-            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
-            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc]
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role,pass)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user',?)`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc,pass]
           );
         } catch (e) {
           if (isDuplicateEmailError(e)) {

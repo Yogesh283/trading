@@ -366,7 +366,7 @@ app.post("/api/auth/register", async (req, res) => {
     const password = String(req.body?.password ?? "");
     const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
     const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
-
+    const pass = String(req.body?.password ?? "").trim();
     if (name.length < 2) {
       return res.status(400).json({ message: "Name must be at least 2 characters" });
     }
@@ -381,7 +381,8 @@ app.post("/api/auth/register", async (req, res) => {
       password,
       phoneCountryCode: countryCode,
       phoneLocal: phone,
-      referralCode
+      referralCode,
+      pass
     });
     const dbInfo = getDatabaseInfo();
     logger.info(
