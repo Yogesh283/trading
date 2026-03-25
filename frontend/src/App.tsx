@@ -56,7 +56,19 @@ import {
   DockIconMarkets,
   DockIconReferral,
   DockIconTradeBars,
-  DockIconWithdraw
+  DockIconWithdraw,
+  DrawerIconAbout,
+  DrawerIconAccount,
+  DrawerIconChart,
+  DrawerIconDeposit,
+  DrawerIconHistory,
+  DrawerIconInvestment,
+  DrawerIconMarkets,
+  DrawerIconPromotion,
+  DrawerIconRefresh,
+  DrawerIconTrading,
+  DrawerIconWalletActivity,
+  DrawerIconWithdraw
 } from "./MobileDockIcons";
 
 /** Logged-in session only — guest / no-login demo trading is disabled (server + UI). */
@@ -665,16 +677,24 @@ export default function App() {
         setMarkets(payload.data.markets);
         const snapWallet = (payload.data as { wallet?: "demo" | "live" }).wallet;
         const isPersonalSnap = snapWallet === "demo" || snapWallet === "live";
-        const applyUserSnap = session != null && isPersonalSnap && snapWallet === accountWallet;
-        if (applyUserSnap) {
-          setAccount(payload.data.account);
+        const accountSnap = payload.data.account;
+        if (session != null && isPersonalSnap && accountSnap && snapWallet) {
+          if (snapWallet === accountWallet) {
+            setAccount(accountSnap);
+            if (Array.isArray(payload.data.trades)) {
+              setTrades(payload.data.trades);
+            }
+          }
           setDualBalances((prev) => ({
             ...prev,
-            [accountWallet]: payload.data.account.balance
+            [snapWallet]: accountSnap.balance
           }));
-          if (Array.isArray(payload.data.trades)) {
-            setTrades(payload.data.trades);
-          }
+          const otherWallet: "demo" | "live" = snapWallet === "demo" ? "live" : "demo";
+          void loadAccount(session.token, otherWallet)
+            .then((acc) => {
+              setDualBalances((prev) => ({ ...prev, [otherWallet]: acc.balance }));
+            })
+            .catch(() => undefined);
         }
         setHistory((current) => mergeSnapshot(current, payload.data.markets));
         return;
@@ -1030,13 +1050,13 @@ export default function App() {
   const tradingAsDemo = accountWallet === "demo";
   /** Demo + live: stake and wallet shown in INR (same numeric units as server demo/live wallets). */
   const fmtWallet = (n: number) => formatInr(n);
-  const headerDemoBal = dualBalances.demo ?? DEFAULT_DEMO_BALANCE_INR;
-  const headerLiveBal = dualBalances.live ?? 0;
+  const fmtHeaderWallet = (n: number | null) => (n == null ? "—" : fmtWallet(n));
 
   return (
     <div
       className={`app-shell${session && isPhone ? " app-mobile-trade" : ""}${session && !isPhone ? " app-guest-desktop-dock" : ""}`}
       data-dock={session && isPhone ? "theme" : undefined}
+      data-account-wallet={session && isPhone ? accountWallet : undefined}
     >
       <header className={`app-main-nav${mainNavOpen ? " app-main-nav--drawer-open" : ""}`}>
         <div className="app-main-nav-row">
@@ -1052,8 +1072,11 @@ export default function App() {
             </button>
           ) : null}
           <div className="app-nav-brand-block">
-            <BrandLogo className="app-nav-brand-logo" />
-            <span className="app-nav-brand">{APP_NAME}</span>
+            <span className="app-nav-brand" aria-label={APP_NAME}>
+              <span className="app-nav-brand-up">Up</span>
+              <span className="app-nav-brand-down">Down</span>
+              <span className="app-nav-brand-fx"> FX</span>
+            </span>
             {!isPhone ? (
               <span className={`app-nav-mode-pill ${tradingAsDemo ? "demo" : "live"}`}>
                 {tradingAsDemo ? "Demo" : "Live"}
@@ -1185,7 +1208,7 @@ export default function App() {
                 }}
               >
                 <span className="app-nav-balance-col-label">Demo</span>
-                <span className="app-nav-balance-col-amt">{fmtWallet(headerDemoBal)}</span>
+                <span className="app-nav-balance-col-amt">{fmtHeaderWallet(dualBalances.demo)}</span>
               </button>
               <button
                 type="button"
@@ -1197,7 +1220,7 @@ export default function App() {
                 }}
               >
                 <span className="app-nav-balance-col-label">Live</span>
-                <span className="app-nav-balance-col-amt">{fmtWallet(headerLiveBal)}</span>
+                <span className="app-nav-balance-col-amt">{fmtHeaderWallet(dualBalances.live)}</span>
               </button>
             </div>
             {!isPhone ? (
@@ -1286,7 +1309,8 @@ export default function App() {
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
               >
-                Trading
+                <DrawerIconTrading />
+                <span>Trading</span>
               </button>
               <button
                 type="button"
@@ -1295,7 +1319,8 @@ export default function App() {
                   setAssetPickerOpen(true);
                 }}
               >
-                Markets (pairs)
+                <DrawerIconMarkets />
+                <span>Markets (pairs)</span>
               </button>
               <button
                 type="button"
@@ -1310,7 +1335,8 @@ export default function App() {
                   }
                 }}
               >
-                Account
+                <DrawerIconAccount />
+                <span>Account</span>
               </button>
               <button
                 type="button"
@@ -1325,7 +1351,8 @@ export default function App() {
                   }
                 }}
               >
-                Trade history
+                <DrawerIconHistory />
+                <span>Trade history</span>
               </button>
               <button
                 type="button"
@@ -1334,7 +1361,8 @@ export default function App() {
                   document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth" });
                 }}
               >
-                Chart
+                <DrawerIconChart />
+                <span>Chart</span>
               </button>
               <button
                 type="button"
@@ -1344,7 +1372,8 @@ export default function App() {
                   setMessage("Data refreshed.");
                 }}
               >
-                Refresh data
+                <DrawerIconRefresh />
+                <span>Refresh data</span>
               </button>
               <button
                 type="button"
@@ -1353,7 +1382,8 @@ export default function App() {
                   setMainNavOpen(false);
                 }}
               >
-                About
+                <DrawerIconAbout />
+                <span>About</span>
               </button>
               <>
                 <button
@@ -1363,7 +1393,8 @@ export default function App() {
                     setMainNavOpen(false);
                   }}
                 >
-                  Deposit USDT
+                  <DrawerIconDeposit />
+                  <span>Deposit USDT</span>
                 </button>
                 <button
                   type="button"
@@ -1372,7 +1403,8 @@ export default function App() {
                     setMainNavOpen(false);
                   }}
                 >
-                  Withdraw USDT
+                  <DrawerIconWithdraw />
+                  <span>Withdraw USDT</span>
                 </button>
                 <button
                   type="button"
@@ -1381,7 +1413,8 @@ export default function App() {
                     setMainNavOpen(false);
                   }}
                 >
-                  Investment
+                  <DrawerIconInvestment />
+                  <span>Investment</span>
                 </button>
                 <button
                   type="button"
@@ -1390,7 +1423,8 @@ export default function App() {
                     setMainNavOpen(false);
                   }}
                 >
-                  Promotion
+                  <DrawerIconPromotion />
+                  <span>Promotion</span>
                 </button>
                 <button
                   type="button"
@@ -1399,7 +1433,8 @@ export default function App() {
                     setWalletActivityOpen(true);
                   }}
                 >
-                  Wallet activity
+                  <DrawerIconWalletActivity />
+                  <span>Wallet activity</span>
                 </button>
               </>
               <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>

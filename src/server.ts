@@ -1601,6 +1601,13 @@ app.post("/api/orders", (req, res) => {
       return res.status(409).json({ message: "No live price available yet" });
     }
 
+    const liveBal = await getWalletBalance(user.id);
+    if (liveBal + 1e-9 < amount) {
+      return res.status(400).json({
+        message: `Insufficient live balance — need at least ${amount.toFixed(2)} INR (stake). Current: ${liveBal.toFixed(2)} INR. Deposit or switch to Demo.`
+      });
+    }
+
     const account = getAccountForWallet(user.id, "live");
     const tradeId = `trade-${crypto.randomUUID()}`;
     try {
@@ -1702,10 +1709,15 @@ setInterval(() => {
         }
       });
       await Promise.all(liveTasks);
+    } catch (e) {
+      logger.error({ e }, "Binary auto-settle tick failed");
     } finally {
       settlingTrades = false;
     }
-  })();
+  })().catch((e) => {
+    logger.error({ e }, "Binary auto-settle loop unhandled");
+    settlingTrades = false;
+  });
 }, 1000);
 
 app.get("/api/investment", (req, res) => {
