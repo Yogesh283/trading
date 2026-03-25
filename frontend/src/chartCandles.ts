@@ -68,6 +68,12 @@ export function candlePeriodEndMs(nowMs: number, intervalSeconds: number): numbe
   return Math.floor(nowMs / bucketMs) * bucketMs + bucketMs;
 }
 
+/** Start of the chart candle bucket containing `tsMs` (same alignment as `buildCandles`). */
+export function candleBucketStartMs(tsMs: number, intervalSeconds: number): number {
+  const bucketMs = intervalSeconds * 1000;
+  return Math.floor(tsMs / bucketMs) * bucketMs;
+}
+
 /** Max bars on chart — keeps TradingView-like density (avoids 10k+ flat dojis killing the look). */
 export const CHART_MAX_CANDLES = 1200;
 

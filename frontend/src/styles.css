@@ -1503,14 +1503,17 @@ select {
   font-size: 15px;
   font-weight: 800;
   vertical-align: middle;
+  transition: color 1.2s ease, transform 1.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tv-spot-tick.up {
   color: var(--candle-bull);
+  transform: translateY(-0.05em) scale(1.06);
 }
 
 .tv-spot-tick.down {
   color: var(--candle-bear);
+  transform: translateY(0.06em) scale(1.06);
 }
 
 .chart-spot-price.up {
@@ -1767,7 +1770,7 @@ select {
   width: 100%;
 }
 
-/* Candle countdown — same period as selected TF (sync with `candlePeriodEndMs` / `buildCandles`). */
+/* Candle countdown — same period as selected TF (sync with `candlePeriodEndMs` · `buildCandles`). */
 .tv-chart-candle-timer {
   display: inline-flex;
   align-items: baseline;
@@ -1777,6 +1780,10 @@ select {
   background: rgba(252, 213, 53, 0.1);
   border: 1px solid rgba(252, 213, 53, 0.28);
   font-variant-numeric: tabular-nums;
+  transition:
+    background 1.2s ease,
+    border-color 1.2s ease,
+    box-shadow 1.2s ease;
 }
 
 .tv-chart-candle-timer-label {
@@ -1786,6 +1793,7 @@ select {
   text-transform: uppercase;
   color: var(--chart-vip-accent, #fcd535);
   opacity: 0.95;
+  transition: color 1.2s ease, opacity 0.9s ease;
 }
 
 .tv-chart-candle-timer-val {
@@ -1793,6 +1801,7 @@ select {
   font-weight: 800;
   color: #f5f6f8;
   letter-spacing: 0.04em;
+  transition: color 1.2s ease, letter-spacing 1s ease;
 }
 
 .tv-chart-candle-timer--up {
@@ -1866,6 +1875,7 @@ select {
   line-height: 1.15;
   max-width: min(42vw, 140px);
   text-align: right;
+  transition: background 1.15s ease, box-shadow 1.15s ease, color 1s ease;
 }
 
 .chart-lw-axis-pill-timer {
@@ -1939,6 +1949,7 @@ select {
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: background 1.2s ease, border-color 1.2s ease, box-shadow 1s ease;
 }
 
 .tv-live-badge--timer-only .tv-live-badge-cd {
@@ -2003,6 +2014,7 @@ select {
   font-weight: 700;
   margin-top: 3px;
   opacity: 0.95;
+  transition: color 1.15s ease;
 }
 
 .tv-live-badge-cd.zoomed {
@@ -2035,12 +2047,14 @@ select {
   background: rgba(14, 203, 129, 0.18);
   border-color: #0ecb81;
   color: #eaecef;
+  transition: background 1.2s ease, border-color 1.2s ease, color 1s ease;
 }
 
 .tv-live-badge--tick-down {
   background: rgba(246, 70, 93, 0.18);
   border-color: #f6465d;
   color: #eaecef;
+  transition: background 1.2s ease, border-color 1.2s ease, color 1s ease;
 }
 
 .tv-live-badge--timer-only.tv-live-badge--tick-up {

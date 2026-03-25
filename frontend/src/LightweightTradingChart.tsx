@@ -7,6 +7,7 @@ import {
   TrackingModeExitMode,
   type IChartApi,
   type ISeriesApi,
+  type SeriesMarker,
   type UTCTimestamp
 } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
@@ -140,6 +141,8 @@ type Props = {
   onTimerTap: () => void;
   /** Last spot tick vs previous (green ↑ / red ↓). */
   tickDirection?: "up" | "down" | null;
+  /** Open binary trades on this symbol — rendered as arrows on candles. */
+  tradeMarkers?: SeriesMarker<UTCTimestamp>[];
 };
 
 export function LightweightTradingChart({
@@ -154,7 +157,8 @@ export function LightweightTradingChart({
   countdownStr,
   timerTextZoomed,
   onTimerTap,
-  tickDirection = null
+  tickDirection = null,
+  tradeMarkers = []
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -316,6 +320,14 @@ export function LightweightTradingChart({
       chart.timeScale().fitContent();
     }
   }, [assetTag, candles, chartResetKey, isMobileChart, timeframeSec]);
+
+  useEffect(() => {
+    const candleSeries = candleRef.current;
+    if (!candleSeries) {
+      return;
+    }
+    candleSeries.setMarkers(tradeMarkers);
+  }, [tradeMarkers, chartResetKey, assetTag]);
 
   /** Custom HTML pill for TF + countdown + price; native last-value label stays off. */
   useEffect(() => {

@@ -10,11 +10,13 @@ import {
 } from "react";
 import {
   buildCandles,
+  candleBucketStartMs,
   candlePeriodEndMs,
   extendClosedCandlesToNow,
   mergeDbClosedWithLiveCandles,
   type CandlePoint
 } from "./chartCandles";
+import type { SeriesMarker, UTCTimestamp } from "lightweight-charts";
 import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
 import { lastTickMove } from "./tickDirection";
 import { LightweightTradingChart } from "./LightweightTradingChart";
@@ -870,6 +872,7 @@ export default function App() {
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
       scrollMobileTradeHistoryIntoView();
+      setMessage("Good — trade created.");
       showOrderPlacedPopup(
         "demo",
         `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
@@ -906,6 +909,7 @@ export default function App() {
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
       scrollMobileTradeHistoryIntoView();
+      setMessage("Good — trade created.");
       showOrderPlacedPopup(
         "live",
         `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
@@ -1526,41 +1530,6 @@ export default function App() {
               </span>
             </div>
           </header>
-
-          <section className="mobile-asset-list-panel" aria-labelledby="mobile-trade-asset-heading">
-            <h3 id="mobile-trade-asset-heading" className="mobile-asset-list-heading">
-              Trade — Select asset
-            </h3>
-            <p className="mobile-asset-list-hint muted">Scroll · tap pair to load chart</p>
-            <ul className="mobile-asset-chips">
-              {forexSymbolList.map((s) => {
-                const tick = markets.find((t) => t.symbol === s);
-                const priceDir = lastTickMove(history[s]);
-                return (
-                  <li key={s} className="mobile-asset-chip-li">
-                  <button
-                    type="button"
-                    className={`mobile-asset-chip ${s === symbol ? "active" : ""}`}
-                    onClick={() => setSymbol(s)}
-                  >
-                    <span className="mobile-asset-chip-top">
-                      <span className="mobile-asset-chip-icon">{getAssetIcon(s)}</span>
-                      <span className="mobile-asset-chip-pair">{formatForexPair(s)}</span>
-                    </span>
-                    {tick ? (
-                      <span className={`mobile-asset-chip-price ${priceDir ?? ""}`}>
-                        {priceDir === "up" ? "↑ " : priceDir === "down" ? "↓ " : ""}
-                        {formatFxPrice(s, tick.price)}
-                      </span>
-                    ) : (
-                      <span className="mobile-asset-chip-price muted">—</span>
-                    )}
-                  </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
 
           <section className="panel wide mobile-chart-wrap" id="app-chart-anchor">
             <LiveChart
@@ -2442,7 +2411,7 @@ export default function App() {
               {orderPlacedPopup.direction === "up" ? "↑ Up" : "↓ Down"}
             </p>
             <h2 id="order-placed-title" className="order-placed-title">
-              Order created
+              Good — trade created
             </h2>
             <p id="order-placed-desc" className="order-placed-summary">
               {orderPlacedPopup.summary}
@@ -2854,6 +2823,38 @@ function LiveChart({
   const zoomIndexRef = useRef(zoomIndex);
   zoomIndexRef.current = zoomIndex;
 
+  const chartTradeMarkers = useMemo((): SeriesMarker<UTCTimestamp>[] => {
+    const fmt = (p: number) =>
+      p >= 1000 ? p.toFixed(2) : p >= 1 ? p.toFixed(4) : p.toFixed(6);
+    const list: SeriesMarker<UTCTimestamp>[] = [];
+    for (const t of trades) {
+      if (
+        t.status !== "open" ||
+        t.symbol !== symbol ||
+        (t.direction !== "up" && t.direction !== "down")
+      ) {
+        continue;
+      }
+      const ms = Date.parse(t.openedAt);
+      if (!Number.isFinite(ms)) {
+        continue;
+      }
+      const bucketStart = candleBucketStartMs(ms, timeframeSec);
+      const time = Math.floor(bucketStart / 1000) as UTCTimestamp;
+      const up = t.direction === "up";
+      list.push({
+        time,
+        position: up ? "belowBar" : "aboveBar",
+        color: up ? "#0ecb81" : "#f6465d",
+        shape: up ? "arrowUp" : "arrowDown",
+        text: `${up ? "UP" : "DOWN"} trade @ ${fmt(t.entryPrice)}`,
+        id: t.id
+      });
+    }
+    list.sort((a, b) => Number(a.time) - Number(b.time));
+    return list;
+  }, [trades, symbol, timeframeSec]);
+
   /** 1s tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
@@ -3022,6 +3023,7 @@ function LiveChart({
             timerTextZoomed={timerTextZoomed}
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
             tickDirection={tickDirection}
+            tradeMarkers={chartTradeMarkers}
           />
         </div>
 
