@@ -54,7 +54,7 @@ import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
   DockIconDeposit,
   DockIconMarkets,
-  DockIconMenu,
+  DockIconReferral,
   DockIconTradeBars,
   DockIconWithdraw
 } from "./MobileDockIcons";
@@ -1160,7 +1160,7 @@ export default function App() {
                   className={dashboardSection === "referral" ? "active" : ""}
                   onClick={() => setDashboardSection("referral")}
                 >
-                  Refer &amp; Earn
+                  Promotion
                 </button>
                 <button
                   type="button"
@@ -1390,7 +1390,7 @@ export default function App() {
                     setMainNavOpen(false);
                   }}
                 >
-                  Refer &amp; Earn
+                  Promotion
                 </button>
                 <button
                   type="button"
@@ -1789,14 +1789,14 @@ export default function App() {
           </div>
           {session.user.selfReferralCode ? (
             <div className="referral-box muted" style={{ marginTop: "0.75rem" }}>
-              <strong>Your referral code</strong>{" "}
+              <strong>Your promotion code</strong>{" "}
               <code className="referral-code-pill">{session.user.selfReferralCode}</code>{" "}
               <button
                 type="button"
                 className="link-inline"
                 onClick={() => {
                   void navigator.clipboard.writeText(session.user.selfReferralCode);
-                  setMessage("Referral code copied.");
+                  setMessage("Promotion code copied.");
                 }}
               >
                 Copy
@@ -2317,14 +2317,18 @@ export default function App() {
           </button>
           <button
             type="button"
-            className="mobile-dock-item mobile-dock-cell"
-            onClick={() => setMainNavOpen(true)}
-            aria-label="Account and menu"
+            className={`mobile-dock-item mobile-dock-cell mobile-dock-referral${dashboardSection === "referral" ? " active" : ""}`}
+            onClick={() => {
+              setMainNavOpen(false);
+              setDashboardSection("referral");
+            }}
+            aria-current={dashboardSection === "referral" ? "page" : undefined}
+            aria-label="Promotion"
           >
             <span className="mobile-dock-icon-slot" aria-hidden>
-              <DockIconMenu />
+              <DockIconReferral />
             </span>
-            <span className="mobile-dock-label">Account</span>
+            <span className="mobile-dock-label">Promotion</span>
           </button>
         </nav>
       ) : null}
@@ -2730,7 +2734,7 @@ function AuthScreen({
 
           {authView === "register" ? (
             <label>
-              Referral code <span className="muted">(optional)</span>
+              Promotion code <span className="muted">(optional)</span>
               <input
                 type="text"
                 value={registerForm.referralCode}
@@ -2778,8 +2782,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Zoom = slot width in px (larger = fewer candles = more zoomed in). −/+ steps are clearly visible. */
-const MOBILE_DEFAULT_ZOOM_INDEX = 5;
-const DESKTOP_DEFAULT_ZOOM_INDEX = 3;
+/** Index `0` = minimum bar spacing (widest view). */
+const MOBILE_DEFAULT_ZOOM_INDEX = 0;
+const DESKTOP_DEFAULT_ZOOM_INDEX = 0;
 
 function LiveChart({
   points,
@@ -2822,7 +2827,7 @@ function LiveChart({
 
   useEffect(() => {
     setZoomIndex(isMobileChart ? MOBILE_DEFAULT_ZOOM_INDEX : DESKTOP_DEFAULT_ZOOM_INDEX);
-  }, [timeframeSec, isMobileChart]);
+  }, [symbol, timeframeSec, isMobileChart]);
 
   useEffect(() => {
     if (!isMobileChart) return;

@@ -1569,22 +1569,22 @@ select {
   font-weight: 800;
 }
 
-/* Mobile: asset row above chart (pair + OHLC + %) */
+/* Mobile: compact asset row above chart (pair + OHLC + %) */
 .tv-chart-mobile .tv-chart-toolbar .tv-symbol {
-  font-size: 23px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .tv-chart-mobile .tv-ohlc {
-  font-size: 16px;
+  font-size: 10px;
   color: #848e9c;
-  line-height: 1.4;
+  line-height: 1.25;
 }
 
 .tv-chart-mobile .tv-change.up,
 .tv-chart-mobile .tv-change.down {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .tv-chart-mobile .tv-timer-badge-text {

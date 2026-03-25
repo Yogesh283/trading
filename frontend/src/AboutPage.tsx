@@ -90,7 +90,7 @@ export default function AboutPage(props: Props) {
             <li>
               <strong>Referral / network (level income)</strong> — on eligible live activity, small share-based credits
               may be applied to uplines in your referral structure, as configured on the server. Rates and depth are
-              system-defined; see your referral area and ledger for what actually applies to you.
+              system-defined; see your promotion area and ledger for what actually applies to you.
             </li>
             <li>
               <strong>Investment yield</strong> — if you hold an active investment product offered in the app, scheduled

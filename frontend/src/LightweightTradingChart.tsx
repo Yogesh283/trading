@@ -41,15 +41,15 @@ function priceLineColorForTick(dir: "up" | "down" | null | undefined): string {
   return PRO_LAST_PRICE;
 }
 
-/** Responsive chart height for phone — large enough to feel “full” (toolbar + dock stay outside). */
+/** Responsive chart height for phone — minimal so dock + order row dominate the screen. */
 function useMobileChartHeightPx(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
-      return 380;
+      return 200;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    const target = vh * 0.52;
-    return Math.round(Math.min(580, Math.max(300, target)));
+    const target = vh * 0.26;
+    return Math.round(Math.min(280, Math.max(168, target)));
   }, []);
 
   const [px, setPx] = useState(() => {
@@ -231,7 +231,7 @@ export function LightweightTradingChart({
         textColor: SCALE_TEXT,
         borderColor: SCALE_BORDER,
         // Room for last-value pill: timeframe + MM:SS + price (desktop)
-        minimumWidth: isMobileChart ? 92 : 124,
+        minimumWidth: isMobileChart ? 76 : 124,
         // Mobile: more vertical padding so full wicks (high/low) stay inside the plot, not clipped at edges
         scaleMargins: isMobileChart ? { top: 0.1, bottom: 0.2 } : { top: 0.05, bottom: 0.1 }
       },
@@ -308,7 +308,7 @@ export function LightweightTradingChart({
 
     chart.priceScale("right").applyOptions({
       visible: true,
-      minimumWidth: isMobileChart ? 92 : 124
+      minimumWidth: isMobileChart ? 76 : 124
     });
 
     if (lastResetKeyRef.current !== chartResetKey) {

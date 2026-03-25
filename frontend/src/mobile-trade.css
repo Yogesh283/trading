@@ -461,8 +461,14 @@
 }
 
 .mobile-chart-wrap {
-  padding: 12px 4px 18px !important;
-  margin-bottom: 10px;
+  padding: 6px 4px 10px !important;
+  margin-bottom: 6px;
+  margin-top: 0;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: min(100%, 340px);
+  width: 100%;
+  box-sizing: border-box;
   position: relative;
   background: #0d1117;
   border-radius: 12px;
@@ -478,7 +484,7 @@
 /* Lightweight-charts host (replaces old .tv-chart-svg). */
 .mobile-chart-wrap .chart-lw-outer {
   width: 100%;
-  min-height: min(52dvh, 560px);
+  min-height: min(22dvh, 220px);
   min-width: 0;
 }
 
@@ -536,42 +542,61 @@
 
 .tv-chart-mobile .chart-lw-host {
   flex: 1 1 auto;
-  min-height: 200px;
+  min-height: 104px;
 }
 
 /* Countdown pill — bottom-left; native chart shows symbol + price on right axis. */
 .tv-chart-mobile .chart-lw-timer-anchor {
   left: 8px;
-  bottom: 58px;
+  bottom: 48px;
 }
 
 /* Compact OHLC row so more vertical space stays for the chart */
+.tv-chart-mobile.chart-card .chart-meta.tv-chart-toolbar {
+  justify-content: flex-start;
+}
+
 .tv-chart-mobile.chart-card .tv-chart-toolbar {
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 6px 10px;
-  padding: 12px 10px 10px;
+  gap: 0;
+  padding: 6px 6px 6px;
   border-bottom: 1px solid #2b3139;
   background: linear-gradient(180deg, #161a22 0%, #12161c 55%, #0f1318 100%);
-  box-shadow: 0 1px 0 rgba(252, 213, 53, 0.06);
-  border-radius: 10px 10px 0 0;
 }
 
 .tv-chart-mobile .tv-toolbar-left {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(100% - 108px);
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-symbol {
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 0;
+  font-size: 14px !important;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-ohlc {
   display: block;
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 9px !important;
+  line-height: 1.25;
   word-break: break-all;
+}
+
+.tv-chart-mobile .tv-chart-toolbar .tv-change,
+.tv-chart-mobile .tv-chart-toolbar .tv-change.up,
+.tv-chart-mobile .tv-chart-toolbar .tv-change.down {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  margin-top: 1px;
+}
+
+.tv-chart-mobile .tv-chart-toolbar .tv-spot-tick {
+  font-size: 12px !important;
+  margin: 0 4px 0 2px;
 }
 
 .tv-chart-mobile .tv-chart-meta-right,
@@ -581,43 +606,74 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px 8px;
-  font-size: 11px;
+  gap: 2px 4px;
+  margin-left: auto;
+  font-size: 9px !important;
   opacity: 0.9;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer {
-  padding: 4px 8px;
+  padding: 2px 8px;
+  gap: 4px;
+}
+
+.tv-chart-mobile .tv-chart-candle-timer-label {
+  font-size: 9px !important;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer-val {
-  font-size: 12px;
+  font-size: 10px !important;
+}
+
+.tv-chart-mobile .tv-chart-meta-sep {
+  margin: 0 3px;
+}
+
+/* Smaller on-chart last-price pill on narrow mobile card */
+.tv-chart-mobile .chart-lw-axis-pill {
+  padding: 3px 6px 4px;
+  gap: 2px;
+  max-width: min(38vw, 118px);
+}
+
+.tv-chart-mobile .chart-lw-axis-pill-timer {
+  font-size: 0.65rem !important;
+  gap: 4px;
+}
+
+.tv-chart-mobile .chart-lw-axis-pill-cd {
+  font-size: 0.65rem !important;
+}
+
+.tv-chart-mobile .chart-lw-axis-pill-price {
+  font-size: 11px !important;
 }
 
 .tv-chart-mobile .chart-zoom-controls {
-  bottom: 16px;
+  bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 6px 8px;
-  min-width: 92px;
+  padding: 3px 4px;
+  min-width: 72px;
   justify-content: center;
   background: #2b3139;
   border: 1px solid #474d57;
-  border-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
   touch-action: manipulation;
   isolation: isolate;
 }
 
 .tv-chart-mobile .chart-zoom-controls button {
-  width: 42px;
-  height: 38px;
-  font-size: 20px;
+  width: 32px;
+  height: 28px;
+  font-size: 15px;
   font-weight: 600;
+  line-height: 1;
   color: #eaecef;
   border-radius: 2px;
   -webkit-tap-highlight-color: transparent;
@@ -634,13 +690,14 @@
 }
 
 .tv-chart-mobile .chart-zoom-divider {
-  height: 24px;
+  width: 1px;
+  height: 18px;
   background: #474d57;
 }
 
 /*
  * Mobile bottom dock — 5-column layout:
- * Deposit | Withdraw | TRADE (FAB) | Markets/Invest | Account
+ * Deposit | Withdraw | TRADE (FAB) | Markets | Promotion
  */
 .mobile-bottom-dock {
   position: fixed;
@@ -769,8 +826,9 @@
   opacity: 1;
 }
 
-/* Markets: keep 4-color grid icon vivid (inactive dock filter was washing it out) */
-.mobile-bottom-dock .mobile-dock-item.mobile-dock-cell.mobile-dock-markets .mobile-dock-fg-icon {
+/* Markets + Promotion: keep multi-color SVGs vivid (inactive dock filter would mute them) */
+.mobile-bottom-dock .mobile-dock-item.mobile-dock-cell.mobile-dock-markets .mobile-dock-fg-icon,
+.mobile-bottom-dock .mobile-dock-item.mobile-dock-cell.mobile-dock-referral .mobile-dock-fg-icon {
   width: 26px;
   height: 26px;
   filter: none;

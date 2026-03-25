@@ -72,7 +72,7 @@ export default function ReferralPage({ token, onBack }: Props) {
       <div className="funds-card referral-card">
         <div className="funds-title-row investment-title-row">
           <BrandLogo size={40} />
-          <h1>Refer &amp; Earn</h1>
+          <h1>Promotion</h1>
         </div>
         <p className="funds-network">Share your link. Friends who register join your team — see their activity below.</p>
 
@@ -82,7 +82,7 @@ export default function ReferralPage({ token, onBack }: Props) {
         {data ? (
           <>
             <section className="referral-section">
-              <h2 className="referral-h2">Your referral code</h2>
+              <h2 className="referral-h2">Your promotion code</h2>
               <div className="referral-code-row">
                 <code className="referral-code-big">{data.selfReferralCode}</code>
                 <button type="button" className="referral-copy-btn" onClick={copyCode}>
@@ -92,18 +92,18 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Referral link</h2>
+              <h2 className="referral-h2">Promotion link</h2>
               {link ? (
                 <>
                   <div className="referral-link-box">
-                    <input readOnly className="referral-link-input" value={link} aria-label="Referral link" />
+                    <input readOnly className="referral-link-input" value={link} aria-label="Promotion link" />
                   </div>
                   <button type="button" className="referral-copy-full" onClick={copyLink}>
                     Copy link
                   </button>
                 </>
               ) : (
-                <p className="muted">No referral code on your account yet.</p>
+                <p className="muted">No promotion code on your account yet.</p>
               )}
             </section>
 
@@ -115,7 +115,7 @@ export default function ReferralPage({ token, onBack }: Props) {
                   <span className="muted">{data.inviter.email}</span>
                 </div>
               ) : (
-                <p className="muted">You signed up without a referral code.</p>
+                <p className="muted">You signed up without a promotion code.</p>
               )}
             </section>
 
@@ -123,7 +123,7 @@ export default function ReferralPage({ token, onBack }: Props) {
               <h2 className="referral-h2">Your income (commissions)</h2>
               <p className="muted referral-commission-hint">
                 Live wallet mein credit hota hai jab team binary trade, staking add, ya monthly investment ROI (upline)
-                share. Demo par commission nahi. Binary/staking ke liye &quot;Referral / level %&quot; alag hai; monthly
+                share. Demo par commission nahi. Binary/staking ke liye &quot;Promotion / level %&quot; alag hai; monthly
                 investment ROI upline admin ke &quot;Investment ROI&quot; page se % of gross pool se split hota hai.
               </p>
               <div className="referral-table-wrap referral-income-table-wrap">

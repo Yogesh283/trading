@@ -129,3 +129,21 @@ export function DockIconMenu() {
     </svg>
   );
 }
+
+/** Promotion tab — bottom dock (two heads + shoulders + spark). */
+export function DockIconReferral() {
+  return (
+    <svg className={cls} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="9" cy="9" r="3.2" fill="#66bb6a" opacity={0.95} />
+      <circle cx="15" cy="9" r="3.2" fill="#42a5f5" opacity={0.95} />
+      <path
+        d="M6 20c0-3.5 2.8-5.5 6-5.5s6 2 6 5.5"
+        fill="none"
+        stroke="#b0bec5"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M12 4v3" stroke="#fff59d" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
