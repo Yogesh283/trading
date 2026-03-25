@@ -67,10 +67,10 @@ const envSchema = z.object({
    */
   TRADERMADE_LIVE_POLL_MS: z.coerce.number().int().positive().default(5000),
   /**
-   * Extra synthetic ticks between live polls (ms). Lower = denser 5s/10s OHLC. Default 400.
+   * Extra synthetic ticks between live polls (ms). Lower = denser 5s/10s OHLC. Default 250 (aligns with sim feed).
    * Ignored without TRADERMADE_KEY.
    */
-  TRADERMADE_STREAM_PULSE_MS: z.coerce.number().int().positive().default(400),
+  TRADERMADE_STREAM_PULSE_MS: z.coerce.number().int().positive().default(250),
   /** Set to 1 to force the old random-walk demo feed (no external APIs). */
   FOREX_SIMULATED_ONLY: z
     .string()

@@ -16,13 +16,13 @@ export interface ForexTick {
   source: "forex";
 }
 
-/** ~5h at 1 tick/sec — enough 3m/5m candles when DB is empty (see seedIntradayBackfill). */
-const HISTORY_MAX_TICKS_PER_SYMBOL = 18000;
+/** ~5h window: `HISTORY_MAX * SIM_TICK_MS` (see seedIntradayBackfill). */
+const HISTORY_MAX_TICKS_PER_SYMBOL = 72_000;
 
-/** Simulated + stream pulse: one visible update per second for UI / 5s candles. */
-const SIM_TICK_MS = 1000;
-/** After live API succeeds, small random walk every second (API still re-anchors on its interval). */
-const STREAM_PULSE_MS = 1000;
+/** Simulated + stream pulse cadence — higher = snappier live candles / WebSocket (more CPU + WS traffic). */
+const SIM_TICK_MS = 250;
+/** Between live API polls: synthetic walk at same cadence as sim ticks. */
+const STREAM_PULSE_MS = 250;
 
 /** Live ECB / TraderMade quotes when configured; otherwise random-walk demo. */
 export class ForexFeed extends EventEmitter {
@@ -147,8 +147,7 @@ export class ForexFeed extends EventEmitter {
 
   private seedIntradayBackfill() {
     const now = Date.now();
-    /** Match HISTORY_MAX_TICKS_PER_SYMBOL at 1 Hz (~5h) so 3m/5m charts get many buckets, not one bar. */
-    const stepMs = 1000;
+    const stepMs = SIM_TICK_MS;
     const backfillMs = (HISTORY_MAX_TICKS_PER_SYMBOL - 1) * stepMs;
 
     for (const p of FOREX_PAIRS) {
@@ -199,7 +198,7 @@ export class ForexFeed extends EventEmitter {
     }
   }
 
-  /** Softer walk between live API polls so clients get ~1 quote/sec over WebSocket. */
+  /** Softer walk between live API polls so clients get steady quotes over WebSocket (same cadence as `SIM_TICK_MS`). */
   private emitStreamPulse() {
     const now = Date.now();
     for (const p of FOREX_PAIRS) {
@@ -221,7 +220,7 @@ export class ForexFeed extends EventEmitter {
       if (next !== prev) {
         this.pushTick(p.symbol, next, now);
       } else {
-        /** Same rounded price as last pulse — still emit so WebSocket clients get ~1 Hz ticks and candles build. */
+        /** Same rounded price as last pulse — still emit so WebSocket clients get steady ticks and candles build. */
         this.pushTick(p.symbol, prev, now);
       }
     }

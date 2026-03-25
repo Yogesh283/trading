@@ -32,7 +32,7 @@ function flushBar(sym: string, tf: number, b: OpenBar): void {
 }
 
 /**
- * Call on every forex tick (same cadence as WebSocket LivePrice). When a UTC bucket rolls,
+ * Call on every forex tick (same cadence as WebSocket LivePrice, ~4/s by default). When a UTC bucket rolls,
  * the previous bar is written to `chart_candles`.
  */
 export function onForexTickForCandles(symbol: string, price: number, timestamp: number): void {
