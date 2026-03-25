@@ -64,7 +64,14 @@ ReactDOM.createRoot(adminMount).render(
       >
         <Resource name="deposits" list={DepositList} icon={AccountBalanceWalletIcon} options={{ label: "Deposits" }} />
         <Resource name="withdrawals" list={WithdrawalList} icon={PaymentsIcon} options={{ label: "Withdrawals" }} />
-        <Resource name="users" list={UserList} edit={UserEdit} icon={PeopleIcon} options={{ label: "Users" }} />
+        <Resource
+          name="users"
+          list={UserList}
+          edit={UserEdit}
+          icon={PeopleIcon}
+          options={{ label: "Users" }}
+          recordRepresentation="id"
+        />
         <Resource
           name="wallets"
           list={WalletList}

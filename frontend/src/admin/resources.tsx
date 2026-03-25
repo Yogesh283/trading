@@ -64,6 +64,7 @@ export function DepositList() {
     <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
+        <TextField source="user_id" label="User id" />
         <DateField source="created_at" showTime />
         <TextField source="user_email" label="Email" />
         <NumberField source="amount" />
@@ -92,6 +93,7 @@ export function WithdrawalList() {
     <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
+        <TextField source="user_id" label="User id" />
         <DateField source="created_at" showTime />
         <TextField source="user_email" label="Email" />
         <NumberField source="amount" />
