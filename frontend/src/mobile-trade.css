@@ -3,6 +3,14 @@
   padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Narrower shell padding on phones so chart + trade row use full width */
+@media (max-width: 768px) {
+  .app-shell.app-mobile-trade {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
 /*
  * Dock look is driven only by data-dock on the shell (see App.tsx):
  * - contrast = guest demo: white bar on dark chart
@@ -67,7 +75,7 @@
 }
 
 .app-mobile-trade .app-main-nav {
-  margin: 0 0 14px;
+  margin: 0 0 8px;
   border-radius: 18px;
   padding-top: max(6px, env(safe-area-inset-top, 0px));
   border: 1px solid rgba(56, 189, 248, 0.14);
@@ -79,8 +87,8 @@
 }
 
 .app-mobile-trade .app-main-nav-row {
-  padding: 12px 16px;
-  min-height: 54px;
+  padding: 10px 10px;
+  min-height: 50px;
 }
 
 .app-mobile-trade .app-main-nav-sub {
@@ -139,7 +147,7 @@
   flex-direction: column;
   gap: 0;
   min-width: 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding: 8px 8px max(8px, env(safe-area-inset-bottom, 0px));
 }
 
 .mobile-chart-topbar {
@@ -147,9 +155,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
   /* must stay visible — overflow:hidden clips .mobile-tf-dropdown under the 5s button */
   overflow: visible;
   background: linear-gradient(165deg, rgba(18, 24, 34, 0.98) 0%, rgba(8, 12, 18, 0.99) 100%);
@@ -215,8 +223,8 @@
 
 /* Trade — Select asset: visible list on mobile */
 .mobile-asset-list-panel {
-  margin-bottom: 10px;
-  padding: 12px 12px 14px;
+  margin-bottom: 6px;
+  padding: 8px 8px 10px;
   background: rgba(6, 10, 18, 0.96);
   border: 1px solid rgba(110, 160, 255, 0.16);
   border-radius: 14px;
@@ -231,7 +239,7 @@
 }
 
 .mobile-asset-list-hint {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   font-size: 12px;
 }
 
@@ -267,11 +275,11 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   min-width: 108px;
   box-sizing: border-box;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: 12px;
   border: 1px solid rgba(110, 160, 255, 0.22);
   background: rgba(255, 255, 255, 0.04);
@@ -461,12 +469,12 @@
 }
 
 .mobile-chart-wrap {
-  padding: 6px 4px 10px !important;
-  margin-bottom: 6px;
+  padding: 4px 2px 8px !important;
+  margin-bottom: 4px;
   margin-top: 0;
   margin-left: auto;
   margin-right: auto;
-  max-width: min(100%, 340px);
+  max-width: 100%;
   width: 100%;
   box-sizing: border-box;
   position: relative;
@@ -940,9 +948,9 @@
 /* (padding-bottom for dock space lives in first .app-mobile-trade block) */
 
 .mobile-trade-dock {
-  padding: 16px 14px;
-  padding-bottom: max(18px, env(safe-area-inset-bottom, 0px) + 14px);
-  margin-top: 4px;
+  padding: 10px 8px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px) + 10px);
+  margin-top: 2px;
   background: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
   border-radius: 20px 20px 0 0;
   border: 1px solid rgba(110, 160, 255, 0.12);
@@ -953,15 +961,15 @@
 .mobile-bs-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .mobile-bs-btn {
-  min-height: 52px;
+  min-height: 46px;
   border: none;
   border-radius: 14px;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.06);
@@ -988,7 +996,7 @@
 
 .mobile-amount-block,
 .mobile-mult-block {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .mobile-field-label {
@@ -1007,8 +1015,8 @@
 
 .mobile-amt-input {
   width: 100%;
-  min-height: 48px;
-  padding: 12px 14px;
+  min-height: 44px;
+  padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(110, 160, 255, 0.22);
   background: rgba(255, 255, 255, 0.05);
@@ -1024,7 +1032,7 @@
 
 .mobile-pct-chip {
   flex: 1;
-  min-height: 42px;
+  min-height: 38px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: transparent;
@@ -1055,7 +1063,7 @@
 
 .mobile-mult-chip {
   flex: 1;
-  min-height: 42px;
+  min-height: 38px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
@@ -1077,9 +1085,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 68px;
-  padding: 14px 18px;
-  margin-top: 6px;
+  min-height: 58px;
+  padding: 10px 14px;
+  margin-top: 4px;
   border: none;
   border-radius: 16px;
   cursor: pointer;
@@ -1177,7 +1185,7 @@
 }
 
 .mobile-trade-msg {
-  margin-top: 14px !important;
+  margin-top: 8px !important;
   text-align: center;
   font-size: 14px;
 }
@@ -1196,8 +1204,8 @@
 }
 
 .mobile-timeout-strip {
-  margin: 12px 0 14px;
-  padding: 12px;
+  margin: 8px 0 10px;
+  padding: 10px;
   background: rgba(41, 98, 255, 0.1);
   border: 1px solid rgba(41, 98, 255, 0.22);
   border-radius: 12px;
