@@ -552,6 +552,7 @@ async function migrateChartCandles(): Promise<void> {
 
 /** Insert a finalized bar (idempotent if replayed). */
 export async function saveChartCandle(row: ChartCandleRow): Promise<void> {
+  await initAppDb();
   const sym = row.symbol.trim().toUpperCase();
   if (mysqlMode) {
     await getPool().execute(

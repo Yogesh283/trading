@@ -587,6 +587,13 @@ export const TIMEFRAME_OPTIONS = [
 
 export type ChartTimeframeSec = (typeof TIMEFRAME_OPTIONS)[number]["value"];
 
+const TIMEFRAME_VALUE_SET = new Set<number>(TIMEFRAME_OPTIONS.map((o) => o.value));
+
+/** After TF list changes (e.g. remove 1s), coerce stale UI state so chart countdown + API stay valid. */
+export function coerceTradeTimeframeSec(sec: number, fallback: ChartTimeframeSec = 5): ChartTimeframeSec {
+  return TIMEFRAME_VALUE_SET.has(sec) ? (sec as ChartTimeframeSec) : fallback;
+}
+
 /** @deprecated use TIMEFRAME_OPTIONS */
 export const BINARY_TIMEFRAMES = TIMEFRAME_OPTIONS;
 

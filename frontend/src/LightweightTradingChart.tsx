@@ -278,7 +278,8 @@ export function LightweightTradingChart({
   const seriesRef = useRef<ISeriesApi<"Candlestick" | "Line" | "Area"> | null>(null);
   const priceLineRef = useRef<IPriceLine | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
-  const lastResetKeyRef = useRef("");
+  /** When this matches current layout, only `setData` — do not reset time scale (avoids snap-back every 1s tick). */
+  const lastStructuralKeyRef = useRef<string | null>(null);
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
@@ -354,7 +355,7 @@ export function LightweightTradingChart({
       seriesRef.current = null;
       chart.remove();
       chartRef.current = null;
-      lastResetKeyRef.current = "";
+      lastStructuralKeyRef.current = null;
     };
   }, [assetTag, height, isMobileChart, timeframeSec, updateAxisPill]);
 
@@ -380,6 +381,85 @@ export function LightweightTradingChart({
     const fromIdx = Math.floor((n * dz.start) / 100);
     const toIdx = Math.max(fromIdx, n - 1);
 
+    const structuralKey = `${chartResetKey}|${graphType}|${zoomIndex}|${assetTag}|${tickDirection}`;
+    const structuralChanged =
+      lastStructuralKeyRef.current !== structuralKey || seriesRef.current === null;
+
+    const autoscale = () => ({
+      priceRange: { minValue: yScaled.min, maxValue: yScaled.max }
+    });
+
+    const candleRows: CandlestickData<UTCTimestamp>[] = [];
+    const seen = new Map<number, CandlestickData<UTCTimestamp>>();
+    for (const c of cd) {
+      const [open, close, low, high] = candlestickOHLCForDisplay(c);
+      const t = toUtcTime(c.bucketMs);
+      seen.set(t as number, { time: t, open, high, low, close });
+    }
+    for (const v of seen.values()) {
+      candleRows.push(v);
+    }
+    candleRows.sort((a, b) => (a.time as number) - (b.time as number));
+
+    const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
+      time: toUtcTime(c.bucketMs),
+      value: c.close
+    }));
+
+    const applyMarkers = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
+      if (tradeMarkers.length > 0) {
+        const built = buildSeriesMarkers(cd, tradeMarkers);
+        if (markersPluginRef.current) {
+          markersPluginRef.current.setMarkers(built);
+        } else {
+          markersPluginRef.current = createSeriesMarkers(series, built);
+        }
+      } else if (markersPluginRef.current) {
+        markersPluginRef.current.setMarkers([]);
+      }
+    };
+
+    const refreshPriceLine = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
+      if (priceLineRef.current) {
+        series.removePriceLine(priceLineRef.current);
+        priceLineRef.current = null;
+      }
+      if (graphType === "candles") {
+        priceLineRef.current = series.createPriceLine({
+          price: lastPt.close,
+          color: PRO_LAST_PRICE,
+          lineWidth: 1,
+          lineStyle: 0,
+          axisLabelVisible: false
+        });
+      } else if (graphType === "line") {
+        priceLineRef.current = series.createPriceLine({
+          price: lastPt.close,
+          color: lineCol,
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: false
+        });
+      }
+    };
+
+    if (!structuralChanged && seriesRef.current) {
+      const series = seriesRef.current;
+      series.applyOptions({ autoscaleInfoProvider: autoscale });
+      if (graphType === "candles") {
+        series.setData(candleRows);
+      } else {
+        series.setData(lineData);
+      }
+      refreshPriceLine(series);
+      applyMarkers(series);
+      requestAnimationFrame(() => {
+        chart.resize(el.clientWidth, height);
+        updateAxisPill();
+      });
+      return;
+    }
+
     if (seriesRef.current) {
       chart.removeSeries(seriesRef.current);
       seriesRef.current = null;
@@ -387,23 +467,7 @@ export function LightweightTradingChart({
       markersPluginRef.current = null;
     }
 
-    const autoscale = () => ({
-      priceRange: { minValue: yScaled.min, maxValue: yScaled.max }
-    });
-
     if (graphType === "candles") {
-      const candleRows: CandlestickData<UTCTimestamp>[] = [];
-      const seen = new Map<number, CandlestickData<UTCTimestamp>>();
-      for (const c of cd) {
-        const [open, close, low, high] = candlestickOHLCForDisplay(c);
-        const t = toUtcTime(c.bucketMs);
-        seen.set(t as number, { time: t, open, high, low, close });
-      }
-      for (const v of seen.values()) {
-        candleRows.push(v);
-      }
-      candleRows.sort((a, b) => (a.time as number) - (b.time as number));
-
       const series = chart.addSeries(CandlestickSeries, {
         upColor: CANDLE_UP,
         downColor: CANDLE_DOWN,
@@ -427,10 +491,6 @@ export function LightweightTradingChart({
       }
       seriesRef.current = series;
     } else if (graphType === "line") {
-      const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
-        time: toUtcTime(c.bucketMs),
-        value: c.close
-      }));
       const series = chart.addSeries(LineSeries, {
         color: lineCol,
         lineWidth: 2,
@@ -450,10 +510,6 @@ export function LightweightTradingChart({
       }
       seriesRef.current = series;
     } else {
-      const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
-        time: toUtcTime(c.bucketMs),
-        value: c.close
-      }));
       const fillTop =
         tickDirection === "up"
           ? "rgba(0, 196, 140, 0.42)"
@@ -474,8 +530,8 @@ export function LightweightTradingChart({
       seriesRef.current = series;
     }
 
+    lastStructuralKeyRef.current = structuralKey;
     chart.timeScale().setVisibleLogicalRange({ from: fromIdx, to: toIdx });
-    lastResetKeyRef.current = chartResetKey;
 
     requestAnimationFrame(() => {
       chart.resize(el.clientWidth, height);
@@ -487,9 +543,7 @@ export function LightweightTradingChart({
     chartResetKey,
     graphType,
     height,
-    isMobileChart,
     tickDirection,
-    timeframeSec,
     tradeMarkers,
     updateAxisPill,
     zoomIndex
@@ -537,15 +591,14 @@ export function LightweightTradingChart({
         <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
         {last != null && axisPillTop != null ? (
           <div className="chart-lw-axis-pill-layer" aria-hidden>
-            <div
-              className={`chart-lw-axis-pill chart-lw-axis-pill--terminal${pillMod}`}
-              style={{ top: axisPillTop, transform: "translateY(-50%)" }}
-            >
-              <span className="chart-lw-axis-pill-timer">
-                <span className="chart-lw-axis-pill-tf">{timeframeLabel}</span>
-                <span className="chart-lw-axis-pill-cd">{countdownStr}</span>
-              </span>
-              <span className="chart-lw-axis-pill-price">{formatPrice(last.close)}</span>
+            <div className={`chart-lw-axis-pill chart-lw-axis-pill--terminal${pillMod}`} style={{ top: axisPillTop }}>
+              <div className="chart-lw-axis-pill-anchor">
+                <span className="chart-lw-axis-pill-price">{formatPrice(last.close)}</span>
+                <span className="chart-lw-axis-pill-timer">
+                  <span className="chart-lw-axis-pill-tf">{timeframeLabel}</span>
+                  <span className="chart-lw-axis-pill-cd">{countdownStr}</span>
+                </span>
+              </div>
             </div>
           </div>
         ) : null}

@@ -850,7 +850,6 @@
 
 /* Smaller on-chart last-price pill on narrow mobile card */
 .tv-chart-mobile .chart-lw-axis-pill {
-  gap: 4px;
   max-width: min(48vw, 200px);
 }
 

@@ -13,11 +13,12 @@ import {
   buildCandles,
   candleBucketStartMs,
   candlePeriodEndMs,
+  clampChartCandleBar,
   extendClosedCandlesToNow,
   mergeDbClosedWithLiveCandles,
   type CandlePoint
 } from "./chartCandles";
-import { CHART_ZOOM_STEP_COUNT } from "./chartBarSpacing";
+import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
 import { lastTickMove } from "./tickDirection";
 import {
   CHART_GRAPH_OPTIONS,
@@ -29,6 +30,8 @@ import {
   AccountSnapshot,
   AuthUser,
   TIMEFRAME_OPTIONS,
+  type ChartTimeframeSec,
+  coerceTradeTimeframeSec,
   createDemoOrder,
   createLiveOrder,
   loadAccount,
@@ -228,8 +231,8 @@ export default function App() {
   const [quantity, setQuantity] = useState("1");
   /** Chart + trade candle period: 5s … 5m (see TIMEFRAME_OPTIONS). */
   /** Default chart TF: 5s (see TIMEFRAME_OPTIONS). Binary default stays 5s unless user syncs TFs. */
-  const [chartTimeframe, setChartTimeframe] = useState(5);
-  const [binaryTimeframe, setBinaryTimeframe] = useState(5);
+  const [chartTimeframe, setChartTimeframe] = useState<ChartTimeframeSec>(() => coerceTradeTimeframeSec(5));
+  const [binaryTimeframe, setBinaryTimeframe] = useState<ChartTimeframeSec>(() => coerceTradeTimeframeSec(5));
   const [mobileTfMenuOpen, setMobileTfMenuOpen] = useState(false);
   const [mobileChartTypeMenuOpen, setMobileChartTypeMenuOpen] = useState(false);
   const [chartGraphType, setChartGraphType] = useState<ChartGraphType>(() => {
@@ -249,8 +252,9 @@ export default function App() {
   });
 
   const onChartTimeframeChange = (sec: number) => {
-    setChartTimeframe(sec);
-    setBinaryTimeframe(sec);
+    const tf = coerceTradeTimeframeSec(sec);
+    setChartTimeframe(tf);
+    setBinaryTimeframe(tf);
   };
   const [message, setMessage] = useState("");
   const [authView, setAuthView] = useState<AuthView>("login");
@@ -320,6 +324,12 @@ export default function App() {
   const binarySettleNoticeTimerRef = useRef<number | null>(null);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
   const binaryTradesSnapInitializedRef = useRef(false);
+
+  /** Drop removed TFs (e.g. old 1s) so countdown + `/api/markets/candles` stay in sync. */
+  useEffect(() => {
+    setChartTimeframe((t) => coerceTradeTimeframeSec(t));
+    setBinaryTimeframe((t) => coerceTradeTimeframeSec(t));
+  }, []);
 
   const dismissOrderPlacedPopup = useCallback(() => {
     if (orderPopupTimeoutRef.current) {
@@ -2073,7 +2083,7 @@ export default function App() {
                 Timeframe (also in bottom bar)
                 <select
                   value={binaryTimeframe}
-                  onChange={(e) => setBinaryTimeframe(Number(e.target.value))}
+                  onChange={(e) => setBinaryTimeframe(coerceTradeTimeframeSec(Number(e.target.value)))}
                 >
                   {TIMEFRAME_OPTIONS.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -2243,7 +2253,7 @@ export default function App() {
               <span className="desktop-demo-label">Timeout</span>
               <select
                 value={binaryTimeframe}
-                onChange={(e) => setBinaryTimeframe(Number(e.target.value))}
+                onChange={(e) => setBinaryTimeframe(coerceTradeTimeframeSec(Number(e.target.value)))}
                 aria-label="Trade timeout"
               >
                 {TIMEFRAME_OPTIONS.map(({ value, label: lb }) => (
@@ -2938,9 +2948,6 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 /** Zoom = slot width in px (larger = fewer candles = more zoomed in). −/+ steps are clearly visible. */
-/** Index `0` = minimum bar spacing (widest view). */
-const MOBILE_DEFAULT_ZOOM_INDEX = 0;
-const DESKTOP_DEFAULT_ZOOM_INDEX = 0;
 
 function LiveChart({
   points,
@@ -2970,8 +2977,7 @@ function LiveChart({
   tickDirection?: "up" | "down" | null;
 }) {
   const [, setTick] = useState(0);
-  const defaultZoom = isMobileChart ? MOBILE_DEFAULT_ZOOM_INDEX : DESKTOP_DEFAULT_ZOOM_INDEX;
-  const [zoomIndex, setZoomIndex] = useState(defaultZoom);
+  const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
   /** Touch/tap on timer badge zooms the time text (mobile). */
   const [timerTextZoomed, setTimerTextZoomed] = useState(false);
   const chartWrapRef = useRef<HTMLDivElement>(null);
@@ -3018,7 +3024,7 @@ function LiveChart({
   }, []);
 
   useEffect(() => {
-    setZoomIndex(isMobileChart ? MOBILE_DEFAULT_ZOOM_INDEX : DESKTOP_DEFAULT_ZOOM_INDEX);
+    setZoomIndex(defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
   }, [symbol, timeframeSec, isMobileChart]);
 
   useEffect(() => {
@@ -3088,11 +3094,14 @@ function LiveChart({
     return <p className="muted">Waiting for live price data...</p>;
   }
 
-  const current = allCandles[allCandles.length - 1]!;
-  const change = allCandles.length > 1 ? current.close - allCandles[0].open : 0;
+  /** All TFs: clamp absurd H/L from mixed ticks/DB so candles look like real OHLC (not barcode). */
+  const displayCandles = allCandles.map((c) => clampChartCandleBar(c, timeframeSec));
+
+  const current = displayCandles[displayCandles.length - 1]!;
+  const change = displayCandles.length > 1 ? current.close - displayCandles[0].open : 0;
   const changePct =
-    allCandles.length > 1 && allCandles[0].open !== 0 ? (change / allCandles[0].open) * 100 : 0;
-  const prevCandle = allCandles.length >= 2 ? allCandles[allCandles.length - 2]! : null;
+    displayCandles.length > 1 && displayCandles[0].open !== 0 ? (change / displayCandles[0].open) * 100 : 0;
+  const prevCandle = displayCandles.length >= 2 ? displayCandles[displayCandles.length - 2]! : null;
   const candleRange = current.high - current.low;
   const candleBody = current.close - current.open;
   const vsPrevClose =
@@ -3208,7 +3217,7 @@ function LiveChart({
         >
           <LightweightTradingChart
             key={chartResetKey}
-            candles={allCandles}
+            candles={displayCandles}
             assetTag={symbol}
             timeframeLabel={tfLabel(timeframeSec)}
             formatPrice={fmtPrice}

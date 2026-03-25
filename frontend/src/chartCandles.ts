@@ -110,13 +110,14 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
     }
     const open = numPrice(list[0]!);
     const close = numPrice(list[list.length - 1]!);
-    agg.set(bucket, {
+    const raw: CandlePoint = {
       timestamp: bucket,
       open,
       high: Math.max(...prices),
       low: Math.min(...prices),
       close
-    });
+    };
+    agg.set(bucket, clampChartCandleBar(raw, intervalSeconds));
   }
 
   const sortedBuckets = Array.from(agg.keys()).sort((a, b) => a - b);
@@ -164,6 +165,34 @@ export function buildCandles(points: MarketTick[], intervalSeconds = 1, nowMs: n
 }
 
 /**
+ * Any timeframe: mixed stale + live ticks (or bad DB rows) can create absurd H/L vs body ("barcode").
+ * On 1m/3m/5m, `body * 4` alone allowed a full DB→live gap in one bar (tall spike); add a hard range cap.
+ */
+export function clampChartCandleBar(c: CandlePoint, intervalSeconds: number): CandlePoint {
+  const { open, close, high, low } = c;
+  const range = high - low;
+  if (!Number.isFinite(range) || range <= 0) {
+    return c;
+  }
+  const mid = (high + low) / 2;
+  const body = Math.abs(open - close);
+  const tfEff = Math.max(5, intervalSeconds);
+  const sqrtScale = Math.min(14, Math.sqrt(tfEff / 5));
+  const relWick = mid * 0.0004 * sqrtScale;
+  /** Do not let a fake open→close gap justify a multi‑percent bar (XAU / seeded DB vs live). */
+  const bodyAllow = Math.min(body * 3 + mid * 1e-8, mid * 0.0022 * sqrtScale);
+  const hardMaxRange = mid * Math.min(0.009, 0.00028 * sqrtScale * sqrtScale + 0.00035 * sqrtScale);
+  const maxReasonable = Math.min(Math.max(relWick, bodyAllow, 1e-6), hardMaxRange);
+  if (range <= maxReasonable) {
+    return c;
+  }
+  /** Open/close can still span the whole gap (e.g. seeded DB vs live); shrink to a doji at last price. */
+  const p = close;
+  const eps = Math.max(mid * 0.00002, 1e-6);
+  return { ...c, open: p, high: p + eps, low: p - eps, close: p };
+}
+
+/**
  * DB holds closed bars only; live ticks rebuild the visible window from `buildCandles`.
  * Prefix = closed bars that end before the **first bucket in `liveFromTicks`** (same as
  * `buildCandles`’s `effectiveFirst`). Using the first tick’s bucket was wrong when the chart
@@ -180,7 +209,19 @@ export function mergeDbClosedWithLiveCandles(
   const tfMs = timeframeSec * 1000;
   const liveStart = liveFromTicks[0]!.timestamp;
   const prefix = closedAscending.filter((c) => c.timestamp + tfMs <= liveStart);
-  return [...prefix, ...liveFromTicks];
+  /** Without this, prefix can end hours before `liveStart` while ticks only cover recent window → huge gaps. */
+  const bridge: CandlePoint[] = [];
+  if (prefix.length > 0) {
+    const lastP = prefix[prefix.length - 1]!;
+    const nextAfterPrefix = lastP.timestamp + tfMs;
+    if (nextAfterPrefix < liveStart) {
+      let lc = lastP.close;
+      for (let t = nextAfterPrefix; t < liveStart; t += tfMs) {
+        bridge.push({ timestamp: t, open: lc, high: lc, low: lc, close: lc });
+      }
+    }
+  }
+  return [...prefix, ...bridge, ...liveFromTicks];
 }
 
 /** When there are no ticks yet, extend stored closed bars with flat placeholders up to the current bucket. */
