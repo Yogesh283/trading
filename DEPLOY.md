@@ -154,6 +154,8 @@ pm2 restart updowanfx
 
 ## 4) Typo / chhoti cheezein
 
+**Chart local sahi, live par purani candles nahi:** Server par `curl -sS "https://APNA-DOMAIN/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5"` chalao. Jawab **`{"candles":`** se shuru hona chahiye. Agar **HTML** (`<!DOCTYPE`) aaye to **`location /api/`** Node proxy (Section 6 jaisa) **`location /` se pehle** hona chahiye. Cloudflare par **`/api` ko “Cache Everything” mat** do. Same-domain reverse proxy par `frontend/.env` mein **`VITE_API_URL` khali** rakho taake `/api/...` same origin ho. Naya VPS + MySQL par `chart_candles` table pehle khali ho sakti hai — kuch der ticks ke baad data aata hai.
+
 | Problem | Fix |
 |--------|-----|
 | `it: command not found` | **`git pull`** likho — **`it pull`** nahi. |

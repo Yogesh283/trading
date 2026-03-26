@@ -111,7 +111,29 @@ async function parseJson<T>(response: Response) {
 }
 
 /** Always hit the backend — never serve stale asset prices from the browser cache. */
-const FETCH_MARKETS_LIVE: RequestInit = { cache: "no-store" };
+const FETCH_MARKETS_LIVE: RequestInit = {
+  cache: "no-store",
+  headers: { Accept: "application/json" }
+};
+
+/**
+ * Live deployments sometimes mis-route `/api/*` to the SPA (HTML). Detect that so fixes point at nginx.
+ * See DEPLOY.md — `location /api/` must be before the SPA catch‑all and proxy to Node.
+ */
+async function readJsonFromOkResponse(response: Response, endpoint: string): Promise<unknown> {
+  const text = await response.text();
+  const t = text.trimStart();
+  if (t.startsWith("<") || (t.length > 0 && !t.startsWith("{") && !t.startsWith("["))) {
+    throw new Error(
+      `${endpoint} returned a non-JSON page — usually nginx/Apache sent index.html instead of Node. Put location /api/ before location / and proxy_pass to the app (see DEPLOY.md).`
+    );
+  }
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw new Error(`${endpoint}: invalid JSON from server`);
+  }
+}
 
 export async function loadMarkets() {
   const response = await fetch(`${apiBase()}/api/markets`, FETCH_MARKETS_LIVE);
@@ -119,7 +141,7 @@ export async function loadMarkets() {
     throw new Error("Unable to load markets");
   }
 
-  return (await response.json()) as {
+  return (await readJsonFromOkResponse(response, "GET /api/markets")) as {
     symbols: string[];
     ticks: MarketTick[];
     pairs?: Array<{ symbol: string; name: string }>;
@@ -135,7 +157,7 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
   if (!response.ok) {
     throw new Error("Unable to load chart history");
   }
-  return (await response.json()) as { ticks: MarketTick[] };
+  return (await readJsonFromOkResponse(response, "GET /api/markets/history")) as { ticks: MarketTick[] };
 }
 
 /** Closed OHLC from DB (merge with WebSocket LivePrice ticks on the chart). */
@@ -149,7 +171,7 @@ export async function loadMarketCandles(symbol: string, timeframeSec: number, li
   if (!response.ok) {
     throw new Error("Unable to load chart candles");
   }
-  const data = (await response.json()) as {
+  const data = (await readJsonFromOkResponse(response, "GET /api/markets/candles")) as {
     candles?: Array<{ t: number; o: number; h: number; l: number; c: number }>;
   };
   const rows = Array.isArray(data.candles) ? data.candles : [];
