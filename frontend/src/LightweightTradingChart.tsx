@@ -384,13 +384,16 @@ export function LightweightTradingChart({
       },
       rightPriceScale: {
         borderColor: SCALE_BORDER,
-        scaleMargins: { top: 0.08, bottom: 0.08 }
+        scaleMargins: { top: 0.08, bottom: 0.08 },
+        /** Reserve a bit more width for axis labels so the candle pane doesn’t crowd the last-price pill. */
+        minimumWidth: isMobileChart ? 56 : 52
       },
       timeScale: {
         borderColor: SCALE_BORDER,
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
-        rightOffset: 4
+        /** Extra empty bars on the right — gap between running candle and price pill / scale. */
+        rightOffset: isMobileChart ? 14 : 8
       },
       crosshair: {
         mode: CrosshairMode.Normal,

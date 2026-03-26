@@ -12,7 +12,7 @@ export function effectiveZoomIndexForView(zoomIndex: number, _timeframeSec?: num
 
 /**
  * Default zoom step (higher = wider candles / fewer bars on screen).
- * Short TFs (5s/10s) start a bit zoomed in so ticks don’t look like a flat hairline.
+ * Short TFs (5s/10s/30s) start a bit zoomed in so ticks don’t look like a flat hairline.
  */
 export function defaultZoomIndexForTimeframe(timeframeSec: number, isMobileChart: boolean): number {
   if (timeframeSec === 5) {
@@ -22,7 +22,7 @@ export function defaultZoomIndexForTimeframe(timeframeSec: number, isMobileChart
     return 3;
   }
   if (timeframeSec === 30) {
-    return 2;
+    return 3;
   }
   if (timeframeSec === 60) {
     return 1;
