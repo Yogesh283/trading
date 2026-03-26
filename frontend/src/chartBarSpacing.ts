@@ -11,15 +11,15 @@ export function effectiveZoomIndexForView(zoomIndex: number, _timeframeSec?: num
 }
 
 /**
- * Default zoom step (0 = widest / thinner candles, more history on screen).
- * Kept low so login-first paint matches the “settled” look after DB history loads.
+ * Default zoom step (higher = wider candles / fewer bars on screen).
+ * Short TFs (5s/10s) start a bit zoomed in so ticks don’t look like a flat hairline.
  */
 export function defaultZoomIndexForTimeframe(timeframeSec: number, isMobileChart: boolean): number {
   if (timeframeSec === 5) {
-    return 0;
+    return 2;
   }
   if (timeframeSec === 10) {
-    return 1;
+    return 3;
   }
   if (timeframeSec === 60) {
     return 1;
