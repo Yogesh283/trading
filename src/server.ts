@@ -55,7 +55,7 @@ import {
   setWalletBalancesFromAdmin
 } from "./services/walletStore";
 import { TradeSide } from "./services/demoAccount";
-import { onForexTickForCandles } from "./services/chartCandlePersistence";
+import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
 import { distributeBinaryBetLevelIncome } from "./services/referralService";
@@ -564,6 +564,8 @@ app.get("/api/markets/candles", (req, res) => {
       return res.status(400).json({ message: "symbol and valid timeframe required" });
     }
     await initAppDb();
+    const tick = forexFeed.getTick(symbol);
+    await persistOpenBarBeforeCandlesRead(symbol, timeframeSec, tick ?? undefined);
     const rows = await getChartCandles(symbol, timeframeSec, limit);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");

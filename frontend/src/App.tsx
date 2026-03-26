@@ -2624,6 +2624,11 @@ function AuthScreen({
   status: string;
 }) {
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+
+  useEffect(() => {
+    setShowAuthPassword(false);
+  }, [authView]);
 
   useEffect(() => {
     const ref = new URLSearchParams(window.location.search).get("ref");
@@ -2838,10 +2843,14 @@ function AuthScreen({
             </label>
           ) : null}
 
-          <div className="auth-phone-row">
-            <label className="auth-cc-field">
-              Country code
+          <div className="auth-phone-combo" role="group" aria-label="Phone number">
+            <div className="auth-phone-combo-labels">
+              <span>Country code</span>
+              <span>Mobile number</span>
+            </div>
+            <div className="auth-phone-combo-inner">
               <input
+                className="auth-phone-cc-input"
                 type="text"
                 inputMode="numeric"
                 maxLength={4}
@@ -2858,10 +2867,9 @@ function AuthScreen({
                 autoComplete="tel-country-code"
                 aria-label="Country calling code e.g. 91 India, 92 Pakistan"
               />
-            </label>
-            <label className="auth-phone-field">
-              Mobile number
+              <span className="auth-phone-combo-divider" aria-hidden />
               <input
+                className="auth-phone-num-input"
                 type="tel"
                 inputMode="numeric"
                 value={authView === "login" ? loginForm.phone : registerForm.phone}
@@ -2875,27 +2883,73 @@ function AuthScreen({
                 }}
                 placeholder="9876543210"
                 autoComplete="tel-national"
+                aria-label="Mobile number without country code"
               />
-            </label>
+            </div>
           </div>
 
-          <label>
+          <label className="auth-field-password">
             Password
-            <input
-              type="password"
-              value={authView === "login" ? loginForm.password : registerForm.password}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (authView === "login") {
-                  onLoginFormChange((current) => ({ ...current, password: value }));
-                  return;
-                }
+            <div className="auth-password-field">
+              <input
+                className="auth-password-input"
+                type={showAuthPassword ? "text" : "password"}
+                value={authView === "login" ? loginForm.password : registerForm.password}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (authView === "login") {
+                    onLoginFormChange((current) => ({ ...current, password: value }));
+                    return;
+                  }
 
-                onRegisterFormChange((current) => ({ ...current, password: value }));
-              }}
-              placeholder="••••••••"
-              autoComplete={authView === "login" ? "current-password" : "new-password"}
-            />
+                  onRegisterFormChange((current) => ({ ...current, password: value }));
+                }}
+                placeholder="Enter your password"
+                autoComplete={authView === "login" ? "current-password" : "new-password"}
+              />
+              <button
+                type="button"
+                className="auth-password-eye"
+                onClick={() => setShowAuthPassword((v) => !v)}
+                aria-pressed={showAuthPassword}
+                aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                title={showAuthPassword ? "Hide password" : "Show password"}
+              >
+                {showAuthPassword ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    aria-hidden
+                    className="auth-password-eye-svg"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="22"
+                    height="22"
+                    aria-hidden
+                    className="auth-password-eye-svg"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M1 12s4-8 11-8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </label>
 
           {authView === "register" ? (

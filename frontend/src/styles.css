@@ -1247,18 +1247,203 @@ select {
   letter-spacing: 0.02em;
 }
 
-.auth-phone-row {
+.auth-field-password {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  justify-items: stretch;
+}
+
+/**
+ * Flex row (not position:absolute): input grows; eye stays on the far right on all mobile WebViews.
+ * One shared border like `auth-phone-combo-inner`.
+ */
+.auth-password-field {
   display: flex;
-  gap: 12px;
-  align-items: end;
-}
-.auth-phone-row .auth-cc-field {
-  flex: 0 0 5.5rem;
+  flex-direction: row;
+  align-items: stretch;
+  direction: ltr;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-.auth-phone-row .auth-phone-field {
-  flex: 1;
+
+.auth-password-field:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.auth-password-field:focus-within {
+  border-color: rgba(0, 230, 118, 0.5);
+  box-shadow: 0 0 0 3px rgba(0, 230, 118, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.auth-form .auth-password-input {
+  flex: 1 1 auto;
   min-width: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 14px 10px 14px 16px;
+  display: block;
+  width: auto;
+  box-sizing: border-box;
+  font-size: 15px;
+  color: #f0f5ff;
+}
+
+.auth-form .auth-password-input::placeholder {
+  color: #5a6a80;
+}
+
+.auth-form .auth-password-input:hover {
+  border-color: transparent;
+}
+
+.auth-form .auth-password-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.auth-password-eye {
+  flex: 0 0 3rem;
+  width: 3rem;
+  min-width: 3rem;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.15);
+  color: #8da2c0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auth-password-eye:hover {
+  color: #69f0ae;
+  background: rgba(105, 240, 174, 0.1);
+}
+
+.auth-password-eye:focus-visible {
+  outline: none;
+  color: #69f0ae;
+  box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.35);
+}
+
+.auth-password-eye-svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/** Single pill: country code | mobile — matches password row width and height. */
+.auth-phone-combo {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.auth-phone-combo-labels {
+  display: grid;
+  grid-template-columns: 5.25rem 1fr;
+  gap: 0;
+  padding: 0 2px;
+  color: #b8c8dc;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  direction: ltr;
+}
+
+.auth-phone-combo-inner {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  direction: ltr;
+}
+
+.auth-phone-combo-inner:focus-within {
+  border-color: rgba(0, 230, 118, 0.5);
+  box-shadow: 0 0 0 3px rgba(0, 230, 118, 0.12);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.auth-phone-combo-inner:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.auth-phone-combo-divider {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  margin: 10px 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.auth-form .auth-phone-cc-input,
+.auth-form .auth-phone-num-input {
+  flex: none;
+  min-width: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 14px 12px;
+  font-size: 15px;
+  color: #f0f5ff;
+}
+
+.auth-form .auth-phone-cc-input {
+  width: 5.25rem;
+  flex: 0 0 5.25rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.auth-form .auth-phone-num-input {
+  flex: 1 1 auto;
+  padding-left: 14px;
+  padding-right: 16px;
+}
+
+.auth-form .auth-phone-cc-input::placeholder,
+.auth-form .auth-phone-num-input::placeholder {
+  color: #5a6a80;
+}
+
+.auth-form .auth-phone-cc-input:hover,
+.auth-form .auth-phone-num-input:hover {
+  border-color: transparent;
+}
+
+.auth-form .auth-phone-cc-input:focus,
+.auth-form .auth-phone-num-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .auth-form input {
@@ -1284,6 +1469,26 @@ select {
   border-color: rgba(0, 230, 118, 0.5);
   box-shadow: 0 0 0 3px rgba(0, 230, 118, 0.12);
   background: rgba(0, 0, 0, 0.45);
+}
+
+/** Inner password input: `.auth-form input` above would redraw a second border and break flex + eye placement. */
+.auth-form .auth-password-field .auth-password-input {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 14px 10px 14px 16px;
+}
+
+.auth-form .auth-password-field .auth-password-input:hover {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.auth-form .auth-password-field .auth-password-input:focus {
+  border: none;
+  box-shadow: none;
+  background: transparent;
 }
 
 .auth-form button[type="submit"] {

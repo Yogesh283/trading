@@ -576,6 +576,26 @@ export async function saveChartCandle(row: ChartCandleRow): Promise<void> {
   );
 }
 
+/** Upsert one bar (same PK) — used for the **current** bucket so GET /api/markets/candles can return it after chart switch. */
+export async function upsertChartCandle(row: ChartCandleRow): Promise<void> {
+  await initAppDb();
+  const sym = row.symbol.trim().toUpperCase();
+  const args = [sym, row.timeframe_sec, row.bucket_start_ms, row.open_price, row.high_price, row.low_price, row.close_price];
+  if (mysqlMode) {
+    await getPool().execute(
+      `REPLACE INTO chart_candles (symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args
+    );
+    return;
+  }
+  await dbRun(
+    `INSERT OR REPLACE INTO chart_candles (symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args
+  );
+}
+
 /** Last N closed bars, oldest first (for chart bootstrap). */
 export async function getChartCandles(symbol: string, timeframeSec: number, limit: number): Promise<ChartCandleRow[]> {
   const cap = Math.min(2000, Math.max(1, limit));

@@ -1,5 +1,5 @@
 import { TRADE_TIMEFRAMES_SEC } from "../config/timeframes";
-import { saveChartCandle, type ChartCandleRow } from "../db/appDb";
+import { saveChartCandle, upsertChartCandle, type ChartCandleRow } from "../db/appDb";
 import { logger } from "../utils/logger";
 
 type OpenBar = {
@@ -56,5 +56,42 @@ export function onForexTickForCandles(symbol: string, price: number, timestamp: 
       b.l = Math.min(b.l, price);
       b.c = price;
     }
+  }
+}
+
+/**
+ * When the chart client requests candles (e.g. new symbol/timeframe), merge the latest quote into memory
+ * and write the **open** bar for that timeframe to `chart_candles` so history shows immediately from DB.
+ */
+export async function persistOpenBarBeforeCandlesRead(
+  symbol: string,
+  timeframeSec: number,
+  latest: { price: number; timestamp: number } | null | undefined
+): Promise<void> {
+  if (!latest || !Number.isFinite(latest.price) || latest.price <= 0 || !Number.isFinite(latest.timestamp)) {
+    return;
+  }
+  const sym = symbol.trim().toUpperCase();
+  if (!(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)) {
+    return;
+  }
+  onForexTickForCandles(sym, latest.price, latest.timestamp);
+  const b = openByKey.get(key(sym, timeframeSec));
+  if (!b) {
+    return;
+  }
+  const row: ChartCandleRow = {
+    symbol: sym,
+    timeframe_sec: timeframeSec,
+    bucket_start_ms: b.bucketStart,
+    open_price: b.o,
+    high_price: b.h,
+    low_price: b.l,
+    close_price: b.c
+  };
+  try {
+    await upsertChartCandle(row);
+  } catch (err) {
+    logger.warn({ err, sym, timeframeSec, bucket: b.bucketStart }, "chart_candles open-bar upsert failed");
   }
 }

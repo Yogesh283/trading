@@ -19,7 +19,7 @@ import type {
 } from "lightweight-charts";
 import type { CandlestickData, LineData } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
-import { CHART_ZOOM_BAR_SPACING } from "./chartBarSpacing";
+import { CHART_ZOOM_BAR_SPACING, effectiveZoomIndexForView } from "./chartBarSpacing";
 
 /**
  * TradingView [Lightweight Charts](https://github.com/tradingview/lightweight-charts) — same family many brokers
@@ -372,7 +372,7 @@ export function LightweightTradingChart({
     }
 
     const lastPt = cd[cd.length - 1]!;
-    const dz = dataZoomRange(zoomIndex, cd.length);
+    const dz = dataZoomRange(effectiveZoomIndexForView(zoomIndex, timeframeSec), cd.length);
     const yExt = yExtentForDisplay(cd, dz.start, dz.end);
     const yScaled = alignYAxisToNiceStep(yExt);
     const lineCol = priceLineColorForTick(tickDirection);
@@ -544,6 +544,7 @@ export function LightweightTradingChart({
     graphType,
     height,
     tickDirection,
+    timeframeSec,
     tradeMarkers,
     updateAxisPill,
     zoomIndex
