@@ -55,6 +55,13 @@ export type ChartTradeMarker = {
   id?: string;
 };
 
+/** Horizontal line at binary entry price (open trades for this symbol). */
+export type ChartTradeEntryLine = {
+  tradeId: string;
+  price: number;
+  direction: "up" | "down";
+};
+
 function useMobileChartHeightPx(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
@@ -172,6 +179,48 @@ function yExtentFromCandlesRobust(cd: MergedCandle[]): { min: number; max: numbe
   return { min: lo - pad, max: hi + pad };
 }
 
+function syncTradeEntryPriceLines(
+  series: ISeriesApi<"Candlestick" | "Line" | "Area">,
+  entries: ChartTradeEntryLine[],
+  mapRef: { current: Map<string, IPriceLine> },
+  graphType: ChartGraphType
+): void {
+  if (graphType === "area") {
+    for (const [, line] of mapRef.current) {
+      series.removePriceLine(line);
+    }
+    mapRef.current.clear();
+    return;
+  }
+  const want = new Set(entries.map((e) => e.tradeId));
+  for (const [id, line] of [...mapRef.current.entries()]) {
+    if (!want.has(id)) {
+      series.removePriceLine(line);
+      mapRef.current.delete(id);
+    }
+  }
+  for (const e of entries) {
+    if (!Number.isFinite(e.price)) {
+      continue;
+    }
+    const col = e.direction === "up" ? CANDLE_UP : CANDLE_DOWN;
+    const existing = mapRef.current.get(e.tradeId);
+    const opts = {
+      price: e.price,
+      color: col,
+      lineWidth: 2 as const,
+      lineStyle: 2 as const,
+      axisLabelVisible: false,
+      lineVisible: true
+    };
+    if (existing) {
+      existing.applyOptions(opts);
+    } else {
+      mapRef.current.set(e.tradeId, series.createPriceLine(opts));
+    }
+  }
+}
+
 function alignYAxisToNiceStep(ext: { min: number; max: number }): { min: number; max: number } {
   const { min, max } = ext;
   const span = max - min;
@@ -222,6 +271,10 @@ function toUtcTime(ms: number): UTCTimestamp {
   return Math.floor(ms / 1000) as UTCTimestamp;
 }
 
+function candleBarKey(b: CandlestickData<UTCTimestamp>): string {
+  return `${b.time as number}|${b.open}|${b.high}|${b.low}|${b.close}`;
+}
+
 function buildSeriesMarkers(cd: MergedCandle[], markers: ChartTradeMarker[]): SeriesMarker<Time>[] {
   const out: SeriesMarker<Time>[] = [];
   for (const m of markers) {
@@ -254,6 +307,8 @@ type Props = {
   onTimerTap: () => void;
   tickDirection?: "up" | "down" | null;
   tradeMarkers?: ChartTradeMarker[];
+  /** Full-width horizontal lines at each open trade’s entry price (this symbol). */
+  tradeEntryLines?: ChartTradeEntryLine[];
   graphType?: ChartGraphType;
 };
 
@@ -271,12 +326,15 @@ export function LightweightTradingChart({
   onTimerTap,
   tickDirection = null,
   tradeMarkers = [],
+  tradeEntryLines = [],
   graphType = "candles"
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick" | "Line" | "Area"> | null>(null);
   const priceLineRef = useRef<IPriceLine | null>(null);
+  const tradeEntryPriceLineRefs = useRef<Map<string, IPriceLine>>(new Map());
+  const prevCandlestickRowsRef = useRef<CandlestickData<UTCTimestamp>[] | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   /** When this matches current layout, only `setData` — do not reset time scale (avoids snap-back every 1s tick). */
   const lastStructuralKeyRef = useRef<string | null>(null);
@@ -355,6 +413,8 @@ export function LightweightTradingChart({
     return () => {
       ro.disconnect();
       markersPluginRef.current = null;
+      tradeEntryPriceLineRefs.current.clear();
+      prevCandlestickRowsRef.current = null;
       priceLineRef.current = null;
       seriesRef.current = null;
       chart.remove();
@@ -426,26 +486,37 @@ export function LightweightTradingChart({
     };
 
     const refreshPriceLine = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
-      if (priceLineRef.current) {
-        series.removePriceLine(priceLineRef.current);
-        priceLineRef.current = null;
-      }
       if (graphType === "candles") {
-        priceLineRef.current = series.createPriceLine({
+        const opts = {
           price: lastPt.close,
           color: PRO_LAST_PRICE,
-          lineWidth: 1,
-          lineStyle: 0,
-          axisLabelVisible: false
-        });
+          lineWidth: 1 as const,
+          lineStyle: 0 as const,
+          axisLabelVisible: false,
+          lineVisible: true
+        };
+        if (priceLineRef.current) {
+          priceLineRef.current.applyOptions(opts);
+        } else {
+          priceLineRef.current = series.createPriceLine(opts);
+        }
       } else if (graphType === "line") {
-        priceLineRef.current = series.createPriceLine({
+        const opts = {
           price: lastPt.close,
           color: lineCol,
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: false
-        });
+          lineWidth: 1 as const,
+          lineStyle: 2 as const,
+          axisLabelVisible: false,
+          lineVisible: true
+        };
+        if (priceLineRef.current) {
+          priceLineRef.current.applyOptions(opts);
+        } else {
+          priceLineRef.current = series.createPriceLine(opts);
+        }
+      } else if (priceLineRef.current) {
+        series.removePriceLine(priceLineRef.current);
+        priceLineRef.current = null;
       }
     };
 
@@ -453,11 +524,53 @@ export function LightweightTradingChart({
       const series = seriesRef.current;
       series.applyOptions({ autoscaleInfoProvider: autoscale });
       if (graphType === "candles") {
-        series.setData(candleRows);
+        const prevRows = prevCandlestickRowsRef.current;
+        if (prevRows && prevRows.length === candleRows.length && candleRows.length > 0) {
+          let allSame = true;
+          for (let i = 0; i < candleRows.length; i++) {
+            if (candleBarKey(prevRows[i]!) !== candleBarKey(candleRows[i]!)) {
+              allSame = false;
+              break;
+            }
+          }
+          if (allSame) {
+            refreshPriceLine(series);
+            syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
+            applyMarkers(series);
+            requestAnimationFrame(() => {
+              chart.resize(el.clientWidth, height);
+              updateAxisPill();
+            });
+            return;
+          }
+        }
+        let usedUpdate = false;
+        if (prevRows && prevRows.length === candleRows.length && candleRows.length > 0) {
+          let samePrefix = true;
+          for (let i = 0; i < candleRows.length - 1; i++) {
+            if (candleBarKey(prevRows[i]!) !== candleBarKey(candleRows[i]!)) {
+              samePrefix = false;
+              break;
+            }
+          }
+          if (
+            samePrefix &&
+            candleBarKey(prevRows[prevRows.length - 1]!) !== candleBarKey(candleRows[candleRows.length - 1]!)
+          ) {
+            series.update(candleRows[candleRows.length - 1]!);
+            usedUpdate = true;
+          }
+        }
+        if (!usedUpdate) {
+          series.setData(candleRows);
+        }
+        prevCandlestickRowsRef.current = candleRows;
       } else {
+        prevCandlestickRowsRef.current = null;
         series.setData(lineData);
       }
       refreshPriceLine(series);
+      syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
       applyMarkers(series);
       const prevRangeN = lastBarCountForRangeRef.current;
       const rangeN = cd.length;
@@ -492,6 +605,8 @@ export function LightweightTradingChart({
     }
 
     if (seriesRef.current) {
+      tradeEntryPriceLineRefs.current.clear();
+      prevCandlestickRowsRef.current = null;
       chart.removeSeries(seriesRef.current);
       seriesRef.current = null;
       priceLineRef.current = null;
@@ -510,6 +625,7 @@ export function LightweightTradingChart({
         autoscaleInfoProvider: autoscale
       });
       series.setData(candleRows);
+      prevCandlestickRowsRef.current = candleRows;
       priceLineRef.current = series.createPriceLine({
         price: lastPt.close,
         color: PRO_LAST_PRICE,
@@ -517,6 +633,7 @@ export function LightweightTradingChart({
         lineStyle: 0,
         axisLabelVisible: false
       });
+      syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
       if (tradeMarkers.length > 0) {
         markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
       }
@@ -536,6 +653,7 @@ export function LightweightTradingChart({
         lineStyle: 2,
         axisLabelVisible: false
       });
+      syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
       if (tradeMarkers.length > 0) {
         markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
       }
@@ -579,6 +697,7 @@ export function LightweightTradingChart({
     tickDirection,
     timeframeSec,
     tradeMarkers,
+    tradeEntryLines,
     updateAxisPill,
     zoomIndex
   ]);

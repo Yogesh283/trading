@@ -24,6 +24,7 @@ import {
   CHART_GRAPH_OPTIONS,
   LightweightTradingChart,
   type ChartGraphType,
+  type ChartTradeEntryLine,
   type ChartTradeMarker
 } from "./LightweightTradingChart";
 import {
@@ -1743,11 +1744,11 @@ export default function App() {
                   +
                 </button>
               </div>
-              <div className="mobile-stepper-pill" role="group" aria-label="Stake amount">
+              <div className="mobile-stepper-pill" role="group" aria-label="Trading amount">
                 <button
                   type="button"
                   className="mobile-stepper-nudge"
-                  aria-label="Decrease stake"
+                  aria-label="Decrease trading amount"
                   onClick={() => bumpMobileStake(-10)}
                 >
                   −
@@ -1755,7 +1756,7 @@ export default function App() {
                 <label className="mobile-stepper-mid mobile-stepper-mid--inr mobile-stepper-inr-wrap">
                   <span className="mobile-stepper-inr-prefix">INR</span>
                   <input
-                    id="mob-stake-inr"
+                    id="mob-trading-amount-inr"
                     type="number"
                     inputMode="numeric"
                     min={1}
@@ -1777,13 +1778,13 @@ export default function App() {
                       const n = Math.max(1, Math.floor(Number(quantity) || 0));
                       setQuantity(String(n));
                     }}
-                    aria-label="Stake amount in INR"
+                    aria-label="Trading amount in INR"
                   />
                 </label>
                 <button
                   type="button"
                   className="mobile-stepper-nudge"
-                  aria-label="Increase stake"
+                  aria-label="Increase trading amount"
                   onClick={() => bumpMobileStake(10)}
                 >
                   +
@@ -1890,7 +1891,7 @@ export default function App() {
                       <tr>
                         <th scope="col">Pair</th>
                         <th scope="col">Up / Down</th>
-                        <th scope="col">Stake</th>
+                        <th scope="col">Trading amount</th>
                         <th scope="col">Entry</th>
                         <th scope="col">Close</th>
                         <th scope="col">P&amp;L</th>
@@ -1910,7 +1911,7 @@ export default function App() {
                               >
                                 {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
                               </td>
-                              <td title="Stake (₹)">{fmtWallet(trade.quantity)}</td>
+                              <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
                               <td title="Price when order was placed (execution / entry)">
                                 {formatFxPrice(trade.symbol, trade.entryPrice)}
                               </td>
@@ -2026,7 +2027,7 @@ export default function App() {
               </button>
               <p style={{ margin: "0.35rem 0 0", fontSize: "0.88rem" }}>
                 Share link: add <code>?ref={session.user.selfReferralCode}</code> to the site URL. When your team
-                places live binary bets, you earn <strong>0.1%</strong> of stake per level up to{" "}
+                places live binary bets, you earn <strong>0.1%</strong> of trading amount per level up to{" "}
                 <strong>5 levels</strong> (wallet credit: level income).
               </p>
             </div>
@@ -2149,8 +2150,8 @@ export default function App() {
               </span>
             </div>
             <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
-              Win: wallet gets <strong>1.8×</strong> stake (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full stake
-              already taken.
+              Win: wallet gets <strong>1.8×</strong> trading amount (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full
+              trading amount already taken.
             </p>
             <div className="trade-form binary-trade-form binary-trade-form-inline">
               <label>
@@ -2188,7 +2189,7 @@ export default function App() {
                   {openBinaryTrades.map((t) => (
                     <li key={t.id}>
                       <span>
-                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · stake{" "}
+                        {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · trading amount{" "}
                         {formatInr(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge" aria-live="polite">
@@ -2214,7 +2215,8 @@ export default function App() {
               <span>Auto cut at 00:00</span>
             </div>
             <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
-              Win: <strong>1.8×</strong> stake back (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full stake.
+              Win: <strong>1.8×</strong> trading amount back (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full
+              trading amount.
             </p>
             <p className="muted">
               Use the <strong>bottom bar</strong> to place trades (amount, Up/Down). To practice with virtual funds
@@ -2244,7 +2246,7 @@ export default function App() {
             <div className="table-head">
               <span>Symbol</span>
               <span>Up / Down</span>
-              <span>Stake</span>
+              <span>Trading amount</span>
               <span>Entry @ price</span>
               <span>Close @ price</span>
               <span>Status</span>
@@ -2268,7 +2270,7 @@ export default function App() {
                       ? `${trade.direction === "up" ? "↑ Up" : "↓ Down"}${trade.timeframeSeconds ? ` · ${trade.timeframeSeconds}s` : ""}`
                       : `${formatTradeDirectionLabel(trade.direction, trade.side)}${trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}`}
                   </span>
-                  <span title="Stake (₹) at order time">
+                  <span title="Trading amount (₹) at order time">
                     {fmtWallet(trade.quantity)}
                   </span>
                   <span title="Execution / entry price when order was placed">
@@ -2400,7 +2402,7 @@ export default function App() {
                 </strong>
                 <small>
                   {" "}
-                  stake{" "}
+                  trading amount{" "}
                   {Number.isFinite(Number(quantity)) && Number(quantity) > 0
                     ? fmtWallet(Math.max(1, Math.floor(Number(quantity) * mobileMultiplier)))
                     : "—"}{" "}
@@ -3148,6 +3150,25 @@ function LiveChart({
     return list;
   }, [trades, symbol, timeframeSec]);
 
+  const chartTradeEntryLines = useMemo((): ChartTradeEntryLine[] => {
+    const out: ChartTradeEntryLine[] = [];
+    for (const t of trades) {
+      if (
+        t.status !== "open" ||
+        t.symbol !== symbol ||
+        (t.direction !== "up" && t.direction !== "down")
+      ) {
+        continue;
+      }
+      const ep = Number(t.entryPrice);
+      if (!Number.isFinite(ep)) {
+        continue;
+      }
+      out.push({ tradeId: t.id, price: ep, direction: t.direction });
+    }
+    return out;
+  }, [trades, symbol]);
+
   /** 1 Hz tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
@@ -3380,6 +3401,7 @@ function LiveChart({
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
             tickDirection={tickDirection}
             tradeMarkers={chartTradeMarkers}
+            tradeEntryLines={chartTradeEntryLines}
             graphType={graphType}
           />
         </div>

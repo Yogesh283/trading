@@ -161,13 +161,16 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section referral-section--schedule">
-              <h2 className="referral-h2">Level income when a stake is created</h2>
+              <h2 className="referral-h2">Level income when a trading amount is placed</h2>
               <p className="muted referral-commission-hint">
-                Same schedule for <strong>live binary bets</strong> and <strong>investment stake adds</strong>. Each row
-                is the upline at that depth: level 1 is the direct inviter. You only receive a level if that upline
-                exists in your referral chain.
+                Same schedule for <strong>live binary trades</strong> and <strong>investment adds</strong>. Each row is
+                the upline at that depth: level 1 is the direct inviter. You only receive a level if that upline exists
+                in your referral chain.
                 {!data.referralProgramEnabled ? (
-                  <span className="referral-schedule-warn"> Referral program is off — no level payouts on stakes.</span>
+                  <span className="referral-schedule-warn">
+                    {" "}
+                    Referral program is off — no level payouts on trading amounts.
+                  </span>
                 ) : null}
               </p>
               <div className="referral-table-wrap">
@@ -176,9 +179,11 @@ export default function ReferralPage({ token, onBack }: Props) {
                     <tr>
                       <th>Level</th>
                       <th>Upline</th>
-                      <th>Income (% of stake)</th>
-                      <th title={`Example at ${formatInr(data.levelIncomeExampleStakeInr ?? 1000)} stake`}>
-                        Income (example stake)
+                      <th>Income (% of trading amount)</th>
+                      <th
+                        title={`Example at ${formatInr(data.levelIncomeExampleStakeInr ?? 1000)} trading amount`}
+                      >
+                        Income (example)
                       </th>
                     </tr>
                   </thead>
@@ -209,19 +214,10 @@ export default function ReferralPage({ token, onBack }: Props) {
                   </tbody>
                 </table>
               </div>
-              <p className="muted referral-schedule-foot">
-                Example column uses stake{" "}
-                <strong>{formatInr(data.levelIncomeExampleStakeInr ?? 1000)}</strong> × level % = commission per trade
-                for that depth.
-              </p>
             </section>
 
             <section className="referral-section referral-section--schedule">
               <h2 className="referral-h2">Monthly investment ROI — upline share</h2>
-              <p className="muted referral-commission-hint">
-                When monthly yield is credited, each enabled level receives this fraction of the <strong>gross</strong>{" "}
-                monthly return (before the investor’s net). Same “level 1 = direct inviter” rule.
-              </p>
               <div className="referral-table-wrap">
                 <table className="referral-table referral-schedule-table">
                   <thead>
