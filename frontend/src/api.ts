@@ -639,6 +639,7 @@ export async function loadAdminDeposits(adminToken: string) {
 export const TIMEFRAME_OPTIONS = [
   { value: 5, label: "5s" },
   { value: 10, label: "10s" },
+  { value: 30, label: "30s" },
   { value: 60, label: "1m" },
   { value: 180, label: "3m" },
   { value: 300, label: "5m" }

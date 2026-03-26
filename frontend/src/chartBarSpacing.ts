@@ -21,6 +21,9 @@ export function defaultZoomIndexForTimeframe(timeframeSec: number, isMobileChart
   if (timeframeSec === 10) {
     return 3;
   }
+  if (timeframeSec === 30) {
+    return 2;
+  }
   if (timeframeSec === 60) {
     return 1;
   }

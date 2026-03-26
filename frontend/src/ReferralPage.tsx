@@ -119,39 +119,36 @@ export default function ReferralPage({ token, onBack }: Props) {
               )}
             </section>
 
-            <section className="referral-section referral-section--income">
-              <h2 className="referral-h2">Your income (commissions)</h2>
-              <div className="referral-table-wrap referral-income-table-wrap">
-                <table className="referral-table referral-income-table">
-                  <thead>
-                    <tr>
-                      <th>Source</th>
-                      <th>Amount (INR)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="referral-income-total">
-                      <td>
-                        <strong>Total earned</strong>
-                      </td>
-                      <td>
-                        <strong>{formatInr(data.totalReferralCommissionInr ?? 0)}</strong>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td>Trading (binary)</td>
-                      <td>{formatInr(data.bettingCommissionInr ?? 0)}</td>
-                    </tr>
-                    <tr>
-                      <td>Staking (investment add)</td>
-                      <td>{formatInr(data.stakingCommissionInr ?? 0)}</td>
-                    </tr>
-                    <tr>
-                      <td>Investment monthly ROI (upline)</td>
-                      <td>{formatInr(data.investmentRoiCommissionInr ?? 0)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <section className="referral-section referral-section--total-earn" aria-labelledby="referral-total-earn-heading">
+              <h2 className="referral-h2" id="referral-total-earn-heading">
+                Total earnings
+              </h2>
+              <p className="muted referral-total-earn-hint">
+                Ab tak live wallet mein credit promotion commissions (team se binary, staking add, monthly ROI upline).
+              </p>
+              <div className="referral-total-earn-card">
+                <div className="referral-total-earn-hero">
+                  <span className="referral-total-earn-label">Total (INR)</span>
+                  <span className="referral-total-earn-value">
+                    {formatInr(data.totalReferralCommissionInr ?? 0)}
+                  </span>
+                </div>
+                <ul className="referral-total-earn-breakdown">
+                  <li>
+                    <span className="referral-total-earn-src">Trading (binary)</span>
+                    <span className="referral-total-earn-amt">{formatInr(data.bettingCommissionInr ?? 0)}</span>
+                  </li>
+                  <li>
+                    <span className="referral-total-earn-src">Staking (investment add)</span>
+                    <span className="referral-total-earn-amt">{formatInr(data.stakingCommissionInr ?? 0)}</span>
+                  </li>
+                  <li>
+                    <span className="referral-total-earn-src">Investment monthly ROI (upline)</span>
+                    <span className="referral-total-earn-amt">
+                      {formatInr(data.investmentRoiCommissionInr ?? 0)}
+                    </span>
+                  </li>
+                </ul>
               </div>
             </section>
 

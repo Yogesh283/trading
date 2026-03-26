@@ -1519,7 +1519,7 @@ app.post("/api/demo/orders", (req, res) => {
         !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
       ) {
         return res.status(400).json({
-          message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m"
+          message: "Timeframe must be one of: 5s, 10s, 30s, 1m, 3m, 5m"
         });
       }
       if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -1601,7 +1601,7 @@ app.post("/api/orders", (req, res) => {
       !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
     ) {
       return res.status(400).json({
-        message: "Timeframe must be one of: 5s, 10s, 1m, 3m, 5m"
+        message: "Timeframe must be one of: 5s, 10s, 30s, 1m, 3m, 5m"
       });
     }
     if (!Number.isFinite(amount) || amount <= 0) {

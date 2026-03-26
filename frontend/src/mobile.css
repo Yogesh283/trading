@@ -506,6 +506,10 @@ body {
     border-radius: 0 0 16px 16px;
   }
 
+  html.cap-native.cap-android .landing-nav {
+    padding-top: 0;
+  }
+
   .landing-nav-inner {
     flex-direction: row;
     align-items: center;

@@ -50,7 +50,7 @@ html.cap-native #admin-root {
  */
 html.cap-native.cap-android .landing-nav-inner,
 html.cap-native.cap-android .landing-nav-inner--bar {
-  padding-top: 8px;
+  padding-top: 0;
 }
 
 html.cap-native.cap-ios .landing-nav-inner,
@@ -65,16 +65,49 @@ html.cap-native:not(.cap-android):not(.cap-ios) .landing-nav-inner--bar {
 }
 
 /**
- * Trading (login ke baad): Android par `env(safe-area-inset-top)` aksar 0 aa jata hai — header
- * bahut upar chipak jata hai. Thoda neeche lane ke liye minimum top breathing room.
+ * APK Android: `mobile.css` body + landing `.landing-nav` safe-area + WebView inset = double top band.
+ * Remove extra top inset; keep horizontal + bottom safe-area.
  */
-html.cap-native .app-mobile-trade .app-main-nav {
-  padding-top: max(22px, calc(env(safe-area-inset-top, 0px) + 10px));
+html.cap-native.cap-android body {
+  padding-top: 0;
+}
+
+html.cap-native.cap-android .landing-nav {
+  padding-top: 0;
+}
+
+/**
+ * Trading (post-login, Capacitor): Android WebView already clears status bar; safe-area top == double band.
+ * iOS: keep real inset for notch.
+ */
+html.cap-native.cap-android .app-mobile-trade .app-main-nav {
+  padding-top: 0;
+}
+
+html.cap-native.cap-ios .app-mobile-trade .app-main-nav {
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+html.cap-native:not(.cap-android):not(.cap-ios) .app-mobile-trade .app-main-nav {
+  padding-top: max(6px, min(env(safe-area-inset-top, 0px), 20px));
 }
 
 @media (max-width: 768px) {
-  /* Thoda zyada top space taaki header status bar se clear dikhe (default 16px se thoda zyada) */
   html.cap-native .app-shell.app-mobile-trade {
-    padding-top: 20px;
+    padding-top: 0;
+  }
+
+  /* Shorter header row on phone APK */
+  html.cap-native .app-mobile-trade .app-main-nav-row {
+    padding: 6px 8px;
+    min-height: 44px;
+  }
+
+  html.cap-native .app-mobile-trade .app-nav-icon-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 9px;
   }
 }

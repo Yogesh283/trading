@@ -22,6 +22,43 @@
     <title>UpDown FX</title>
   </head>
   <body>
+    <!-- Capacitor Android: run before CSS paint; strip viewport-fit=cover to avoid double status-bar inset in WebView -->
+    <script>
+      (function () {
+        function markAndroidApk() {
+          try {
+            var cap = window.Capacitor;
+            if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return;
+            document.documentElement.classList.add("cap-native");
+            var p = cap.getPlatform && cap.getPlatform();
+            document.documentElement.classList.remove("cap-android", "cap-ios");
+            var isAndroid = p === "android" || (p !== "ios" && /Android/i.test(navigator.userAgent));
+            if (isAndroid) document.documentElement.classList.add("cap-android");
+            else if (p === "ios") document.documentElement.classList.add("cap-ios");
+            if (!isAndroid) return;
+            var m = document.querySelector('meta[name="viewport"]');
+            if (!m) return;
+            var content = m.getAttribute("content") || "";
+            if (!/viewport-fit\s*=\s*cover/i.test(content)) return;
+            m.setAttribute(
+              "content",
+              content
+                .replace(/\s*,\s*viewport-fit\s*=\s*cover/gi, "")
+                .replace(/viewport-fit\s*=\s*cover\s*,?/gi, "")
+                .replace(/,\s*,/g, ",")
+                .replace(/^,\s*|\s*,$/g, "")
+                .trim()
+            );
+          } catch (e) {
+            /* ignore */
+          }
+        }
+        markAndroidApk();
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", markAndroidApk);
+        setTimeout(markAndroidApk, 0);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -181,7 +181,7 @@ git clone https://github.com/Yogesh283/trading.git updowanfx.com
 cd updowanfx.com
 cp .env.example .env && nano .env
 npm ci && npm run build:all
-npm install -g pm2
+npm install -g pm2 
 pm2 start dist/index.js --name updowanfx
 pm2 save && pm2 startup
 ```
