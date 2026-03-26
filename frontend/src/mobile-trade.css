@@ -3,6 +3,15 @@
   padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Logged-in mobile: APK strip above dock — extra scroll room so content isn’t hidden */
+.app-mobile-trade:has(.mobile-bottom-dock-stack) {
+  padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+}
+
+html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
+  padding-bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+}
+
 /* Narrower shell padding on phones so chart + trade row use full width */
 @media (max-width: 768px) {
   .app-shell.app-mobile-trade {
@@ -196,6 +205,14 @@
 /* Deposit / withdraw / invest / referral — keep CTA above fixed dock after login */
 .app-mobile-trade .funds-page {
   padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+}
+
+.app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
+  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+}
+
+html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
+  padding-bottom: calc(122px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-mobile-trade .app-main-nav {
@@ -938,9 +955,63 @@
 }
 
 /*
- * Mobile bottom dock — 5-column layout:
+ * Mobile bottom dock — optional APK row + 5-column layout:
+ * [ Download APK ] (centered above dock)
  * Deposit | Withdraw | TRADE (FAB) | Markets | Promotion
  */
+.mobile-bottom-dock-stack {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--dock-z, 220);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  isolation: isolate;
+  /* Sits slightly above the home edge — matches extra scroll padding */
+  transform: translateY(-10px);
+}
+
+.mobile-dock-apk-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 10px 2px;
+  flex-shrink: 0;
+  margin: 33px;
+}
+
+.mobile-dock-apk-link {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--dock-label, #8ab4f8);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  background: rgba(12, 16, 24, 0.92);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mobile-dock-apk-link:active {
+  opacity: 0.88;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dock-apk-link {
+  color: var(--dock-label, #86efac);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+html.cap-native .mobile-dock-apk-row {
+  display: none;
+}
+
 .mobile-bottom-dock {
   position: fixed;
   left: 0;
@@ -1006,6 +1077,14 @@
     0 0 52px -18px rgba(74, 222, 128, 0.14);
 }
 
+/* Stack owns `position: fixed`; nav is relative inside it (must follow `.mobile-bottom-dock` rules above). */
+.app-mobile-trade .mobile-bottom-dock-stack .mobile-bottom-dock {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+}
+
 .app-mobile-trade .mobile-dock-item.mobile-dock-cell {
   gap: 3px;
   padding: 4px 2px 3px;
@@ -1040,7 +1119,7 @@
 }
 
 .app-mobile-trade .mobile-dock-trade-inner {
-  margin-top: -26px;
+  margin-top: -40px;
   width: 52px;
   height: 52px;
   border-width: 2px;
@@ -1057,7 +1136,7 @@
 }
 
 .app-mobile-trade .mobile-dock-trade-text {
-  margin-top: 20px;
+  margin-top: 14px;
   font-size: 8px;
 }
 
@@ -1181,7 +1260,7 @@
 .mobile-dock-trade-inner {
   position: relative;
   z-index: 2;
-  margin-top: -32px;
+  margin-top: -36px;
   width: 62px;
   height: 62px;
   border-radius: 55%;
@@ -1248,7 +1327,7 @@
 .mobile-dock-trade-text {
   position: relative;
   z-index: 1;
-  margin-top: 28px;
+  margin-top: 26px;
   font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;

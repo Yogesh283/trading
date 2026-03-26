@@ -406,7 +406,20 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     const id = window.setInterval(() => setTimerTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
+    const syncNow = () => {
+      if (document.visibilityState === "visible") {
+        setTimerTick((n) => n + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", syncNow);
+    window.addEventListener("pageshow", syncNow);
+    window.addEventListener("focus", syncNow);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", syncNow);
+      window.removeEventListener("pageshow", syncNow);
+      window.removeEventListener("focus", syncNow);
+    };
   }, [session]);
 
   useEffect(() => {
@@ -601,6 +614,53 @@ export default function App() {
       window.clearInterval(interval);
     };
   }, [booting, symbol, chartSessionKey]);
+
+  /** After screen lock / tab background, timers are throttled — refresh ticks + DB candles when the user returns. */
+  useEffect(() => {
+    if (booting || !chartSessionKey) {
+      return;
+    }
+    let debounce: number | null = null;
+    const run = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      const sym = symbolRef.current;
+      const tf = chartTimeframeRef.current;
+      void loadMarketsHistory(sym, CHART_HISTORY_TICKS)
+        .then(({ ticks: historyTicks }) => {
+          if (historyTicks.length > 0) {
+            setHistory((current) => mergeHistoryTicks(current, historyTicks));
+          }
+        })
+        .catch(() => undefined);
+      const k = `${sym}:${tf}`;
+      void loadMarketCandles(sym, tf, CHART_DB_CANDLES_LIMIT)
+        .then((rows) => {
+          setDbClosedCandles((prev) => ({ ...prev, [k]: rows }));
+        })
+        .catch(() => undefined);
+    };
+    const schedule = () => {
+      if (debounce != null) {
+        window.clearTimeout(debounce);
+      }
+      debounce = window.setTimeout(() => {
+        debounce = null;
+        run();
+      }, 200);
+    };
+    const onVis = () => schedule();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onVis);
+      if (debounce != null) {
+        window.clearTimeout(debounce);
+      }
+    };
+  }, [booting, chartSessionKey]);
 
   /** Bootstrap closed OHLC from DB — retries after login/register so `chart_candles` isn’t missed on slow networks. */
   useEffect(() => {
@@ -1260,6 +1320,37 @@ export default function App() {
               >
                 Trading
               </button>
+              <button type="button" onClick={() => setAssetPickerOpen(true)}>
+                Markets
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "deposit" ? "active" : ""}
+                onClick={() => setDashboardSection("deposit")}
+              >
+                Deposit
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "withdrawal" ? "active" : ""}
+                onClick={() => setDashboardSection("withdrawal")}
+              >
+                Withdraw
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "investment" ? "active" : ""}
+                onClick={() => setDashboardSection("investment")}
+              >
+                Investment
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "referral" ? "active" : ""}
+                onClick={() => setDashboardSection("referral")}
+              >
+                Promotion
+              </button>
               <button
                 type="button"
                 onClick={() =>
@@ -1267,9 +1358,6 @@ export default function App() {
                 }
               >
                 History
-              </button>
-              <button type="button" onClick={() => setAssetPickerOpen(true)}>
-                Markets
               </button>
               <button
                 type="button"
@@ -1282,11 +1370,17 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  void refresh().catch(() => undefined);
-                  setMessage("");
+                  setWalletActivityOpen(true);
                 }}
               >
-                Refresh
+                Wallet log
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "help" ? "active" : ""}
+                onClick={() => setDashboardSection("help")}
+              >
+                Help
               </button>
               <button
                 type="button"
@@ -1295,54 +1389,18 @@ export default function App() {
               >
                 About
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void refresh().catch(() => undefined);
+                  setMessage("");
+                }}
+              >
+                Refresh
+              </button>
               <a className="app-nav-desktop-apk" href={apkDownloadHref} download>
                 Download APK
               </a>
-              <button
-                type="button"
-                className={dashboardSection === "help" ? "active" : ""}
-                onClick={() => setDashboardSection("help")}
-              >
-                Help
-              </button>
-              <>
-                <button
-                  type="button"
-                  className={dashboardSection === "deposit" ? "active" : ""}
-                  onClick={() => setDashboardSection("deposit")}
-                >
-                  Deposit
-                </button>
-                <button
-                  type="button"
-                  className={dashboardSection === "withdrawal" ? "active" : ""}
-                  onClick={() => setDashboardSection("withdrawal")}
-                >
-                  Withdraw
-                </button>
-                <button
-                  type="button"
-                  className={dashboardSection === "investment" ? "active" : ""}
-                  onClick={() => setDashboardSection("investment")}
-                >
-                  Investment
-                </button>
-                <button
-                  type="button"
-                  className={dashboardSection === "referral" ? "active" : ""}
-                  onClick={() => setDashboardSection("referral")}
-                >
-                  Promotion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWalletActivityOpen(true);
-                  }}
-                >
-                  Wallet log
-                </button>
-              </>
             </nav>
           ) : null}
           <div className="app-nav-right">
@@ -1474,6 +1532,46 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
+                  setDashboardSection("deposit");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconDeposit />
+                <span>Deposit USDT</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("withdrawal");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconWithdraw />
+                <span>Withdraw USDT</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("investment");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconInvestment />
+                <span>Investment</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("referral");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconPromotion />
+                <span>Promotion</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setMainNavOpen(false);
                   if (isPhone) {
                     window.requestAnimationFrame(() =>
@@ -1491,12 +1589,21 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setMainNavOpen(false);
-                  void refresh().catch(() => undefined);
-                  setMessage("Data refreshed.");
+                  setWalletActivityOpen(true);
                 }}
               >
-                <DrawerIconRefresh />
-                <span>Refresh data</span>
+                <DrawerIconWalletActivity />
+                <span>Wallet activity</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("help");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconHelp />
+                <span>Help</span>
               </button>
               <button
                 type="button"
@@ -1520,65 +1627,14 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setDashboardSection("help");
                   setMainNavOpen(false);
+                  void refresh().catch(() => undefined);
+                  setMessage("Data refreshed.");
                 }}
               >
-                <DrawerIconHelp />
-                <span>Help</span>
+                <DrawerIconRefresh />
+                <span>Refresh data</span>
               </button>
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardSection("deposit");
-                    setMainNavOpen(false);
-                  }}
-                >
-                  <DrawerIconDeposit />
-                  <span>Deposit USDT</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardSection("withdrawal");
-                    setMainNavOpen(false);
-                  }}
-                >
-                  <DrawerIconWithdraw />
-                  <span>Withdraw USDT</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardSection("investment");
-                    setMainNavOpen(false);
-                  }}
-                >
-                  <DrawerIconInvestment />
-                  <span>Investment</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDashboardSection("referral");
-                    setMainNavOpen(false);
-                  }}
-                >
-                  <DrawerIconPromotion />
-                  <span>Promotion</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainNavOpen(false);
-                    setWalletActivityOpen(true);
-                  }}
-                >
-                  <DrawerIconWalletActivity />
-                  <span>Wallet activity</span>
-                </button>
-              </>
               <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>
                 Log out
               </button>
@@ -2519,77 +2575,88 @@ export default function App() {
       </>
       )}
       {session && isPhone ? (
-        <nav
-          className="mobile-bottom-dock mobile-bottom-dock--theme"
-          aria-label="Bottom menu"
-        >
-          <button
-            type="button"
-            className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "deposit" ? "active" : ""}`}
-            onClick={() => setDashboardSection("deposit")}
-            aria-current={dashboardSection === "deposit" ? "page" : undefined}
+        <div className="mobile-bottom-dock-stack">
+          <div className="mobile-dock-apk-row">
+            <a
+              className="mobile-dock-apk-link"
+              href={apkDownloadHref}
+              download={/^https?:\/\//i.test(APK_DOWNLOAD_URL.trim()) ? undefined : "UpDownFX.apk"}
+            >
+              Download APK
+            </a>
+          </div>
+          <nav
+            className="mobile-bottom-dock mobile-bottom-dock--theme"
+            aria-label="Bottom menu"
           >
-            <span className="mobile-dock-icon-slot" aria-hidden>
-              <DockIconDeposit />
-            </span>
-            <span className="mobile-dock-label">Deposit</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "withdrawal" ? "active" : ""}`}
-            onClick={() => setDashboardSection("withdrawal")}
-            aria-current={dashboardSection === "withdrawal" ? "page" : undefined}
-          >
-            <span className="mobile-dock-icon-slot" aria-hidden>
-              <DockIconWithdraw />
-            </span>
-            <span className="mobile-dock-label">Withdraw</span>
-          </button>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "deposit" ? "active" : ""}`}
+              onClick={() => setDashboardSection("deposit")}
+              aria-current={dashboardSection === "deposit" ? "page" : undefined}
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconDeposit />
+              </span>
+              <span className="mobile-dock-label">Deposit</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "withdrawal" ? "active" : ""}`}
+              onClick={() => setDashboardSection("withdrawal")}
+              aria-current={dashboardSection === "withdrawal" ? "page" : undefined}
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconWithdraw />
+              </span>
+              <span className="mobile-dock-label">Withdraw</span>
+            </button>
 
-          <button
-            type="button"
-            className={`mobile-dock-trade mobile-dock-cell ${dashboardSection === "trading" ? "is-active" : ""}`}
-            onClick={() => {
-              setDashboardSection("trading");
-              window.requestAnimationFrame(() =>
-                document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
-              );
-            }}
-            aria-current={dashboardSection === "trading" ? "page" : undefined}
-          >
-            <span className="mobile-dock-trade-inner">
-              <DockIconTradeBars />
-            </span>
-            <span className="mobile-dock-trade-text">Trade</span>
-          </button>
+            <button
+              type="button"
+              className={`mobile-dock-trade mobile-dock-cell ${dashboardSection === "trading" ? "is-active" : ""}`}
+              onClick={() => {
+                setDashboardSection("trading");
+                window.requestAnimationFrame(() =>
+                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                );
+              }}
+              aria-current={dashboardSection === "trading" ? "page" : undefined}
+            >
+              <span className="mobile-dock-trade-inner">
+                <DockIconTradeBars />
+              </span>
+              <span className="mobile-dock-trade-text">Trade</span>
+            </button>
 
-          <button
-            type="button"
-            className={`mobile-dock-item mobile-dock-cell mobile-dock-markets${assetPickerOpen ? " active" : ""}`}
-            onClick={() => setAssetPickerOpen(true)}
-            aria-current={assetPickerOpen ? "page" : undefined}
-          >
-            <span className="mobile-dock-icon-slot" aria-hidden>
-              <DockIconMarkets />
-            </span>
-            <span className="mobile-dock-label">Markets</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-dock-item mobile-dock-cell mobile-dock-referral${dashboardSection === "referral" ? " active" : ""}`}
-            onClick={() => {
-              setMainNavOpen(false);
-              setDashboardSection("referral");
-            }}
-            aria-current={dashboardSection === "referral" ? "page" : undefined}
-            aria-label="Promotion"
-          >
-            <span className="mobile-dock-icon-slot" aria-hidden>
-              <DockIconReferral />
-            </span>
-            <span className="mobile-dock-label">Promotion</span>
-          </button>
-        </nav>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell mobile-dock-markets${assetPickerOpen ? " active" : ""}`}
+              onClick={() => setAssetPickerOpen(true)}
+              aria-current={assetPickerOpen ? "page" : undefined}
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconMarkets />
+              </span>
+              <span className="mobile-dock-label">Markets</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell mobile-dock-referral${dashboardSection === "referral" ? " active" : ""}`}
+              onClick={() => {
+                setMainNavOpen(false);
+                setDashboardSection("referral");
+              }}
+              aria-current={dashboardSection === "referral" ? "page" : undefined}
+              aria-label="Promotion"
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconReferral />
+              </span>
+              <span className="mobile-dock-label">Promotion</span>
+            </button>
+          </nav>
+        </div>
       ) : null}
       {walletActivityOpen && session ? (
         <div
@@ -3189,7 +3256,20 @@ function LiveChart({
   /** 1 Hz tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
   useEffect(() => {
     const id = window.setInterval(() => setTick((n) => n + 1), 1000);
-    return () => window.clearInterval(id);
+    const syncNow = () => {
+      if (document.visibilityState === "visible") {
+        setTick((n) => n + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", syncNow);
+    window.addEventListener("pageshow", syncNow);
+    window.addEventListener("focus", syncNow);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", syncNow);
+      window.removeEventListener("pageshow", syncNow);
+      window.removeEventListener("focus", syncNow);
+    };
   }, []);
 
   useEffect(() => {

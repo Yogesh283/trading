@@ -402,7 +402,7 @@ export function LightweightTradingChart({
       },
       width: el.clientWidth,
       height,
-      autoSize: true
+      autoSize: false
     });
     chartRef.current = chart;
     const ro = new ResizeObserver(() => {
