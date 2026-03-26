@@ -10,6 +10,8 @@ import {
   getWalletBalance
 } from "./walletStore";
 import { validateInviterReferralCode, allocateUniqueSelfReferralCode } from "./referralService";
+import { getReferralLevelConfigPayload } from "./referralLevelConfigService";
+import { listInvestmentRoiLevelRows } from "./investmentRoiLevelService";
 
 /** Compare admin URL id vs DB id (spaces, BOM, BigInt vs string, leading zeros on digits). */
 function normalizeAdminIdToken(v: unknown): string {
@@ -823,6 +825,16 @@ async function loadCreditedDepositTotalsForUserIds(userIds: string[]): Promise<M
   return m;
 }
 
+function formatFractionAsPercentLabel(fraction: number): string {
+  const f = Number(fraction);
+  if (!Number.isFinite(f) || f <= 0) {
+    return "0%";
+  }
+  const pct = f * 100;
+  const s = pct < 0.1 ? pct.toFixed(4) : pct.toFixed(3);
+  return `${s.replace(/\.?0+$/, "")}%`;
+}
+
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
 export async function getReferralDashboardForUser(userId: string): Promise<{
   selfReferralCode: string;
@@ -842,6 +854,26 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   stakingCommissionInr: number;
   /** From team members’ monthly investment ROI payouts (`level_income_roi`). */
   investmentRoiCommissionInr: number;
+  referralProgramEnabled: boolean;
+  /** Example stake used for “Income (example)” column on promotion page. */
+  levelIncomeExampleStakeInr: number;
+  /** Per-upline % of live binary stake and investment add stake (same schedule). */
+  betStakeLevelSchedule: Array<{
+    level: number;
+    uplineLabel: string;
+    fractionOfStake: number;
+    percentLabel: string;
+    paysOut: boolean;
+    exampleIncomeInr: number;
+  }>;
+  /** Per-upline % of gross monthly investment ROI when yield is distributed. */
+  monthlyRoiLevelSchedule: Array<{
+    level: number;
+    uplineLabel: string;
+    fractionOfGrossYield: number;
+    percentLabel: string;
+    paysOut: boolean;
+  }>;
 }> {
   await ready;
   const uid = String(userId ?? "").trim();
@@ -944,6 +976,48 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     return { ...m, liveWalletBalanceInr, totalDepositedUsdt };
   });
 
+  const LEVEL_INCOME_EXAMPLE_STAKE_INR = 1000;
+  const [refCfg, roiLevelRows] = await Promise.all([
+    getReferralLevelConfigPayload(),
+    listInvestmentRoiLevelRows()
+  ]);
+  const programOn = refCfg.referralProgramEnabled;
+  const betStakeLevelSchedule = refCfg.levels
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map((row) => {
+      const frac = Number(row.percentOfStake);
+      const fractionOfStake = Number.isFinite(frac) ? frac : 0;
+      const paysOut = programOn && row.enabled && fractionOfStake > 0;
+      const exampleIncomeInr = paysOut
+        ? Number((LEVEL_INCOME_EXAMPLE_STAKE_INR * fractionOfStake).toFixed(2))
+        : 0;
+      return {
+        level: row.level,
+        uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
+        fractionOfStake,
+        percentLabel: formatFractionAsPercentLabel(fractionOfStake),
+        paysOut,
+        exampleIncomeInr
+      };
+    });
+
+  const monthlyRoiLevelSchedule = roiLevelRows
+    .slice()
+    .sort((a, b) => a.level - b.level)
+    .map((row) => {
+      const frac = Number(row.percentOfGrossYield);
+      const fractionOfGrossYield = Number.isFinite(frac) ? frac : 0;
+      const paysOut = row.enabled && fractionOfGrossYield > 0;
+      return {
+        level: row.level,
+        uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
+        fractionOfGrossYield,
+        percentLabel: formatFractionAsPercentLabel(fractionOfGrossYield),
+        paysOut
+      };
+    });
+
   return {
     selfReferralCode: myCode || "—",
     inviter,
@@ -955,7 +1029,11 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     totalReferralCommissionInr,
     bettingCommissionInr,
     stakingCommissionInr,
-    investmentRoiCommissionInr
+    investmentRoiCommissionInr,
+    referralProgramEnabled: programOn,
+    levelIncomeExampleStakeInr: LEVEL_INCOME_EXAMPLE_STAKE_INR,
+    betStakeLevelSchedule,
+    monthlyRoiLevelSchedule
   };
 }
 

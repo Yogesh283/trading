@@ -144,7 +144,7 @@ export default function ReferralPage({ token, onBack }: Props) {
                       </td>
                     </tr>
                     <tr>
-                      <td>Betting (binary)</td>
+                      <td>Trading (binary)</td>
                       <td>{formatInr(data.bettingCommissionInr ?? 0)}</td>
                     </tr>
                     <tr>
@@ -155,6 +155,101 @@ export default function ReferralPage({ token, onBack }: Props) {
                       <td>Investment monthly ROI (upline)</td>
                       <td>{formatInr(data.investmentRoiCommissionInr ?? 0)}</td>
                     </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="referral-section referral-section--schedule">
+              <h2 className="referral-h2">Level income when a stake is created</h2>
+              <p className="muted referral-commission-hint">
+                Same schedule for <strong>live binary bets</strong> and <strong>investment stake adds</strong>. Each row
+                is the upline at that depth: level 1 is the direct inviter. You only receive a level if that upline
+                exists in your referral chain.
+                {!data.referralProgramEnabled ? (
+                  <span className="referral-schedule-warn"> Referral program is off — no level payouts on stakes.</span>
+                ) : null}
+              </p>
+              <div className="referral-table-wrap">
+                <table className="referral-table referral-schedule-table">
+                  <thead>
+                    <tr>
+                      <th>Level</th>
+                      <th>Upline</th>
+                      <th>Income (% of stake)</th>
+                      <th title={`Example at ${formatInr(data.levelIncomeExampleStakeInr ?? 1000)} stake`}>
+                        Income (example stake)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.betStakeLevelSchedule ?? []).length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="referral-table-empty">
+                          No level schedule loaded.
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.betStakeLevelSchedule ?? []).map((row) => (
+                        <tr
+                          key={row.level}
+                          className={row.paysOut ? undefined : "referral-schedule-row--off"}
+                        >
+                          <td>{row.level}</td>
+                          <td>{row.uplineLabel}</td>
+                          <td>{row.percentLabel}</td>
+                          <td>
+                            {row.paysOut
+                              ? formatInr(row.exampleIncomeInr)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted referral-schedule-foot">
+                Example column uses stake{" "}
+                <strong>{formatInr(data.levelIncomeExampleStakeInr ?? 1000)}</strong> × level % = commission per trade
+                for that depth.
+              </p>
+            </section>
+
+            <section className="referral-section referral-section--schedule">
+              <h2 className="referral-h2">Monthly investment ROI — upline share</h2>
+              <p className="muted referral-commission-hint">
+                When monthly yield is credited, each enabled level receives this fraction of the <strong>gross</strong>{" "}
+                monthly return (before the investor’s net). Same “level 1 = direct inviter” rule.
+              </p>
+              <div className="referral-table-wrap">
+                <table className="referral-table referral-schedule-table">
+                  <thead>
+                    <tr>
+                      <th>Level</th>
+                      <th>Upline</th>
+                      <th>Income (% of gross monthly yield)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.monthlyRoiLevelSchedule ?? []).length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="referral-table-empty">
+                          No ROI level schedule loaded.
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.monthlyRoiLevelSchedule ?? []).map((row) => (
+                        <tr
+                          key={row.level}
+                          className={row.paysOut ? undefined : "referral-schedule-row--off"}
+                        >
+                          <td>{row.level}</td>
+                          <td>{row.uplineLabel}</td>
+                          <td>{row.percentLabel}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -318,6 +318,8 @@ export default function App() {
   /** Count 10s ticks for slower HTTP sync (account / trades / chart history) when WS is up. */
   const wsHttpSyncCounterRef = useRef(0);
   const mobileTfWrapRef = useRef<HTMLDivElement>(null);
+  /** Scroll target for “clock” control in mobile trade bar (expiry / open trades). */
+  const mobileBinaryExpiryRef = useRef<HTMLDivElement>(null);
   const mobileChartTypeWrapRef = useRef<HTMLDivElement>(null);
   /** After binary timeout, server settles in RAM — WS does not push trades; we poll + show this banner. */
   const [binarySettleNotice, setBinarySettleNotice] = useState<null | { text: string; pnl: number }>(
@@ -1020,6 +1022,27 @@ export default function App() {
     }
   };
 
+  /** Mobile dock: large Up/Down — stake from `quantity`, timeframe `binaryTimeframe`. */
+  const placeMobileBinary = (direction: "up" | "down") => {
+    const base = Number(quantity);
+    if (!Number.isFinite(base) || base <= 0) {
+      setMessage("Enter amount.");
+      return;
+    }
+    const stake = Math.max(1, Math.floor(base * mobileMultiplier));
+    setMobileSide(direction === "up" ? "buy" : "sell");
+    if (accountWallet === "live") {
+      void handleLiveBinaryOrder(direction, { stake });
+      return;
+    }
+    void handleBinaryOrder(direction, { stake });
+  };
+
+  const bumpMobileStake = (delta: number) => {
+    const cur = Math.max(1, Math.floor(Number(quantity) || 0));
+    setQuantity(String(Math.max(1, cur + delta)));
+  };
+
   const handleAuth = async (event: FormEvent) => {
     event.preventDefault();
     setAuthBusy(true);
@@ -1692,56 +1715,134 @@ export default function App() {
           </section>
 
           <div className="mobile-trade-dock">
-            <div className="mobile-bs-row">
-              <button
-                type="button"
-                className={`mobile-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
-                onClick={() => setMobileSide("buy")}
-              >
-                {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
-              </button>
-              <button
-                type="button"
-                className={`mobile-bs-btn sell ${mobileSide === "sell" ? "on" : ""}${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
-                onClick={() => setMobileSide("sell")}
-              >
-                {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
-              </button>
-            </div>
-
-            <div className="mobile-amount-block">
-              <label className="mobile-field-label" htmlFor="mob-amt">
-                Amount (₹)
-              </label>
-              <div className="mobile-input-row">
-                <input
-                  id="mob-amt"
-                  type="number"
-                  min={1}
-                  step={1}
-                  className="mobile-amt-input"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-                <div className="mobile-pct-row">
-                  {[10, 20, 50, 100].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      className="mobile-pct-chip"
-                      onClick={() => {
-                        const b = account?.balance ?? DEFAULT_DEMO_BALANCE_INR;
-                        setQuantity(String(Math.max(1, Math.floor((b * pct) / 100))));
-                      }}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
+            <div className="mobile-trade-steppers">
+              <div className="mobile-stepper-pill" role="group" aria-label="Trade candle duration">
+                <button
+                  type="button"
+                  className="mobile-stepper-nudge"
+                  aria-label="Shorter timeframe"
+                  onClick={() => {
+                    const opts = TIMEFRAME_OPTIONS;
+                    const i = opts.findIndex((o) => o.value === binaryTimeframe);
+                    setBinaryTimeframe(opts[(i - 1 + opts.length) % opts.length]!.value);
+                  }}
+                >
+                  −
+                </button>
+                <span className="mobile-stepper-mid">{tfLabel(binaryTimeframe)}</span>
+                <button
+                  type="button"
+                  className="mobile-stepper-nudge"
+                  aria-label="Longer timeframe"
+                  onClick={() => {
+                    const opts = TIMEFRAME_OPTIONS;
+                    const i = opts.findIndex((o) => o.value === binaryTimeframe);
+                    setBinaryTimeframe(opts[(i + 1) % opts.length]!.value);
+                  }}
+                >
+                  +
+                </button>
+              </div>
+              <div className="mobile-stepper-pill" role="group" aria-label="Stake amount">
+                <button
+                  type="button"
+                  className="mobile-stepper-nudge"
+                  aria-label="Decrease stake"
+                  onClick={() => bumpMobileStake(-10)}
+                >
+                  −
+                </button>
+                <label className="mobile-stepper-mid mobile-stepper-mid--inr mobile-stepper-inr-wrap">
+                  <span className="mobile-stepper-inr-prefix">INR</span>
+                  <input
+                    id="mob-stake-inr"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    className="mobile-stepper-inr-input"
+                    value={quantity}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") {
+                        setQuantity("");
+                        return;
+                      }
+                      const n = Number(v);
+                      if (Number.isFinite(n) && n >= 0) {
+                        setQuantity(String(Math.floor(n)));
+                      }
+                    }}
+                    onBlur={() => {
+                      const n = Math.max(1, Math.floor(Number(quantity) || 0));
+                      setQuantity(String(n));
+                    }}
+                    aria-label="Stake amount in INR"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="mobile-stepper-nudge"
+                  aria-label="Increase stake"
+                  onClick={() => bumpMobileStake(10)}
+                >
+                  +
+                </button>
               </div>
             </div>
 
-            <div className="mobile-timeout-strip" data-tick={timerTick}>
+            <div className="mobile-trade-updown" role="group" aria-label="Place binary trade">
+              <button
+                type="button"
+                className={`mobile-trade-dir mobile-trade-dir--down${
+                  binaryCreatedFlash === "down" ? " binary-created-flash" : ""
+                }`}
+                onClick={() => placeMobileBinary("down")}
+              >
+                <span className="mobile-trade-dir-label">
+                  {binaryCreatedFlash === "down" ? "Down · OK" : "Down"}
+                </span>
+                <span className="mobile-trade-dir-arrow" aria-hidden>
+                  ↓
+                </span>
+              </button>
+              <button
+                type="button"
+                className="mobile-trade-expiry-btn"
+                aria-label="Jump to countdown and open trades"
+                onClick={() =>
+                  mobileBinaryExpiryRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+                }
+              >
+                <svg className="mobile-trade-expiry-ico" viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.75" />
+                  <path
+                    d="M12 7v5l3 2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={`mobile-trade-dir mobile-trade-dir--up${
+                  binaryCreatedFlash === "up" ? " binary-created-flash" : ""
+                }`}
+                onClick={() => placeMobileBinary("up")}
+              >
+                <span className="mobile-trade-dir-label">
+                  {binaryCreatedFlash === "up" ? "Up · OK" : "Up"}
+                </span>
+                <span className="mobile-trade-dir-arrow" aria-hidden>
+                  ↑
+                </span>
+              </button>
+            </div>
+
+            <div className="mobile-timeout-strip" ref={mobileBinaryExpiryRef} data-tick={timerTick}>
               <div className="mobile-timeout-line">
                 <span className="mobile-timeout-strong">Timeout {tfLabel(binaryTimeframe)}</span>
                 <span className="mobile-timeout-sub">Auto cut · win/loss by price</span>
@@ -1761,46 +1862,6 @@ export default function App() {
               ) : null}
             </div>
 
-            <button
-              type="button"
-              className={`mobile-cta ${mobileSide === "buy" ? "cta-buy" : "cta-sell"}${
-                binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
-                  ? " mobile-cta--created binary-created-flash"
-                  : ""
-              }`}
-              onClick={() => {
-                const base = Number(quantity);
-                if (!Number.isFinite(base) || base <= 0) {
-                  setMessage("Enter amount.");
-                  return;
-                }
-                const stake = Math.max(1, Math.floor(base * mobileMultiplier));
-                if (accountWallet === "live") {
-                  void handleLiveBinaryOrder(mobileSide === "buy" ? "up" : "down", { stake });
-                  return;
-                }
-                void handleBinaryOrder(mobileSide === "buy" ? "up" : "down", { stake });
-              }}
-            >
-              <span className="mobile-cta-text">
-                <strong className="mobile-cta-title">
-                  {binaryCreatedFlash === (mobileSide === "buy" ? "up" : "down")
-                    ? mobileSide === "buy"
-                      ? "Up · Created"
-                      : "Down · Created"
-                    : mobileSide === "buy"
-                      ? "Create Order Up"
-                      : "Create Order Down"}
-                </strong>
-                <small className={spotTickMove ? `mobile-cta-spot ${spotTickMove}` : undefined}>
-                  {spotTickMove === "up" ? "↑ " : spotTickMove === "down" ? "↓ " : ""}
-                  {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
-                </small>
-              </span>
-              <span className="mobile-cta-arrow" aria-hidden>
-                {mobileSide === "buy" ? "↑" : "↓"}
-              </span>
-            </button>
             {message ? <p className="message mobile-trade-msg">{message}</p> : null}
             {binarySettleNotice ? (
               <p
@@ -3216,8 +3277,19 @@ function LiveChart({
               {tickDirection === "up" ? "↑" : "↓"}
             </span>
           ) : null}
-          <span className="tv-ohlc">
-            O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
+          <span
+            className="tv-ohlc"
+            title={`O ${fp(current.open)} H ${fp(current.high)} L ${fp(current.low)} C ${fp(current.close)}`}
+          >
+            {isMobileChart ? (
+              <>
+                O{fp(current.open)}H{fp(current.high)}L{fp(current.low)}C{fp(current.close)}
+              </>
+            ) : (
+              <>
+                O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
+              </>
+            )}
           </span>
           <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
             {change >= 0 ? "+" : ""}
@@ -3277,7 +3349,9 @@ function LiveChart({
           <span className="tv-chart-meta-sep" aria-hidden>
             ·
           </span>
-          <span>Trades: {openTrades.length}</span>
+          <span title={`Open trades: ${openTrades.length}`}>
+            {isMobileChart ? `T:${openTrades.length}` : `Trades: ${openTrades.length}`}
+          </span>
         </div>
       </div>
       <div className="chart-svg-wrap chart-lw-wrap">

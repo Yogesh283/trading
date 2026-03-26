@@ -336,6 +336,23 @@ export interface ReferralTeamMember {
   totalDepositedUsdt: number;
 }
 
+export interface BetStakeLevelScheduleRow {
+  level: number;
+  uplineLabel: string;
+  fractionOfStake: number;
+  percentLabel: string;
+  paysOut: boolean;
+  exampleIncomeInr: number;
+}
+
+export interface MonthlyRoiLevelScheduleRow {
+  level: number;
+  uplineLabel: string;
+  fractionOfGrossYield: number;
+  percentLabel: string;
+  paysOut: boolean;
+}
+
 export interface ReferralSummary {
   selfReferralCode: string;
   inviter: { name: string; email: string } | null;
@@ -354,6 +371,12 @@ export interface ReferralSummary {
   stakingCommissionInr?: number;
   /** From referrals’ monthly investment ROI (level_income_roi). */
   investmentRoiCommissionInr?: number;
+  /** Master switch: level income on stakes not paid when false. */
+  referralProgramEnabled?: boolean;
+  /** Stake used for example INR column (live binary + investment add). */
+  levelIncomeExampleStakeInr?: number;
+  betStakeLevelSchedule?: BetStakeLevelScheduleRow[];
+  monthlyRoiLevelSchedule?: MonthlyRoiLevelScheduleRow[];
 }
 
 export async function loadReferralSummary(token: string) {
