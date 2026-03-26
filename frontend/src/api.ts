@@ -153,11 +153,11 @@ export async function loadMarketCandles(symbol: string, timeframeSec: number, li
     candles: Array<{ t: number; o: number; h: number; l: number; c: number }>;
   };
   return data.candles.map((r) => ({
-    timestamp: r.t,
-    open: r.o,
-    high: r.h,
-    low: r.l,
-    close: r.c
+    timestamp: Number(r.t),
+    open: Number(r.o),
+    high: Number(r.h),
+    low: Number(r.l),
+    close: Number(r.c)
   }));
 }
 

@@ -569,13 +569,14 @@ app.get("/api/markets/candles", (req, res) => {
     const rows = await getChartCandles(symbol, timeframeSec, limit);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
+    /** mysql2 may return BIGINT DECIMAL columns as strings — client merge uses `t + tfMs`; must be finite numbers. */
     res.json({
       candles: rows.map((r) => ({
-        t: r.bucket_start_ms,
-        o: r.open_price,
-        h: r.high_price,
-        l: r.low_price,
-        c: r.close_price
+        t: Number(r.bucket_start_ms),
+        o: Number(r.open_price),
+        h: Number(r.high_price),
+        l: Number(r.low_price),
+        c: Number(r.close_price)
       }))
     });
   })().catch((err) => {

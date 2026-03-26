@@ -282,6 +282,8 @@ export function LightweightTradingChart({
   const lastStructuralKeyRef = useRef<string | null>(null);
   /** After login, bar count often jumps when `chart_candles` merge in — refit range so candles aren’t stuck “fat”. */
   const lastBarCountForRangeRef = useRef(0);
+  /** When DB history prepends bars, first bucket shifts — refit so old candles aren’t only off-screen left. */
+  const firstBarMsForRangeRef = useRef(0);
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
@@ -359,6 +361,7 @@ export function LightweightTradingChart({
       chartRef.current = null;
       lastStructuralKeyRef.current = null;
       lastBarCountForRangeRef.current = 0;
+      firstBarMsForRangeRef.current = 0;
     };
   }, [assetTag, height, isMobileChart, timeframeSec, updateAxisPill]);
 
@@ -458,9 +461,17 @@ export function LightweightTradingChart({
       applyMarkers(series);
       const prevRangeN = lastBarCountForRangeRef.current;
       const rangeN = cd.length;
+      const firstMs = cd[0]?.bucketMs ?? 0;
+      const prevFirstMs = firstBarMsForRangeRef.current;
+      const headChanged =
+        prevFirstMs !== 0 && firstMs !== 0 && firstMs !== prevFirstMs;
+      if (firstMs > 0) {
+        firstBarMsForRangeRef.current = firstMs;
+      }
       const refitRange =
         rangeN > 0 &&
-        ((prevRangeN > 0 && rangeN - prevRangeN >= 18) ||
+        (headChanged ||
+          (prevRangeN > 0 && rangeN - prevRangeN >= 18) ||
           (prevRangeN < 24 && rangeN >= 24) ||
           (prevRangeN < 10 && rangeN - prevRangeN >= 6));
       if (refitRange) {
@@ -552,6 +563,7 @@ export function LightweightTradingChart({
 
     lastStructuralKeyRef.current = structuralKey;
     lastBarCountForRangeRef.current = cd.length;
+    firstBarMsForRangeRef.current = cd[0]?.bucketMs ?? 0;
     chart.timeScale().setVisibleLogicalRange({ from: fromIdx, to: toIdx });
 
     requestAnimationFrame(() => {

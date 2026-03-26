@@ -226,17 +226,17 @@ export function mergeDbClosedWithLiveCandles(
     return closedAscending;
   }
   const tfMs = timeframeSec * 1000;
-  const liveSeriesStart = liveFromTicks[0]!.timestamp;
+  const liveSeriesStart = Number(liveFromTicks[0]!.timestamp);
   const mergeStart =
     oldestRealTickBucketMs != null && Number.isFinite(oldestRealTickBucketMs)
-      ? Math.max(liveSeriesStart, oldestRealTickBucketMs)
+      ? Math.max(liveSeriesStart, Number(oldestRealTickBucketMs))
       : liveSeriesStart;
-  const prefix = closedAscending.filter((c) => c.timestamp + tfMs <= mergeStart);
+  const prefix = closedAscending.filter((c) => Number(c.timestamp) + tfMs <= mergeStart);
   /** Without this, prefix can end hours before `mergeStart` while ticks only cover recent window → huge gaps. */
   const bridge: CandlePoint[] = [];
   if (prefix.length > 0) {
     const lastP = prefix[prefix.length - 1]!;
-    const nextAfterPrefix = lastP.timestamp + tfMs;
+    const nextAfterPrefix = Number(lastP.timestamp) + tfMs;
     if (nextAfterPrefix < mergeStart) {
       let lc = lastP.close;
       for (let t = nextAfterPrefix; t < mergeStart; t += tfMs) {
@@ -244,7 +244,7 @@ export function mergeDbClosedWithLiveCandles(
       }
     }
   }
-  const liveTail = liveFromTicks.filter((c) => c.timestamp >= mergeStart);
+  const liveTail = liveFromTicks.filter((c) => Number(c.timestamp) >= mergeStart);
   const liveUse = liveTail.length > 0 ? liveTail : liveFromTicks;
   return [...prefix, ...bridge, ...liveUse];
 }
