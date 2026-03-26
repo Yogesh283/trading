@@ -192,61 +192,43 @@ export function clampChartCandleBar(c: CandlePoint, intervalSeconds: number): Ca
   return { ...c, open: p, high: p + eps, low: p - eps, close: p };
 }
 
-/** UTC bucket start for the oldest tick we actually have (refresh/live merge anchor). */
-export function oldestTickBucketStartMs(points: MarketTick[], timeframeSec: number): number | null {
-  if (points.length === 0) {
-    return null;
-  }
-  const tfMs = timeframeSec * 1000;
-  let minT = Infinity;
-  for (const p of points) {
-    if (Number.isFinite(p.timestamp)) {
-      minT = Math.min(minT, p.timestamp);
-    }
-  }
-  if (!Number.isFinite(minT)) {
-    return null;
-  }
-  return Math.floor(minT / tfMs) * tfMs;
-}
-
 /**
- * DB holds closed bars only; live ticks rebuild OHLC from `buildCandles`.
- * `liveFromTicks[0]` is often **`effectiveFirst`** (far back) while real ticks start recently — that
- * used to clear almost all `chart_candles` prefix after refresh. We anchor merge at the oldest
- * **real** tick bucket when known, then trim the synthetic live prefix before stitching.
+ * DB holds closed bars; live ticks rebuild OHLC via `buildCandles`.
+ * Merge by bucket timestamp: apply DB first, then **overwrite** with live for the same `timestamp`
+ * so tick-built bars win for the visible window without prefix/`mergeStart` edge cases dropping history.
  */
 export function mergeDbClosedWithLiveCandles(
   closedAscending: CandlePoint[],
-  liveFromTicks: CandlePoint[],
-  timeframeSec: number,
-  oldestRealTickBucketMs?: number | null
+  liveFromTicks: CandlePoint[]
 ): CandlePoint[] {
   if (liveFromTicks.length === 0) {
     return closedAscending;
   }
-  const tfMs = timeframeSec * 1000;
-  const liveSeriesStart = Number(liveFromTicks[0]!.timestamp);
-  const mergeStart =
-    oldestRealTickBucketMs != null && Number.isFinite(oldestRealTickBucketMs)
-      ? Math.max(liveSeriesStart, Number(oldestRealTickBucketMs))
-      : liveSeriesStart;
-  const prefix = closedAscending.filter((c) => Number(c.timestamp) + tfMs <= mergeStart);
-  /** Without this, prefix can end hours before `mergeStart` while ticks only cover recent window → huge gaps. */
-  const bridge: CandlePoint[] = [];
-  if (prefix.length > 0) {
-    const lastP = prefix[prefix.length - 1]!;
-    const nextAfterPrefix = Number(lastP.timestamp) + tfMs;
-    if (nextAfterPrefix < mergeStart) {
-      let lc = lastP.close;
-      for (let t = nextAfterPrefix; t < mergeStart; t += tfMs) {
-        bridge.push({ timestamp: t, open: lc, high: lc, low: lc, close: lc });
-      }
+  const byTs = new Map<number, CandlePoint>();
+  const put = (c: CandlePoint, force = false) => {
+    const ts = Number(c.timestamp);
+    if (!Number.isFinite(ts)) {
+      return;
     }
+    const o = Number(c.open);
+    const h = Number(c.high);
+    const l = Number(c.low);
+    const cl = Number(c.close);
+    if (![o, h, l, cl].every(Number.isFinite)) {
+      return;
+    }
+    if (!force && byTs.has(ts)) {
+      return;
+    }
+    byTs.set(ts, { timestamp: ts, open: o, high: h, low: l, close: cl });
+  };
+  for (const c of closedAscending) {
+    put(c, false);
   }
-  const liveTail = liveFromTicks.filter((c) => Number(c.timestamp) >= mergeStart);
-  const liveUse = liveTail.length > 0 ? liveTail : liveFromTicks;
-  return [...prefix, ...bridge, ...liveUse];
+  for (const c of liveFromTicks) {
+    put(c, true);
+  }
+  return [...byTs.values()].sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /** When there are no ticks yet, extend stored closed bars with flat placeholders up to the current bucket. */

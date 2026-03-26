@@ -150,15 +150,18 @@ export async function loadMarketCandles(symbol: string, timeframeSec: number, li
     throw new Error("Unable to load chart candles");
   }
   const data = (await response.json()) as {
-    candles: Array<{ t: number; o: number; h: number; l: number; c: number }>;
+    candles?: Array<{ t: number; o: number; h: number; l: number; c: number }>;
   };
-  return data.candles.map((r) => ({
-    timestamp: Number(r.t),
-    open: Number(r.o),
-    high: Number(r.h),
-    low: Number(r.l),
-    close: Number(r.c)
-  }));
+  const rows = Array.isArray(data.candles) ? data.candles : [];
+  return rows
+    .map((r) => ({
+      timestamp: Number(r.t),
+      open: Number(r.o),
+      high: Number(r.h),
+      low: Number(r.l),
+      close: Number(r.c)
+    }))
+    .filter((c) => Number.isFinite(c.timestamp) && Number.isFinite(c.close));
 }
 
 async function fetchJsonOrThrow(url: string, init: RequestInit): Promise<Response> {
