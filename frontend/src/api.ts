@@ -140,7 +140,11 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
 
 /** Closed OHLC from DB (merge with WebSocket LivePrice ticks on the chart). */
 export async function loadMarketCandles(symbol: string, timeframeSec: number, limit = 500) {
-  const params = new URLSearchParams({ symbol, timeframe: String(timeframeSec), limit: String(limit) });
+  const params = new URLSearchParams({
+    symbol: symbol.trim().toUpperCase(),
+    timeframe: String(timeframeSec),
+    limit: String(limit)
+  });
   const response = await fetch(`${apiBase()}/api/markets/candles?${params}`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load chart candles");

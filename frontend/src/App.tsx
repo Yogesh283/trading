@@ -16,6 +16,7 @@ import {
   clampChartCandleBar,
   extendClosedCandlesToNow,
   mergeDbClosedWithLiveCandles,
+  oldestTickBucketStartMs,
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
@@ -3155,7 +3156,8 @@ function LiveChart({
         ? extendClosedCandlesToNow(closedCandlesFromDb, timeframeSec, now)
         : [];
   } else if (closedCandlesFromDb.length > 0) {
-    allCandles = mergeDbClosedWithLiveCandles(closedCandlesFromDb, liveCandles, timeframeSec);
+    const tickAnchor = oldestTickBucketStartMs(points, timeframeSec);
+    allCandles = mergeDbClosedWithLiveCandles(closedCandlesFromDb, liveCandles, timeframeSec, tickAnchor);
   } else {
     allCandles = liveCandles;
   }
