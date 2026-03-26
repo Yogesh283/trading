@@ -345,6 +345,13 @@ export interface MarketTickRow {
   timestamp: number;
 }
 
+/** Some MySQL/MariaDB builds reject `LIMIT ?` in prepared statements (`ER_WRONG_ARGUMENTS` / 1210). Inline after clamp. */
+function safeMysqlLimit(limit: number, max: number): number {
+  const x = Math.trunc(Number(limit));
+  if (!Number.isFinite(x)) return 1;
+  return Math.min(max, Math.max(1, x));
+}
+
 /** Insert ticks for chart history (batch). */
 export async function saveMarketTicks(ticks: MarketTickRow[]): Promise<void> {
   if (ticks.length === 0) return;
@@ -371,12 +378,15 @@ export async function saveMarketTicks(ticks: MarketTickRow[]): Promise<void> {
 export async function getMarketTicks(symbol: string | undefined, limit: number): Promise<MarketTickRow[]> {
   const cap = Math.min(limit, 50000);
   if (symbol) {
-    const sql = mysqlMode
-      ? `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`
-      : `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`;
-    const rows = mysqlMode
-      ? await dbAll<MarketTickRow>(sql, [symbol.trim().toUpperCase(), cap])
-      : await dbAll<MarketTickRow>(sql, [symbol.trim().toUpperCase(), cap]);
+    const symU = symbol.trim().toUpperCase();
+    if (mysqlMode) {
+      const lim = safeMysqlLimit(cap, 50000);
+      const sql = `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ${lim}`;
+      const rows = await dbAll<MarketTickRow>(sql, [symU]);
+      return rows.reverse();
+    }
+    const sql = `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`;
+    const rows = await dbAll<MarketTickRow>(sql, [symU, cap]);
     return rows.reverse();
   }
   const symbols = await dbAll<{ symbol: string }>(
@@ -385,9 +395,14 @@ export async function getMarketTicks(symbol: string | undefined, limit: number):
   const out: MarketTickRow[] = [];
   const perSymbol = Math.max(1, Math.floor(cap / Math.max(1, symbols.length)));
   for (const { symbol: s } of symbols) {
-    const sql = mysqlMode
-      ? `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`
-      : `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`;
+    if (mysqlMode) {
+      const lim = safeMysqlLimit(perSymbol, 50000);
+      const sql = `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ${lim}`;
+      const rows = await dbAll<MarketTickRow>(sql, [s]);
+      out.push(...rows.reverse());
+      continue;
+    }
+    const sql = `SELECT symbol, price, timestamp FROM market_ticks WHERE symbol = ? ORDER BY timestamp DESC LIMIT ?`;
     const rows = await dbAll<MarketTickRow>(sql, [s, perSymbol]);
     out.push(...rows.reverse());
   }
@@ -600,11 +615,14 @@ export async function upsertChartCandle(row: ChartCandleRow): Promise<void> {
 export async function getChartCandles(symbol: string, timeframeSec: number, limit: number): Promise<ChartCandleRow[]> {
   const cap = Math.min(2000, Math.max(1, limit));
   const sym = symbol.trim().toUpperCase();
+  const tfInt = Math.trunc(Number(timeframeSec));
+  const tfArg = Number.isFinite(tfInt) ? tfInt : 60;
   if (mysqlMode) {
+    const lim = safeMysqlLimit(cap, 2000);
     const [rows] = await getPool().execute(
       `SELECT symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price
-       FROM chart_candles WHERE symbol = ? AND timeframe_sec = ? ORDER BY bucket_start_ms DESC LIMIT ?`,
-      [sym, timeframeSec, cap]
+       FROM chart_candles WHERE symbol = ? AND timeframe_sec = ? ORDER BY bucket_start_ms DESC LIMIT ${lim}`,
+      [sym, tfArg]
     );
     const list = (Array.isArray(rows) ? rows : []) as ChartCandleRow[];
     return list.slice().reverse();
@@ -612,7 +630,7 @@ export async function getChartCandles(symbol: string, timeframeSec: number, limi
   const rows = await dbAll<ChartCandleRow>(
     `SELECT symbol, timeframe_sec, bucket_start_ms, open_price, high_price, low_price, close_price
      FROM chart_candles WHERE symbol = ? AND timeframe_sec = ? ORDER BY bucket_start_ms DESC LIMIT ?`,
-    [sym, timeframeSec, cap]
+    [sym, tfArg, cap]
   );
   return rows.slice().reverse();
 }
