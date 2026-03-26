@@ -280,6 +280,8 @@ export function LightweightTradingChart({
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   /** When this matches current layout, only `setData` — do not reset time scale (avoids snap-back every 1s tick). */
   const lastStructuralKeyRef = useRef<string | null>(null);
+  /** After login, bar count often jumps when `chart_candles` merge in — refit range so candles aren’t stuck “fat”. */
+  const lastBarCountForRangeRef = useRef(0);
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
@@ -356,6 +358,7 @@ export function LightweightTradingChart({
       chart.remove();
       chartRef.current = null;
       lastStructuralKeyRef.current = null;
+      lastBarCountForRangeRef.current = 0;
     };
   }, [assetTag, height, isMobileChart, timeframeSec, updateAxisPill]);
 
@@ -453,6 +456,23 @@ export function LightweightTradingChart({
       }
       refreshPriceLine(series);
       applyMarkers(series);
+      const prevRangeN = lastBarCountForRangeRef.current;
+      const rangeN = cd.length;
+      const refitRange =
+        rangeN > 0 &&
+        ((prevRangeN > 0 && rangeN - prevRangeN >= 18) ||
+          (prevRangeN < 24 && rangeN >= 24) ||
+          (prevRangeN < 10 && rangeN - prevRangeN >= 6));
+      if (refitRange) {
+        const zi = effectiveZoomIndexForView(zoomIndex, timeframeSec);
+        const dzR = dataZoomRange(zi, rangeN);
+        const fromR = Math.floor((rangeN * dzR.start) / 100);
+        const toR = Math.max(fromR, rangeN - 1);
+        requestAnimationFrame(() => {
+          chart.timeScale().setVisibleLogicalRange({ from: fromR, to: toR });
+        });
+      }
+      lastBarCountForRangeRef.current = rangeN;
       requestAnimationFrame(() => {
         chart.resize(el.clientWidth, height);
         updateAxisPill();
@@ -531,6 +551,7 @@ export function LightweightTradingChart({
     }
 
     lastStructuralKeyRef.current = structuralKey;
+    lastBarCountForRangeRef.current = cd.length;
     chart.timeScale().setVisibleLogicalRange({ from: fromIdx, to: toIdx });
 
     requestAnimationFrame(() => {
