@@ -134,6 +134,8 @@ const FOREX_SYMBOLS_DEFAULT = [
 
 /** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for long TFs (e.g. 5m). */
 const CHART_HISTORY_TICKS = 35_000;
+/** Closed bars from `chart_candles` — larger window after login so chart isn’t empty. */
+const CHART_DB_CANDLES_LIMIT = 1500;
 
 /** v2: default + persist candlestick as primary chart (ignore legacy line/area from old key). */
 const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType.v2";
@@ -595,7 +597,7 @@ export default function App() {
     };
   }, [booting, symbol, chartSessionKey]);
 
-  /** Bootstrap closed OHLC from DB for the active symbol + timeframe (VIP ladder). */
+  /** Bootstrap closed OHLC from DB — retries after login/register so `chart_candles` isn’t missed on slow networks. */
   useEffect(() => {
     if (booting || !chartSessionKey) {
       return;
@@ -604,19 +606,28 @@ export default function App() {
     const sym = symbol;
     const tf = chartTimeframe;
     const k = `${sym}:${tf}`;
-    void loadMarketCandles(sym, tf, 800)
-      .then((rows) => {
-        if (!cancelled) {
-          setDbClosedCandles((prev) => ({ ...prev, [k]: rows }));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDbClosedCandles((prev) => ({ ...prev, [k]: [] }));
-        }
-      });
+    const pull = () => {
+      void loadMarketCandles(sym, tf, CHART_DB_CANDLES_LIMIT)
+        .then((rows) => {
+          if (!cancelled) {
+            setDbClosedCandles((prev) => ({ ...prev, [k]: rows }));
+          }
+        })
+        .catch(() => {
+          /** Don’t wipe existing rows on transient failure — avoids “empty” chart flash. */
+        });
+    };
+    pull();
+    const t1 = window.setTimeout(pull, 900);
+    const t2 = window.setTimeout(pull, 2800);
+    const t3 = window.setTimeout(pull, 6500);
+    const interval = window.setInterval(pull, 55_000);
     return () => {
       cancelled = true;
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.clearInterval(interval);
     };
   }, [booting, symbol, chartTimeframe, chartSessionKey]);
 
@@ -681,7 +692,7 @@ export default function App() {
 
       const ck = `${symbolRef.current}:${chartTimeframeRef.current}`;
       try {
-        const rows = await loadMarketCandles(symbolRef.current, chartTimeframeRef.current, 800);
+        const rows = await loadMarketCandles(symbolRef.current, chartTimeframeRef.current, CHART_DB_CANDLES_LIMIT);
         if (mySeq !== refreshSeqRef.current) {
           return;
         }
@@ -1676,6 +1687,7 @@ export default function App() {
               hideSideToolbar
               isMobileChart
               tickDirection={spotTickMove}
+              expectBackendCandles
             />
           </section>
 
@@ -2056,6 +2068,7 @@ export default function App() {
             graphType={chartGraphType}
             onGraphTypeChange={setChartGraphType}
             tickDirection={spotTickMove}
+            expectBackendCandles
           />
         </section>
 
@@ -3014,7 +3027,8 @@ function LiveChart({
   onGraphTypeChange,
   hideSideToolbar = false,
   isMobileChart = false,
-  tickDirection = null
+  tickDirection = null,
+  expectBackendCandles = false
 }: {
   points: MarketTick[];
   /** Closed OHLC from `/api/markets/candles` (DB); live leg from WebSocket `live_price` ticks. */
@@ -3029,6 +3043,8 @@ function LiveChart({
   /** Wider default zoom + reset on TF change (Olymp / TV-style mobile chart). */
   isMobileChart?: boolean;
   tickDirection?: "up" | "down" | null;
+  /** After login, show DB-oriented loading text until `chart_candles` merge appears. */
+  expectBackendCandles?: boolean;
 }) {
   const [, setTick] = useState(0);
   const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -3145,7 +3161,13 @@ function LiveChart({
   }
 
   if (allCandles.length === 0) {
-    return <p className="muted">Waiting for live price data...</p>;
+    return (
+      <p className="muted">
+        {expectBackendCandles
+          ? "Loading saved candles from server…"
+          : "Waiting for live price data…"}
+      </p>
+    );
   }
 
   /** All TFs: clamp absurd H/L from mixed ticks/DB so candles look like real OHLC (not barcode). */
