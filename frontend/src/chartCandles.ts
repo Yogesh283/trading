@@ -197,6 +197,48 @@ export function clampChartCandleBar(c: CandlePoint, intervalSeconds: number): Ca
  * Merge by bucket timestamp: apply DB first, then **overwrite** with live for the same `timestamp`
  * so tick-built bars win for the visible window without prefix/`mergeStart` edge cases dropping history.
  */
+/**
+ * After merging DB + live, consecutive timestamps can jump (e.g. last DB bar then first live bar
+ * several minutes later). Lightweight Charts draws a visual gap. Insert flat O=H=L=C=prev.close
+ * for every missing bucket between neighbors (same alignment as `buildCandles`).
+ */
+export function fillCandleTimeGaps(ascending: CandlePoint[], timeframeSec: number): CandlePoint[] {
+  if (ascending.length === 0) {
+    return [];
+  }
+  const tfMs = timeframeSec * 1000;
+  const sorted = [...ascending].sort((a, b) => a.timestamp - b.timestamp);
+  const out: CandlePoint[] = [];
+  const maxGapBars = 5_000;
+
+  for (const cur of sorted) {
+    if (out.length === 0) {
+      out.push({ ...cur });
+      continue;
+    }
+    const prev = out[out.length - 1]!;
+    const dt = cur.timestamp - prev.timestamp;
+    if (dt <= 0) {
+      if (dt === 0) {
+        out[out.length - 1] = { ...cur };
+      }
+      continue;
+    }
+    if (dt > tfMs) {
+      let t = prev.timestamp + tfMs;
+      let inserted = 0;
+      const bridge = prev.close;
+      while (t < cur.timestamp && inserted < maxGapBars) {
+        out.push({ timestamp: t, open: bridge, high: bridge, low: bridge, close: bridge });
+        inserted += 1;
+        t += tfMs;
+      }
+    }
+    out.push({ ...cur });
+  }
+  return out;
+}
+
 export function mergeDbClosedWithLiveCandles(
   closedAscending: CandlePoint[],
   liveFromTicks: CandlePoint[]

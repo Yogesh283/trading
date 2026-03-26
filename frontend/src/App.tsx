@@ -15,6 +15,7 @@ import {
   candlePeriodEndMs,
   clampChartCandleBar,
   extendClosedCandlesToNow,
+  fillCandleTimeGaps,
   mergeDbClosedWithLiveCandles,
   type CandlePoint
 } from "./chartCandles";
@@ -3257,6 +3258,8 @@ function LiveChart({
   } else {
     allCandles = liveCandles;
   }
+
+  allCandles = fillCandleTimeGaps(allCandles, timeframeSec);
 
   if (allCandles.length === 0) {
     return (
