@@ -276,7 +276,8 @@ select {
   min-width: 0;
 }
 
-.app-main-nav-desktop button {
+.app-main-nav-desktop button,
+.app-main-nav-desktop a.app-nav-desktop-apk {
   padding: 10px 15px;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -290,7 +291,14 @@ select {
   transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
-.app-main-nav-desktop button:hover {
+.app-main-nav-desktop a.app-nav-desktop-apk {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.app-main-nav-desktop button:hover,
+.app-main-nav-desktop a.app-nav-desktop-apk:hover {
   color: #f1f5f9;
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.06);
@@ -545,7 +553,8 @@ select {
   -webkit-overflow-scrolling: touch;
 }
 
-.app-nav-drawer-links button {
+.app-nav-drawer-links button,
+.app-nav-drawer-links a.app-nav-drawer-link {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -560,6 +569,11 @@ select {
   cursor: pointer;
 }
 
+.app-nav-drawer-links a.app-nav-drawer-link {
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
 .app-nav-drawer-icon,
 .app-nav-drawer-links .mobile-dock-fg-icon {
   width: 22px;
@@ -570,7 +584,8 @@ select {
   filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.35));
 }
 
-.app-nav-drawer-links button:hover {
+.app-nav-drawer-links button:hover,
+.app-nav-drawer-links a.app-nav-drawer-link:hover {
   background: rgba(41, 98, 255, 0.15);
   border-color: rgba(41, 98, 255, 0.25);
 }
@@ -611,7 +626,8 @@ select {
     padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px) + 96px);
   }
 
-  .app-nav-drawer-links button {
+  .app-nav-drawer-links button,
+  .app-nav-drawer-links a.app-nav-drawer-link {
     flex-shrink: 0;
   }
 }

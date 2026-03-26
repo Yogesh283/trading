@@ -123,3 +123,14 @@ CREATE TABLE IF NOT EXISTS investment_roi_level_distribution (
 
 INSERT IGNORE INTO investment_roi_level_distribution (level_num, percent_of_gross_yield, enabled) VALUES
 (1, 0, 1), (2, 0, 1), (3, 0, 1), (4, 0, 1), (5, 0, 1);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id VARCHAR(64) NOT NULL PRIMARY KEY,
+  user_id VARCHAR(64) NOT NULL,
+  subject VARCHAR(512) NOT NULL,
+  body TEXT NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'open',
+  created_at VARCHAR(64) NOT NULL,
+  INDEX idx_support_tickets_user (user_id),
+  CONSTRAINT fk_support_tickets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

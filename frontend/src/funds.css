@@ -1154,6 +1154,117 @@
   font-size: 14px;
 }
 
+.help-ticket-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 24px;
+}
+
+.help-ticket-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9aacbf;
+}
+
+.help-ticket-input,
+.help-ticket-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.35);
+  color: #e8edf4;
+  font: inherit;
+  font-size: 15px;
+}
+
+.help-ticket-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.help-ticket-submit {
+  align-self: flex-start;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: linear-gradient(180deg, rgba(14, 165, 233, 0.25) 0%, rgba(2, 132, 199, 0.15) 100%);
+  color: #e0f2fe;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.help-ticket-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.help-ticket-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-ticket-item {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.help-ticket-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.help-ticket-id {
+  font-size: 13px;
+  color: #7dd3fc;
+}
+
+.help-ticket-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #86efac;
+}
+
+.help-ticket-status--open {
+  color: #86efac;
+}
+
+.help-ticket-subj {
+  display: block;
+  font-size: 15px;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+}
+
+.help-ticket-body {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #9aacbf;
+  white-space: pre-wrap;
+}
+
+.help-ticket-time {
+  font-size: 12px;
+  color: #64748b;
+}
+
 /* Deposit: platform treasury + MetaMask clarity */
 .deposit-address-card {
   margin: 0 0 20px;

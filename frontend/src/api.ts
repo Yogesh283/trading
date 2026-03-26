@@ -394,6 +394,38 @@ export async function loadReferralSummary(token: string) {
   return j as ReferralSummary;
 }
 
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  body: string;
+  status: string;
+  createdAt: string;
+}
+
+export async function loadSupportTickets(token: string): Promise<SupportTicket[]> {
+  const response = await fetch(`${apiBase()}/api/support/tickets`, {
+    headers: { ...requestHeaders(token) }
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to load tickets");
+  }
+  return (j as { tickets: SupportTicket[] }).tickets ?? [];
+}
+
+export async function createSupportTicket(token: string, subject: string, body: string): Promise<SupportTicket> {
+  const response = await fetch(`${apiBase()}/api/support/tickets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requestHeaders(token) },
+    body: JSON.stringify({ subject, body })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to create ticket");
+  }
+  return (j as { ticket: SupportTicket }).ticket;
+}
+
 export async function loadInvestment(token: string) {
   const response = await fetch(`${apiBase()}/api/investment`, {
     headers: { ...requestHeaders(token) }

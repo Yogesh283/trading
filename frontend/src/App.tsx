@@ -58,7 +58,8 @@ import WithdrawalPage from "./WithdrawalPage";
 import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
-import { APP_NAME, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
+import HelpTicketPage from "./HelpTicketPage";
+import { APP_NAME, APK_DOWNLOAD_URL, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
 import { PHONE_COUNTRY_OPTIONS } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
@@ -70,6 +71,8 @@ import {
   DockIconWithdraw,
   DrawerIconAbout,
   DrawerIconDeposit,
+  DrawerIconDownload,
+  DrawerIconHelp,
   DrawerIconHistory,
   DrawerIconInvestment,
   DrawerIconMarkets,
@@ -102,7 +105,7 @@ type AuthView = "login" | "register";
 
 type PublicScreen = "landing" | "auth" | "about";
 
-type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral" | "about";
+type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral" | "about" | "help";
 
 const SPLASH_MS = 2000;
 
@@ -1112,6 +1115,16 @@ export default function App() {
     setPublicScreen("landing");
   };
 
+  const apkDownloadHref = useMemo(() => {
+    const u = APK_DOWNLOAD_URL.trim();
+    if (/^https?:\/\//i.test(u)) return u;
+    try {
+      return new URL(u, window.location.origin).href;
+    } catch {
+      return u;
+    }
+  }, []);
+
   if (!splashReady || booting) {
     return <SplashScreen />;
   }
@@ -1280,6 +1293,16 @@ export default function App() {
                 onClick={() => setDashboardSection("about")}
               >
                 About
+              </button>
+              <a className="app-nav-desktop-apk" href={apkDownloadHref} download>
+                Download APK
+              </a>
+              <button
+                type="button"
+                className={dashboardSection === "help" ? "active" : ""}
+                onClick={() => setDashboardSection("help")}
+              >
+                Help
               </button>
               <>
                 <button
@@ -1484,6 +1507,25 @@ export default function App() {
                 <DrawerIconAbout />
                 <span>About</span>
               </button>
+              <a
+                className="app-nav-drawer-link"
+                href={apkDownloadHref}
+                download
+                onClick={() => setMainNavOpen(false)}
+              >
+                <DrawerIconDownload />
+                <span>Download APK</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("help");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconHelp />
+                <span>Help</span>
+              </button>
               <>
                 <button
                   type="button"
@@ -1567,6 +1609,8 @@ export default function App() {
         />
       ) : dashboardSection === "referral" ? (
         <ReferralPage token={session.token} onBack={() => setDashboardSection("trading")} />
+      ) : dashboardSection === "help" ? (
+        <HelpTicketPage token={session.token} onBack={() => setDashboardSection("trading")} />
       ) : (
       <>
       {session && isPhone ? (

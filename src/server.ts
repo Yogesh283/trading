@@ -12,6 +12,7 @@ import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config
 import { getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
+import { createSupportTicket, listSupportTicketsForUser } from "./services/supportTicketService";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
 import { TRADE_TIMEFRAMES_SEC, binaryCandleExpiresAtMs } from "./config/timeframes";
@@ -518,6 +519,46 @@ app.get("/api/referrals/summary", (req, res) => {
       }
       logger.warn({ err: e }, "referrals summary");
       return res.status(500).json({ message: "Failed to load referrals" });
+    }
+  })();
+});
+
+app.post("/api/support/tickets", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const subject = String(req.body?.subject ?? "").trim();
+      const body = String(req.body?.body ?? "").trim();
+      if (!subject || subject.length > 200) {
+        return res.status(400).json({ message: "Subject is required (max 200 characters)." });
+      }
+      if (!body || body.length > 8000) {
+        return res.status(400).json({ message: "Message is required (max 8000 characters)." });
+      }
+      const ticket = await createSupportTicket(user.id, subject, body);
+      return res.status(201).json({ ticket });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "support ticket create");
+      return res.status(500).json({ message: "Failed to create ticket" });
+    }
+  })();
+});
+
+app.get("/api/support/tickets", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const tickets = await listSupportTicketsForUser(user.id);
+      return res.json({ tickets });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "support tickets list");
+      return res.status(500).json({ message: "Failed to load tickets" });
     }
   })();
 });

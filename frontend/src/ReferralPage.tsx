@@ -124,7 +124,8 @@ export default function ReferralPage({ token, onBack }: Props) {
                 Total earnings
               </h2>
               <p className="muted referral-total-earn-hint">
-                Ab tak live wallet mein credit promotion commissions (team se binary, staking add, monthly ROI upline).
+                Totals shown are promotion commissions already credited to your live wallet — from team binary trading,
+                staking (investment add-ons), and monthly investment ROI upline payouts.
               </p>
               <div className="referral-total-earn-card">
                 <div className="referral-total-earn-hero">
@@ -267,7 +268,7 @@ export default function ReferralPage({ token, onBack }: Props) {
                     {data.directTeam.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="referral-table-empty">
-                          Abhi koi direct referral nahi — upar se link share karo.
+                          No direct referrals yet — share your promotion link above to grow your team.
                         </td>
                       </tr>
                     ) : (

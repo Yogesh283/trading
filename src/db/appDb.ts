@@ -741,6 +741,46 @@ async function migrateInvestmentRoiLevelDistribution(): Promise<void> {
   }
 }
 
+const SUPPORT_TICKETS_SQLITE = `
+  CREATE TABLE IF NOT EXISTS support_tickets (
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`;
+
+const SUPPORT_TICKETS_MYSQL = `
+  CREATE TABLE IF NOT EXISTS support_tickets (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    subject VARCHAR(512) NOT NULL,
+    body TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'open',
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_support_tickets_user (user_id),
+    CONSTRAINT fk_support_tickets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+async function migrateSupportTickets(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(SUPPORT_TICKETS_MYSQL);
+  } else {
+    await dbRun(SUPPORT_TICKETS_SQLITE);
+    try {
+      await dbRun(
+        "CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets(user_id)"
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Master switch + per-level % of stake for MLM / referral (admin-editable). */
 async function migrateReferralLevelAndAppSettings(): Promise<void> {
   if (mysqlMode) {
@@ -923,6 +963,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersWithdrawalTotp();
         await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
+        await migrateSupportTickets();
       } else {
         await runSqliteChain(getSqlite(), [
           ...SQLITE_PRAGMAS,
@@ -944,6 +985,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersWithdrawalTotp();
         await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
+        await migrateSupportTickets();
       }
     })();
   }

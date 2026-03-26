@@ -281,3 +281,43 @@ export function DrawerIconWalletActivity(props: IconProps = {}) {
     </svg>
   );
 }
+
+/** Down arrow to tray — APK download */
+export function DrawerIconDownload(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(drawerCls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M12 4v11.5m0 0l4-4m-4 4l-4-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M5 19.5h14" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Chat bubble + ? — Help / tickets */
+export function DrawerIconHelp(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(drawerCls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M6.5 8.5h11a2 2 0 012 2v5a2 2 0 01-2 2h-3.5l-3.2 2.4a.6.6 0 01-.9-.5V17.5H6.5a2 2 0 01-2-2v-5a2 2 0 012-2z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10.2 11.2h.1M12 11.2h.1M13.8 11.2h.1"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
