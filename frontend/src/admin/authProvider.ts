@@ -65,7 +65,8 @@ export const adminAuthProvider = {
       );
     }
     localStorage.setItem(ADMIN_TOKEN_LS_KEY, data.token);
-    return Promise.resolve();
+    /** Land on dashboard (not the first resource in the menu). */
+    return Promise.resolve({ redirectTo: "/" });
   },
   logout: () => {
     localStorage.removeItem(ADMIN_TOKEN_LS_KEY);

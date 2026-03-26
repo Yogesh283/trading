@@ -9,6 +9,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import WalletIcon from "@mui/icons-material/Wallet";
 import PercentIcon from "@mui/icons-material/Percent";
+import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { Admin, Resource } from "react-admin";
@@ -22,6 +23,8 @@ import { InvestmentRoiSettingsPage } from "./InvestmentRoiSettingsPage";
 import {
   DepositList,
   MarketTickList,
+  SupportTicketList,
+  SupportTicketShow,
   TransactionList,
   UserEdit,
   UserInvestmentList,
@@ -64,6 +67,13 @@ ReactDOM.createRoot(adminMount).render(
       >
         <Resource name="deposits" list={DepositList} icon={AccountBalanceWalletIcon} options={{ label: "Deposits" }} />
         <Resource name="withdrawals" list={WithdrawalList} icon={PaymentsIcon} options={{ label: "Withdrawals" }} />
+        <Resource
+          name="support_tickets"
+          list={SupportTicketList}
+          show={SupportTicketShow}
+          icon={SupportAgentIcon}
+          options={{ label: "Help tickets" }}
+        />
         <Resource
           name="users"
           list={UserList}

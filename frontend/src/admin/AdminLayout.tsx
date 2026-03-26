@@ -1,9 +1,11 @@
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import type { LayoutProps } from "react-admin";
-import { Layout, Menu } from "react-admin";
+import { Layout, Menu, MenuItemLink } from "react-admin";
 
-/** User insights + referral settings are registered as `<Resource>` in main.tsx (appear in menu). */
+/** Dashboard first so the home view is obvious; resources follow (see main.tsx). */
 export const AdminAppMenu = () => (
   <Menu>
+    <MenuItemLink to="/" primaryText="Dashboard" leftIcon={<DashboardIcon />} />
     <Menu.ResourceItems />
   </Menu>
 );

@@ -12,7 +12,9 @@ import {
   NumberField,
   NumberInput,
   SelectInput,
+  Show,
   SimpleForm,
+  SimpleShowLayout,
   TextField,
   TextInput,
   useNotify,
@@ -268,5 +270,46 @@ export function MarketTickList() {
         <DateField source="tick_at" label="Time (UTC)" showTime />
       </Datagrid>
     </List>
+  );
+}
+
+/** Help / support tickets from users — list + read-only detail */
+export function SupportTicketList() {
+  return (
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+      <Datagrid rowClick="show" bulkActionButtons={false}>
+        <TextField source="id" label="Ticket id" />
+        <TextField source="user_id" label="User id" />
+        <TextField source="user_name" label="Name" emptyText="—" />
+        <TextField source="user_email" label="Email" emptyText="—" />
+        <TextField source="subject" />
+        <TextField source="status" />
+        <DateField source="created_at" label="Created" showTime />
+      </Datagrid>
+    </List>
+  );
+}
+
+export function SupportTicketShow() {
+  return (
+    <Show>
+      <SimpleShowLayout>
+        <TextField source="id" label="Ticket id" />
+        <TextField source="user_id" />
+        <TextField source="user_name" label="User name" emptyText="—" />
+        <TextField source="user_email" label="User email" emptyText="—" />
+        <TextField source="status" />
+        <TextField source="subject" />
+        <FunctionField
+          label="Message"
+          render={(record: { body?: string }) => (
+            <span style={{ whiteSpace: "pre-wrap", display: "block", maxWidth: 720 }}>
+              {record?.body ?? "—"}
+            </span>
+          )}
+        />
+        <DateField source="created_at" label="Created" showTime />
+      </SimpleShowLayout>
+    </Show>
   );
 }

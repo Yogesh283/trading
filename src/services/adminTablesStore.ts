@@ -227,8 +227,98 @@ export async function getAdminRaOne(
       const rows = await listMarketTicksForAdmin();
       return rows.find((r) => String(r.id) === id) ?? null;
     }
+    case "support_tickets": {
+      let row: {
+        id: string;
+        user_id: string;
+        subject: string;
+        body: string;
+        status: string;
+        created_at: string;
+        user_name: string | null;
+        user_email: string | null;
+      } | undefined;
+      const mysql = isMysqlMode();
+      try {
+        const sql = mysql
+          ? `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
+                    u.name AS user_name, u.email AS user_email
+             FROM support_tickets t
+             LEFT JOIN users u ON u.id = t.user_id
+             WHERE t.id = ? LIMIT 1`
+          : `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
+                    u.name AS user_name, u.email AS user_email
+             FROM support_tickets t
+             LEFT JOIN users u ON u.id = t.user_id
+             WHERE t.id = ?`;
+        row = await dbGet(sql, [id]);
+      } catch (e) {
+        if (isMissingTableError(e)) {
+          return null;
+        }
+        throw e;
+      }
+      if (!row) {
+        return null;
+      }
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        user_name: row.user_name ?? "—",
+        user_email: row.user_email ?? "—",
+        subject: row.subject,
+        body: row.body,
+        status: row.status,
+        created_at: row.created_at
+      };
+    }
     default:
       return null;
+  }
+}
+
+const SUPPORT_TICKETS_ADMIN_CAP = 5_000;
+
+export async function listSupportTicketsForAdmin(): Promise<Record<string, unknown>[]> {
+  await initAppDb();
+  try {
+    const rows = await dbAll<{
+      id: string;
+      user_id: string;
+      subject: string;
+      body: string;
+      status: string;
+      created_at: string;
+      user_name: string | null;
+      user_email: string | null;
+    }>(
+      `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
+              u.name AS user_name, u.email AS user_email
+       FROM support_tickets t
+       LEFT JOIN users u ON u.id = t.user_id
+       ORDER BY t.created_at DESC
+       LIMIT ?`,
+      [SUPPORT_TICKETS_ADMIN_CAP]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      user_name: r.user_name ?? "—",
+      user_email: r.user_email ?? "—",
+      subject: r.subject,
+      body: r.body,
+      status: r.status,
+      created_at: r.created_at
+    }));
+  } catch (err) {
+    if (isMissingTableError(err)) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        "support_tickets table missing — admin list empty"
+      );
+      return [];
+    }
+    throw err;
   }
 }
 

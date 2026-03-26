@@ -63,6 +63,7 @@ import { distributeBinaryBetLevelIncome } from "./services/referralService";
 import {
   getAdminRaOne,
   listMarketTicksForAdmin,
+  listSupportTicketsForAdmin,
   listTransactionsForAdmin,
   listUserInvestmentsForAdmin,
   listWalletsForAdmin
@@ -947,6 +948,7 @@ const ADMIN_RA_LIST_RESOURCES = [
   "wallets",
   "transactions",
   "user_investments",
+  "support_tickets",
   "market_ticks"
 ] as const;
 
@@ -991,6 +993,8 @@ async function handleAdminReactAdminList(
     rows = await listTransactionsForAdmin();
   } else if (resource === "user_investments") {
     rows = await listUserInvestmentsForAdmin();
+  } else if (resource === "support_tickets") {
+    rows = await listSupportTicketsForAdmin();
   } else {
     rows = await listMarketTicksForAdmin();
   }
@@ -1415,6 +1419,7 @@ app.get("/api/admin/ra/:resource/:id", (req, res) => {
       "wallets",
       "transactions",
       "user_investments",
+      "support_tickets",
       "market_ticks"
     ]);
     if (!allowedOne.has(resource)) {
