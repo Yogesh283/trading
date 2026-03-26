@@ -2010,7 +2010,10 @@ export async function startServer(): Promise<http.Server> {
               "MYSQL_DATABASE / USE_MYSQL not configured — users are saved only to SQLite (data/app.db). Set USE_MYSQL=1 or MYSQL_DATABASE=tradeing in .env and restart."
             );
           }
-          if (env.FOREX_SIMULATED_ONLY) return;
+          /**
+           * OHLC seed uses HTTP APIs only — not the live quote feed. `FOREX_SIMULATED_ONLY` must NOT skip this:
+           * otherwise production VPS often has empty `chart_candles` until many bucket rollovers.
+           */
           if (env.TRADERMADE_KEY?.trim()) {
             await seedChartCandlesFromTraderMadeIfSparse(env.TRADERMADE_KEY.trim());
           }

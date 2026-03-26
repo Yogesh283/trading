@@ -154,7 +154,14 @@ pm2 restart updowanfx
 
 ## 4) Typo / chhoti cheezein
 
-**Chart local sahi, live par purani candles nahi:** Server par `curl -sS "https://APNA-DOMAIN/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5"` chalao. Jawab **`{"candles":`** se shuru hona chahiye. Agar **HTML** (`<!DOCTYPE`) aaye to **`location /api/`** Node proxy (Section 6 jaisa) **`location /` se pehle** hona chahiye. Cloudflare par **`/api` ko “Cache Everything” mat** do. Same-domain reverse proxy par `frontend/.env` mein **`VITE_API_URL` khali** rakho taake `/api/...` same origin ho. Naya VPS + MySQL par `chart_candles` table pehle khali ho sakti hai — kuch der ticks ke baad data aata hai.
+**Chart local sahi, live par purani candles nahi:** Placeholder **`APNA-DOMAIN` copy-paste mat karo** — **apna asli hostname** likho (browser jaisa URL, jaise `updowanfx.com` ya `www.updowanfx.com`).
+```bash
+# Public HTTPS (apna domain):
+curl -sS "https://updowanfx.com/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5" | head -c 200
+# Seedha Node (VPS par — DNS/SSL issue ho to ye pehle check karo; port .env / PM2 se match karo, default 3000):
+curl -sS "http://127.0.0.1:3000/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5" | head -c 200
+```
+Jawab **`{"candles":`** se shuru hona chahiye. **`{"candles":[]}`** = API theek hai, lekin DB mein abhi **koi bar save nahi** (naya server, ya seed/off failed). phpMyAdmin: `SELECT COUNT(*) FROM chart_candles;` — `pm2 logs` mein `chart_candles` errors dekho. **Turant history** ke liye `.env` mein optional **`TRADERMADE_KEY`** / **`ALPHA_VANTAGE_API_KEY`** (server start pe seed chalega). Bina keys: kuch **minute** chalao taake buckets close hon aur ticks DB mein likhein. **`www`** par `curl` se **301** aaye to `curl -L` use karo ya hamesha apex domain (`updowanfx.com`) test karo. Agar **HTML** (`<!DOCTYPE`) aaye to **`location /api/`** Node proxy **`location /` se pehle** hona chahiye. Cloudflare par **`/api` ko “Cache Everything” mat** do. Same-origin par `frontend/.env` mein **`VITE_API_URL` khali** rakho.
 
 | Problem | Fix |
 |--------|-----|
