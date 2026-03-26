@@ -196,11 +196,12 @@ a.landing-pill-link:hover {
   width: 40px;
   height: 40px;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: 50%;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.06);
   padding: 6px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .landing-brand-text {
@@ -606,9 +607,9 @@ a.landing-link {
 }
 
 .landing-footer-logo-mark {
-  border-radius: 10px;
+  border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .landing-footer p {
@@ -717,7 +718,7 @@ a.landing-link {
 }
 
 .landing-drawer-logo {
-  border-radius: 8px;
+  border-radius: 50%;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -1173,9 +1174,9 @@ a.landing-link {
 }
 
 .landing-ot-hero-logo {
-  border-radius: 8px;
+  border-radius: 50%;
   box-shadow: 0 0 0 1px rgba(0, 230, 118, 0.25);
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .landing-ot-hero-title {

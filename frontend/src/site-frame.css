@@ -50,7 +50,7 @@ html.cap-native #admin-root {
  */
 html.cap-native.cap-android .landing-nav-inner,
 html.cap-native.cap-android .landing-nav-inner--bar {
-  padding-top: 0;
+  padding-top: max(24px, env(safe-area-inset-top, 0px) + 4px);
 }
 
 html.cap-native.cap-ios .landing-nav-inner,
@@ -77,11 +77,11 @@ html.cap-native.cap-android .landing-nav {
 }
 
 /**
- * Trading (post-login, Capacitor): Android WebView already clears status bar; safe-area top == double band.
- * iOS: keep real inset for notch.
+ * Trading (post-login, Capacitor Android): we strip viewport-fit=cover so env(safe-area-inset-top) is often 0
+ * while WebView still paints content under the status bar — use a minimum top gutter + real inset when present.
  */
 html.cap-native.cap-android .app-mobile-trade .app-main-nav {
-  padding-top: 0;
+  padding-top: max(28px, env(safe-area-inset-top, 0px) + 6px);
 }
 
 html.cap-native.cap-ios .app-mobile-trade .app-main-nav {

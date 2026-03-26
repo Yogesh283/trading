@@ -38,6 +38,13 @@ select {
   font: inherit;
 }
 
+/* BrandLogo.tsx — circular mask on all surfaces (APK / web) */
+.brand-logo-img {
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
 .app-shell {
   max-width: 1280px;
   margin: 0 auto;
@@ -149,7 +156,7 @@ select {
   width: 32px;
   height: 32px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
 
@@ -696,7 +703,7 @@ select {
 }
 
 .auth-nav-brand-logo {
-  border-radius: 8px;
+  border-radius: 50%;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -866,7 +873,7 @@ select {
 }
 
 .auth-hero-logo {
-  border-radius: 14px;
+  border-radius: 50%;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
@@ -933,8 +940,8 @@ select {
 
 .auth-card-logo-ring .auth-card-logo {
   display: block;
-  border-radius: 16px;
-  object-fit: cover;
+  border-radius: 50%;
+  object-fit: contain;
   background: #0c0e12;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
 }
@@ -2959,7 +2966,7 @@ button.desktop-demo-cta:disabled,
   margin-right: 10px;
   vertical-align: middle;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 50%;
 }
 
 .chart-symbol-logo-btn {
@@ -3061,7 +3068,7 @@ button.desktop-demo-cta:disabled,
 
 .modal-head-logo {
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   object-fit: contain;
 }
 

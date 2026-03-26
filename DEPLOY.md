@@ -227,3 +227,15 @@ Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**, 
 ---
 
 *Paths / PM2 naam apne server ke hisaab se badlo.*
+
+
+/////////////apk//
+
+<!-- $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+cd D:\xampp\htdocs\tradeing
+npm run frontend:build
+cd mobile-apk
+npx cap sync android
+cd android
+.\gradlew.bat assembleDebug -->
