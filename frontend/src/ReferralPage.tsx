@@ -121,11 +121,6 @@ export default function ReferralPage({ token, onBack }: Props) {
 
             <section className="referral-section referral-section--income">
               <h2 className="referral-h2">Your income (commissions)</h2>
-              <p className="muted referral-commission-hint">
-                Live wallet mein credit hota hai jab team binary trade, staking add, ya monthly investment ROI (upline)
-                share. Demo par commission nahi. Binary/staking ke liye &quot;Promotion / level %&quot; alag hai; monthly
-                investment ROI upline admin ke &quot;Investment ROI&quot; page se % of gross pool se split hota hai.
-              </p>
               <div className="referral-table-wrap referral-income-table-wrap">
                 <table className="referral-table referral-income-table">
                   <thead>
@@ -161,18 +156,12 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section referral-section--schedule">
-              <h2 className="referral-h2">Level income when a trading amount is placed</h2>
-              <p className="muted referral-commission-hint">
-                Same schedule for <strong>live binary trades</strong> and <strong>investment adds</strong>. Each row is
-                the upline at that depth: level 1 is the direct inviter. You only receive a level if that upline exists
-                in your referral chain.
-                {!data.referralProgramEnabled ? (
-                  <span className="referral-schedule-warn">
-                    {" "}
-                    Referral program is off — no level payouts on trading amounts.
-                  </span>
-                ) : null}
-              </p>
+              <h2 className="referral-h2">Trading level income</h2>
+              {!data.referralProgramEnabled ? (
+                <p className="muted referral-schedule-warn">
+                  Referral program is off — no level payouts on trading amounts.
+                </p>
+              ) : null}
               <div className="referral-table-wrap">
                 <table className="referral-table referral-schedule-table">
                   <thead>
@@ -180,10 +169,8 @@ export default function ReferralPage({ token, onBack }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th
-                        title={`Example at ${formatInr(data.levelIncomeExampleStakeInr ?? 1000)} trading amount`}
-                      >
-                        Income (example)
+                      <th title="Total credited to your live wallet from this level (binary + staking)">
+                        You received (INR)
                       </th>
                     </tr>
                   </thead>
@@ -203,11 +190,7 @@ export default function ReferralPage({ token, onBack }: Props) {
                           <td>{row.level}</td>
                           <td>{row.uplineLabel}</td>
                           <td>{row.percentLabel}</td>
-                          <td>
-                            {row.paysOut
-                              ? formatInr(row.exampleIncomeInr)
-                              : "—"}
-                          </td>
+                          <td>{formatInr(row.receivedInr ?? 0)}</td>
                         </tr>
                       ))
                     )}
@@ -217,7 +200,7 @@ export default function ReferralPage({ token, onBack }: Props) {
             </section>
 
             <section className="referral-section referral-section--schedule">
-              <h2 className="referral-h2">Monthly investment ROI — upline share</h2>
+              <h2 className="referral-h2">Monthly investment ROI Level Income</h2>
               <div className="referral-table-wrap">
                 <table className="referral-table referral-schedule-table">
                   <thead>
@@ -225,12 +208,15 @@ export default function ReferralPage({ token, onBack }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of gross monthly yield)</th>
+                      <th title="Total credited to your live wallet from this level (monthly ROI upline)">
+                        You received (INR)
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {(data.monthlyRoiLevelSchedule ?? []).length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="referral-table-empty">
+                        <td colSpan={4} className="referral-table-empty">
                           No ROI level schedule loaded.
                         </td>
                       </tr>
@@ -243,6 +229,7 @@ export default function ReferralPage({ token, onBack }: Props) {
                           <td>{row.level}</td>
                           <td>{row.uplineLabel}</td>
                           <td>{row.percentLabel}</td>
+                          <td>{formatInr(row.receivedInr ?? 0)}</td>
                         </tr>
                       ))
                     )}

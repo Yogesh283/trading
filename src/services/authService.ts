@@ -12,6 +12,7 @@ import {
 import { validateInviterReferralCode, allocateUniqueSelfReferralCode } from "./referralService";
 import { getReferralLevelConfigPayload } from "./referralLevelConfigService";
 import { listInvestmentRoiLevelRows } from "./investmentRoiLevelService";
+import { LEVEL_INCOME_DEPTH } from "../config/referral";
 
 /** Compare admin URL id vs DB id (spaces, BOM, BigInt vs string, leading zeros on digits). */
 function normalizeAdminIdToken(v: unknown): string {
@@ -825,6 +826,19 @@ async function loadCreditedDepositTotalsForUserIds(userIds: string[]): Promise<M
   return m;
 }
 
+/** `reference_id` suffix `-L1`…`-L5` from `applyLedger` upline splits. */
+function parseReferralLevelFromReferenceId(ref: string | null | undefined): number | null {
+  const m = String(ref ?? "").match(/-L(\d+)$/);
+  if (!m) {
+    return null;
+  }
+  const n = parseInt(m[1]!, 10);
+  if (!Number.isFinite(n) || n < 1 || n > LEVEL_INCOME_DEPTH) {
+    return null;
+  }
+  return n;
+}
+
 function formatFractionAsPercentLabel(fraction: number): string {
   const f = Number(fraction);
   if (!Number.isFinite(f) || f <= 0) {
@@ -865,6 +879,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     percentLabel: string;
     paysOut: boolean;
     exampleIncomeInr: number;
+    /** Live wallet total credited from this depth (binary + staking `level_income*`). */
+    receivedInr: number;
   }>;
   /** Per-upline % of gross monthly investment ROI when yield is distributed. */
   monthlyRoiLevelSchedule: Array<{
@@ -873,6 +889,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     fractionOfGrossYield: number;
     percentLabel: string;
     paysOut: boolean;
+    /** Live wallet total credited from this depth (`level_income_roi`). */
+    receivedInr: number;
   }>;
 }> {
   await ready;
@@ -915,6 +933,32 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   bettingCommissionInr = Number(bettingCommissionInr.toFixed(4));
   stakingCommissionInr = Number(stakingCommissionInr.toFixed(4));
   investmentRoiCommissionInr = Number(investmentRoiCommissionInr.toFixed(4));
+
+  const levelIncomeRows = await dbAll<{
+    txn_type: string;
+    reference_id: string | null;
+    amount: number | string | null;
+  }>(
+    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi')`,
+    [uid]
+  );
+  const betRecvByLevel = new Map<number, number>();
+  const stakeRecvByLevel = new Map<number, number>();
+  const roiRecvByLevel = new Map<number, number>();
+  for (const r of levelIncomeRows) {
+    const lv = parseReferralLevelFromReferenceId(r.reference_id);
+    if (lv == null) {
+      continue;
+    }
+    const amt = Number(r.amount ?? 0);
+    if (r.txn_type === "level_income") {
+      betRecvByLevel.set(lv, (betRecvByLevel.get(lv) ?? 0) + amt);
+    } else if (r.txn_type === "level_income_staking") {
+      stakeRecvByLevel.set(lv, (stakeRecvByLevel.get(lv) ?? 0) + amt);
+    } else if (r.txn_type === "level_income_roi") {
+      roiRecvByLevel.set(lv, (roiRecvByLevel.get(lv) ?? 0) + amt);
+    }
+  }
 
   let inviter: { name: string; email: string } | null = null;
   const mySignupRef = String(me.referral_code ?? "").trim();
@@ -992,13 +1036,17 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       const exampleIncomeInr = paysOut
         ? Number((LEVEL_INCOME_EXAMPLE_STAKE_INR * fractionOfStake).toFixed(2))
         : 0;
+      const receivedInr = Number(
+        ((betRecvByLevel.get(row.level) ?? 0) + (stakeRecvByLevel.get(row.level) ?? 0)).toFixed(4)
+      );
       return {
         level: row.level,
         uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
         fractionOfStake,
         percentLabel: formatFractionAsPercentLabel(fractionOfStake),
         paysOut,
-        exampleIncomeInr
+        exampleIncomeInr,
+        receivedInr
       };
     });
 
@@ -1009,12 +1057,14 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       const frac = Number(row.percentOfGrossYield);
       const fractionOfGrossYield = Number.isFinite(frac) ? frac : 0;
       const paysOut = row.enabled && fractionOfGrossYield > 0;
+      const receivedInr = Number((roiRecvByLevel.get(row.level) ?? 0).toFixed(4));
       return {
         level: row.level,
         uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
         fractionOfGrossYield,
         percentLabel: formatFractionAsPercentLabel(fractionOfGrossYield),
-        paysOut
+        paysOut,
+        receivedInr
       };
     });
 

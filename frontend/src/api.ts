@@ -343,6 +343,8 @@ export interface BetStakeLevelScheduleRow {
   percentLabel: string;
   paysOut: boolean;
   exampleIncomeInr: number;
+  /** Total INR you received from this upline depth (binary + staking commissions). */
+  receivedInr?: number;
 }
 
 export interface MonthlyRoiLevelScheduleRow {
@@ -351,6 +353,8 @@ export interface MonthlyRoiLevelScheduleRow {
   fractionOfGrossYield: number;
   percentLabel: string;
   paysOut: boolean;
+  /** Total INR you received from monthly ROI upline at this depth. */
+  receivedInr?: number;
 }
 
 export interface ReferralSummary {

@@ -671,7 +671,7 @@
 /* Lightweight-charts host (replaces old .tv-chart-svg). */
 .mobile-chart-wrap .chart-lw-outer {
   width: 100%;
-  min-height: min(28dvh, 260px);
+  min-height: min(38dvh, 360px);
   min-width: 0;
 }
 
@@ -729,7 +729,7 @@
 
 .tv-chart-mobile .chart-lw-host {
   flex: 1 1 auto;
-  min-height: 148px;
+  min-height: 220px;
 }
 
 /* Countdown pill — bottom-left; native chart shows symbol + price on right axis. */

@@ -65,11 +65,11 @@ export type ChartTradeEntryLine = {
 function useMobileChartHeightPx(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
-      return 200;
+      return 280;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    const target = vh * 0.32;
-    return Math.round(Math.min(300, Math.max(188, target)));
+    const target = vh * 0.42;
+    return Math.round(Math.min(400, Math.max(220, target)));
   }, []);
 
   const [px, setPx] = useState(() => {

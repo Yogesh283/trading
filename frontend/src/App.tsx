@@ -69,8 +69,6 @@ import {
   DockIconTradeBars,
   DockIconWithdraw,
   DrawerIconAbout,
-  DrawerIconAccount,
-  DrawerIconChart,
   DrawerIconDeposit,
   DrawerIconHistory,
   DrawerIconInvestment,
@@ -1455,22 +1453,6 @@ export default function App() {
                   setMainNavOpen(false);
                   if (isPhone) {
                     window.requestAnimationFrame(() =>
-                      document.getElementById("app-mobile-account")?.scrollIntoView({ behavior: "smooth" })
-                    );
-                  } else {
-                    document.getElementById("app-account-summary")?.scrollIntoView({ behavior: "smooth" });
-                  }
-                }}
-              >
-                <DrawerIconAccount />
-                <span>Account</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMainNavOpen(false);
-                  if (isPhone) {
-                    window.requestAnimationFrame(() =>
                       document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth" })
                     );
                   } else {
@@ -1480,16 +1462,6 @@ export default function App() {
               >
                 <DrawerIconHistory />
                 <span>Trade history</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMainNavOpen(false);
-                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <DrawerIconChart />
-                <span>Chart</span>
               </button>
               <button
                 type="button"
