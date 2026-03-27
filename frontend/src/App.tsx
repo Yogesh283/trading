@@ -167,14 +167,6 @@ function formatForexPair(sym: string) {
   return /^[A-Z]{6}$/.test(sym) ? `${sym.slice(0, 3)}/${sym.slice(3)}` : sym;
 }
 
-/** Compact pair label for mobile chart top bar (e.g. EUR/USD → "EU…"). */
-function formatForexPairTopbarShort(sym: string) {
-  if (/^[A-Z]{6}$/.test(sym)) {
-    return `${sym.slice(0, 2)}…`;
-  }
-  return sym.length > 5 ? `${sym.slice(0, 3)}…` : sym;
-}
-
 function formatFxPrice(_sym: string, p: number) {
   if (p >= 50) return p.toFixed(3);
   if (p >= 5) return p.toFixed(4);
@@ -375,15 +367,6 @@ export default function App() {
         window.clearTimeout(binarySettlePopupTimeoutRef.current);
       }
     };
-  }, []);
-
-  const scrollMobileTradeHistoryIntoView = useCallback(() => {
-    if (typeof window === "undefined" || !window.matchMedia("(max-width: 768px)").matches) {
-      return;
-    }
-    window.requestAnimationFrame(() => {
-      document.getElementById("app-mobile-history")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
   }, []);
 
   const flashBinaryCreated = useCallback((direction: "up" | "down") => {
@@ -1060,7 +1043,6 @@ export default function App() {
         setBinarySettlePopup(null);
         binarySettlePopupTimeoutRef.current = null;
       }, 7000);
-      scrollMobileTradeHistoryIntoView();
     }
     prevOpenBinaryIdsRef.current = nowOpen;
   }, [sessionToken, trades, accountWallet]);
@@ -1094,7 +1076,6 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      scrollMobileTradeHistoryIntoView();
       setMessage(
         `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
       );
@@ -1128,7 +1109,6 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      scrollMobileTradeHistoryIntoView();
       setMessage(
         `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
       );
@@ -1894,11 +1874,15 @@ export default function App() {
               <button
                 type="button"
                 className="mobile-asset-pill"
-                title={formatForexPair(symbol)}
+                title={
+                  pairNames[symbol]
+                    ? `${formatForexPair(symbol)} — ${pairNames[symbol]}`
+                    : formatForexPair(symbol)
+                }
                 onClick={() => setAssetPickerOpen(true)}
               >
                 <span className="mobile-asset-pill-icon">{getAssetIcon(symbol)}</span>
-                <span className="mobile-asset-pill-text">{formatForexPairTopbarShort(symbol)}</span>
+                <span className="mobile-asset-pill-text">{getAssetName(symbol, pairNames)}</span>
                 <span className="mobile-chevron" aria-hidden>
                   ▾
                 </span>

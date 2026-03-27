@@ -3774,6 +3774,8 @@ button.desktop-demo-cta:disabled,
   justify-content: center;
   padding: 20px;
   animation: appNavFadeIn 0.2s ease;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 .order-placed-modal {
