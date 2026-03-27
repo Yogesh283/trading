@@ -315,11 +315,6 @@ export default function App() {
   symbolRef.current = symbol;
   const chartTimeframeRef = useRef(chartTimeframe);
   chartTimeframeRef.current = chartTimeframe;
-  const [orderPlacedPopup, setOrderPlacedPopup] = useState<
-    null | { account: "demo" | "live"; summary: string; direction: "up" | "down" }
-  >(null);
-  /** Browser `window.setTimeout` returns `number` (Node types use `NodeJS.Timeout`). */
-  const orderPopupTimeoutRef = useRef<number | null>(null);
   /** Brief “Up · Created” / “Down · Created” on direction buttons after order success. */
   const [binaryCreatedFlash, setBinaryCreatedFlash] = useState<null | "up" | "down">(null);
   const binaryCreatedTimerRef = useRef<number | null>(null);
@@ -338,11 +333,11 @@ export default function App() {
   const [demoTopUpBusy, setDemoTopUpBusy] = useState(false);
   const [demoFundsSuccessPopup, setDemoFundsSuccessPopup] = useState<null | { added: number; balance: number }>(null);
   const demoFundsPopupTimeoutRef = useRef<number | null>(null);
-  /** After binary timeout, server settles in RAM — WS does not push trades; we poll + show this banner. */
-  const [binarySettleNotice, setBinarySettleNotice] = useState<null | { text: string; pnl: number }>(
-    null
-  );
-  const binarySettleNoticeTimerRef = useRef<number | null>(null);
+  /** After binary timeout — win/loss popup for demo and live (same modal shell). */
+  const [binarySettlePopup, setBinarySettlePopup] = useState<
+    null | { text: string; pnl: number; account: "demo" | "live" }
+  >(null);
+  const binarySettlePopupTimeoutRef = useRef<number | null>(null);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
   const binaryTradesSnapInitializedRef = useRef(false);
 
@@ -352,28 +347,6 @@ export default function App() {
     setBinaryTimeframe((t) => coerceTradeTimeframeSec(t));
   }, []);
 
-  const dismissOrderPlacedPopup = useCallback(() => {
-    if (orderPopupTimeoutRef.current) {
-      clearTimeout(orderPopupTimeoutRef.current);
-      orderPopupTimeoutRef.current = null;
-    }
-    setOrderPlacedPopup(null);
-  }, []);
-
-  const showOrderPlacedPopup = useCallback(
-    (account: "demo" | "live", summary: string, direction: "up" | "down") => {
-    if (orderPopupTimeoutRef.current) {
-      clearTimeout(orderPopupTimeoutRef.current);
-    }
-    setOrderPlacedPopup({ account, summary, direction });
-    orderPopupTimeoutRef.current = window.setTimeout(() => {
-      setOrderPlacedPopup(null);
-      orderPopupTimeoutRef.current = null;
-    }, 5000);
-  },
-  []
-);
-
   const dismissDemoFundsSuccessPopup = useCallback(() => {
     if (demoFundsPopupTimeoutRef.current != null) {
       window.clearTimeout(demoFundsPopupTimeoutRef.current);
@@ -382,19 +355,24 @@ export default function App() {
     setDemoFundsSuccessPopup(null);
   }, []);
 
+  const dismissBinarySettlePopup = useCallback(() => {
+    if (binarySettlePopupTimeoutRef.current != null) {
+      window.clearTimeout(binarySettlePopupTimeoutRef.current);
+      binarySettlePopupTimeoutRef.current = null;
+    }
+    setBinarySettlePopup(null);
+  }, []);
+
   useEffect(() => {
     return () => {
-      if (orderPopupTimeoutRef.current) {
-        clearTimeout(orderPopupTimeoutRef.current);
-      }
       if (demoFundsPopupTimeoutRef.current != null) {
         window.clearTimeout(demoFundsPopupTimeoutRef.current);
       }
       if (binaryCreatedTimerRef.current != null) {
         window.clearTimeout(binaryCreatedTimerRef.current);
       }
-      if (binarySettleNoticeTimerRef.current != null) {
-        window.clearTimeout(binarySettleNoticeTimerRef.current);
+      if (binarySettlePopupTimeoutRef.current != null) {
+        window.clearTimeout(binarySettlePopupTimeoutRef.current);
       }
     };
   }, []);
@@ -420,15 +398,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!orderPlacedPopup) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismissOrderPlacedPopup();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [orderPlacedPopup, dismissOrderPlacedPopup]);
-
-  useEffect(() => {
     if (!demoFundsSuccessPopup) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") dismissDemoFundsSuccessPopup();
@@ -436,6 +405,15 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [demoFundsSuccessPopup, dismissDemoFundsSuccessPopup]);
+
+  useEffect(() => {
+    if (!binarySettlePopup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissBinarySettlePopup();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [binarySettlePopup, dismissBinarySettlePopup]);
 
   useEffect(() => {
     if (!session) return;
@@ -1008,10 +986,10 @@ export default function App() {
   useEffect(() => {
     binaryTradesSnapInitializedRef.current = false;
     prevOpenBinaryIdsRef.current = new Set();
-    setBinarySettleNotice(null);
-    if (binarySettleNoticeTimerRef.current != null) {
-      window.clearTimeout(binarySettleNoticeTimerRef.current);
-      binarySettleNoticeTimerRef.current = null;
+    setBinarySettlePopup(null);
+    if (binarySettlePopupTimeoutRef.current != null) {
+      window.clearTimeout(binarySettlePopupTimeoutRef.current);
+      binarySettlePopupTimeoutRef.current = null;
     }
   }, [sessionToken, accountWallet]);
 
@@ -1062,8 +1040,8 @@ export default function App() {
       }
     }
     if (newlySettled.length > 0) {
-      if (binarySettleNoticeTimerRef.current != null) {
-        window.clearTimeout(binarySettleNoticeTimerRef.current);
+      if (binarySettlePopupTimeoutRef.current != null) {
+        window.clearTimeout(binarySettlePopupTimeoutRef.current);
       }
       const settledWithPnl = newlySettled.filter((t): t is Trade & { pnl: number } => typeof t.pnl === "number");
       let text: string;
@@ -1077,15 +1055,15 @@ export default function App() {
         text = `${settledWithPnl.length} trades · Timeout · total ${total >= 0 ? "+" : ""}${formatInr(total)}`;
       }
       const totalPnl = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
-      setBinarySettleNotice({ text, pnl: totalPnl });
-      binarySettleNoticeTimerRef.current = window.setTimeout(() => {
-        setBinarySettleNotice(null);
-        binarySettleNoticeTimerRef.current = null;
-      }, 8500);
+      setBinarySettlePopup({ text, pnl: totalPnl, account: accountWallet });
+      binarySettlePopupTimeoutRef.current = window.setTimeout(() => {
+        setBinarySettlePopup(null);
+        binarySettlePopupTimeoutRef.current = null;
+      }, 7000);
       scrollMobileTradeHistoryIntoView();
     }
     prevOpenBinaryIdsRef.current = nowOpen;
-  }, [sessionToken, trades]);
+  }, [sessionToken, trades, accountWallet]);
 
   const handleBinaryOrder = async (
     direction: "up" | "down",
@@ -1117,11 +1095,8 @@ export default function App() {
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
       scrollMobileTradeHistoryIntoView();
-      setMessage("Good — trade created.");
-      showOrderPlacedPopup(
-        "demo",
-        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
-        direction
+      setMessage(
+        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
       );
       await refresh();
     } catch (error) {
@@ -1154,11 +1129,8 @@ export default function App() {
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
       scrollMobileTradeHistoryIntoView();
-      setMessage("Good — trade created.");
-      showOrderPlacedPopup(
-        "live",
-        `${direction === "up" ? "Up" : "Down"} · ${formatForexPair(symbol)} · ${binaryTimeframe}s · ${formatInr(amount)}`,
-        direction
+      setMessage(
+        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
       );
       await refresh();
     } catch (error) {
@@ -1188,18 +1160,19 @@ export default function App() {
   };
 
   /**
-   * Quick stake from wallet: 2x→20%, 3x→30%, 5x→50%, 10x→100% of balance (e.g. bal 100 → 10x = 100).
+   * Quick multiply the **entered** amount (not % of wallet): e.g. amount 5 → 2x = 10, 3x = 15.
+   * Capped by available balance when loaded.
    */
   const applyMobileStakeMultiplier = (mult: number) => {
+    const base = Math.max(1, Math.floor(Number(quantity) || 0));
+    const raw = base * mult;
     const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
-    if (bal == null || !Number.isFinite(bal) || bal <= 0) {
-      setMessage("Balance not loaded — wait or refresh.");
-      return;
+    if (bal != null && Number.isFinite(bal) && bal > 0) {
+      const cap = Math.max(1, Math.floor(bal));
+      setQuantity(String(Math.min(Math.max(1, raw), cap)));
+    } else {
+      setQuantity(String(Math.max(1, raw)));
     }
-    const cap = Math.max(1, Math.floor(bal));
-    const raw = Math.floor((bal * mult) / 10);
-    const next = Math.min(Math.max(1, raw), cap);
-    setQuantity(String(next));
     setMessage("");
   };
 
@@ -2061,7 +2034,11 @@ export default function App() {
                   +
                 </button>
               </div>
-              <div className="mobile-stepper-pill" role="group" aria-label="Trading amount">
+              <div
+                className="mobile-stepper-pill mobile-stepper-pill--amount"
+                role="group"
+                aria-label="Trading amount"
+              >
                 <button
                   type="button"
                   className="mobile-stepper-nudge"
@@ -2071,7 +2048,6 @@ export default function App() {
                   −
                 </button>
                 <label className="mobile-stepper-mid mobile-stepper-mid--inr mobile-stepper-inr-wrap">
-                  <span className="mobile-stepper-inr-prefix"></span>
                   <input
                     id="mob-trading-amount-inr"
                     type="number"
@@ -2097,6 +2073,9 @@ export default function App() {
                     }}
                     aria-label="Trading amount in INR"
                   />
+                  <span className="mobile-stepper-inr-suffix" aria-hidden>
+                    
+                  </span>
                 </label>
                 <button
                   type="button"
@@ -2109,7 +2088,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mobile-stake-pct-row" role="group" aria-label="Stake as percent of balance: 2x 20%, 3x 30%, 5x 50%, 10x 100%">
+            <div
+              className="mobile-stake-pct-row"
+              role="group"
+              aria-label="Multiply entered amount: 2x, 3x, 5x, 10x"
+            >
               {([2, 3, 5, 10] as const).map((mult) => (
                 <button
                   key={mult}
@@ -2194,14 +2177,6 @@ export default function App() {
             </div>
 
             {message ? <p className="message mobile-trade-msg">{message}</p> : null}
-            {binarySettleNotice ? (
-              <p
-                className={`binary-settle-banner mobile-trade-msg${binarySettleNotice.pnl >= 0 ? " binary-settle-banner--win" : " binary-settle-banner--loss"}`}
-                role="status"
-              >
-                {binarySettleNotice.text}
-              </p>
-            ) : null}
           </div>
 
           <section className="mobile-more-panel mobile-account-history-panel" id="app-mobile-account">
@@ -2671,14 +2646,20 @@ export default function App() {
             </label>
             <label className="desktop-demo-block">
               <span className="desktop-demo-label">Amount (₹)</span>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                className="desktop-demo-amt"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
+              <div className="desktop-demo-amt-wrap">
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  className="desktop-demo-amt"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  aria-label="Trading amount"
+                />
+                <span className="desktop-demo-amt-suffix" aria-hidden>
+                  x
+                </span>
+              </div>
             </label>
             <div className="desktop-demo-block desktop-demo-bs-block">
               <span className="desktop-demo-label">Direction</span>
@@ -2753,14 +2734,6 @@ export default function App() {
             </div>
           ) : null}
           {message ? <p className="desktop-demo-bar-msg">{message}</p> : null}
-          {binarySettleNotice ? (
-            <p
-              className={`binary-settle-banner desktop-demo-bar-msg${binarySettleNotice.pnl >= 0 ? " binary-settle-banner--win" : " binary-settle-banner--loss"}`}
-              role="status"
-            >
-              {binarySettleNotice.text}
-            </p>
-          ) : null}
         </div>
       ) : null}
       </>
@@ -2967,35 +2940,45 @@ export default function App() {
           </div>
         </div>
       ) : null}
-      {orderPlacedPopup ? (
+      {binarySettlePopup ? (
         <div
           className="order-placed-backdrop"
           role="presentation"
-          onClick={dismissOrderPlacedPopup}
+          onClick={dismissBinarySettlePopup}
         >
           <div
-            className={`order-placed-modal order-placed-modal--${orderPlacedPopup.direction}`}
+            className={`order-placed-modal order-placed-modal--${
+              binarySettlePopup.pnl >= 0 ? "up" : "down"
+            }`}
             role="alertdialog"
-            aria-labelledby="order-placed-title"
-            aria-describedby="order-placed-desc"
+            aria-labelledby="binary-settle-title"
+            aria-describedby="binary-settle-desc"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="order-placed-icon" aria-hidden>
-              ✓
+              {binarySettlePopup.pnl >= 0 ? "✓" : "−"}
             </div>
-            <p className={`order-placed-badge ${orderPlacedPopup.account}`}>
-              {orderPlacedPopup.account === "demo" ? "Demo account" : "Live account"}
+            <p className={`order-placed-badge ${binarySettlePopup.account}`}>
+              {binarySettlePopup.account === "demo" ? "Demo account" : "Live account"}
             </p>
-            <p className={`order-placed-direction order-placed-direction--${orderPlacedPopup.direction}`}>
-              {orderPlacedPopup.direction === "up" ? "↑ Up" : "↓ Down"}
+            <p
+              className={`order-placed-direction order-placed-direction--${
+                binarySettlePopup.pnl >= 0 ? "up" : "down"
+              }`}
+            >
+              {binarySettlePopup.pnl >= 0 ? "Win" : "Loss"}
             </p>
-            <h2 id="order-placed-title" className="order-placed-title">
-              Good — trade created
+            <h2 id="binary-settle-title" className="order-placed-title">
+              {binarySettlePopup.pnl >= 0 ? "Success — you won" : "Trade closed — loss"}
             </h2>
-            <p id="order-placed-desc" className="order-placed-summary">
-              {orderPlacedPopup.summary}
+            <p id="binary-settle-desc" className="order-placed-summary">
+              {binarySettlePopup.text}
             </p>
-            <button type="button" className="order-placed-ok" onClick={dismissOrderPlacedPopup}>
+            <button
+              type="button"
+              className={`order-placed-ok${binarySettlePopup.pnl < 0 ? " order-placed-ok--loss" : ""}`}
+              onClick={dismissBinarySettlePopup}
+            >
               OK
             </button>
           </div>
@@ -3375,7 +3358,7 @@ function AuthScreen({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0 -11 -8 -11 -8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
                     <line x1="1" y1="1" x2="23" y2="23" />
                   </svg>
                 ) : (
@@ -3391,7 +3374,7 @@ function AuthScreen({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <path d="M1 12s4-8 11-8 11 8-4 8-11 8-11-8-11-8z" />
+                    <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
                 )}

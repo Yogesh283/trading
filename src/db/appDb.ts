@@ -32,7 +32,9 @@ export function getPool(): mysql.Pool {
       password: env.MYSQL_PASSWORD,
       database: env.MYSQL_DATABASE,
       waitForConnections: true,
-      connectionLimit: 10
+      connectionLimit: 10,
+      /** Avoid hanging forever; ETIMEDOUT still means host/port/firewall/MySQL down — fix `.env` / XAMPP. */
+      connectTimeout: 15_000
     });
   }
   return pool;

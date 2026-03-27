@@ -61,6 +61,7 @@ import { TradeSide } from "./services/demoAccount";
 import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
+import { warnDbOrThrottle } from "./utils/dbTransientErrorThrottle";
 import { distributeBinaryBetLevelIncome } from "./services/referralService";
 import {
   getAdminRaOne,
@@ -309,7 +310,7 @@ setInterval(async () => {
     await initAppDb();
     await saveMarketTicks(batch.map((t) => ({ symbol: t.symbol, price: t.price, timestamp: t.timestamp })));
   } catch (err) {
-    logger.warn({ err, count: batch.length }, "Failed to save market ticks to DB");
+    warnDbOrThrottle(err, "Failed to save market ticks to DB", { count: batch.length });
   }
 }, TICK_FLUSH_MS);
 
@@ -400,6 +401,22 @@ app.post("/api/auth/register", async (req, res) => {
     return res.status(201).json({ ...result, database: dbInfo });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Registration failed";
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : "";
+    const transient =
+      code === "ETIMEDOUT" ||
+      code === "ECONNREFUSED" ||
+      /ETIMEDOUT|ECONNREFUSED/i.test(message);
+    if (transient) {
+      logger.warn({ err: error }, "Register failed — database unreachable");
+      return res.status(503).json({
+        message:
+          "Database unreachable. Start MySQL in XAMPP or remove MYSQL_* from .env to use local SQLite (data/app.db).",
+        database: getDatabaseInfo()
+      });
+    }
     logger.warn({ err: error, countryCode: String(req.body?.countryCode ?? "") }, "Register failed");
     const hint =
       message.includes("wallet") || message.includes("FOREIGN")
@@ -438,6 +455,20 @@ app.post("/api/auth/login", async (req, res) => {
     return res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Login failed";
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code?: unknown }).code ?? "")
+        : "";
+    const transient =
+      code === "ETIMEDOUT" ||
+      code === "ECONNREFUSED" ||
+      /ETIMEDOUT|ECONNREFUSED/i.test(message);
+    if (transient) {
+      return res.status(503).json({
+        message:
+          "Database unreachable. Start MySQL in XAMPP or remove MYSQL_* from .env to use local SQLite (data/app.db)."
+      });
+    }
     return res.status(400).json({ message });
   }
 });
@@ -623,20 +654,26 @@ app.get("/api/markets/history", (req, res) => {
   void (async () => {
     const symbol = typeof req.query.symbol === "string" ? req.query.symbol.trim().toUpperCase() : undefined;
     const limit = Math.min(50000, Math.max(1, Number(req.query.limit) || 2000));
-    await initAppDb();
-    const fromDb = await getMarketTicks(symbol, limit);
-    /** Match client depth so merged history fills long TFs (e.g. 5m), not just the latest bucket. */
     const memCap = Math.min(limit, 20000);
     const fromMemory = forexFeed.getHistory(symbol, memCap);
-    const byKey = new Map<string, { symbol: string; price: number; timestamp: number }>();
-    for (const t of fromDb) byKey.set(`${t.symbol}:${t.timestamp}`, t);
-    for (const t of fromMemory) byKey.set(`${t.symbol}:${t.timestamp}`, { symbol: t.symbol, price: t.price, timestamp: t.timestamp });
-    const merged = [...byKey.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
-    res.json({ ticks: merged });
+    try {
+      await initAppDb();
+      const fromDb = await getMarketTicks(symbol, limit);
+      const byKey = new Map<string, { symbol: string; price: number; timestamp: number }>();
+      for (const t of fromDb) byKey.set(`${t.symbol}:${t.timestamp}`, t);
+      for (const t of fromMemory) byKey.set(`${t.symbol}:${t.timestamp}`, { symbol: t.symbol, price: t.price, timestamp: t.timestamp });
+      const merged = [...byKey.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
+      res.json({ ticks: merged });
+    } catch (err) {
+      warnDbOrThrottle(err, "Markets history failed");
+      /** DB unreachable — still serve in-memory ticks so charts work without MySQL. */
+      const merged = [...fromMemory].sort((a, b) => a.timestamp - b.timestamp).slice(-limit);
+      res.json({ ticks: merged });
+    }
   })().catch((err) => {
-    logger.warn({ err }, "Markets history failed");
+    warnDbOrThrottle(err, "Markets history failed");
     res.status(500).json({ ticks: [] });
   });
 });
@@ -650,24 +687,30 @@ app.get("/api/markets/candles", (req, res) => {
     if (!symbol || !Number.isFinite(timeframeSec) || !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)) {
       return res.status(400).json({ message: "symbol and valid timeframe required" });
     }
-    await initAppDb();
-    const tick = forexFeed.getTick(symbol);
-    await persistOpenBarBeforeCandlesRead(symbol, timeframeSec, tick ?? undefined);
-    const rows = await getChartCandles(symbol, timeframeSec, limit);
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
-    /** mysql2 may return BIGINT DECIMAL columns as strings — client merge uses `t + tfMs`; must be finite numbers. */
-    res.json({
-      candles: rows.map((r) => ({
-        t: Number(r.bucket_start_ms),
-        o: Number(r.open_price),
-        h: Number(r.high_price),
-        l: Number(r.low_price),
-        c: Number(r.close_price)
-      }))
-    });
+    try {
+      await initAppDb();
+      const tick = forexFeed.getTick(symbol);
+      await persistOpenBarBeforeCandlesRead(symbol, timeframeSec, tick ?? undefined);
+      const rows = await getChartCandles(symbol, timeframeSec, limit);
+      /** mysql2 may return BIGINT DECIMAL columns as strings — client merge uses `t + tfMs`; must be finite numbers. */
+      res.json({
+        candles: rows.map((r) => ({
+          t: Number(r.bucket_start_ms),
+          o: Number(r.open_price),
+          h: Number(r.high_price),
+          l: Number(r.low_price),
+          c: Number(r.close_price)
+        }))
+      });
+    } catch (err) {
+      warnDbOrThrottle(err, "Markets candles failed");
+      /** DB unreachable — client builds candles from WebSocket ticks. */
+      res.json({ candles: [] });
+    }
   })().catch((err) => {
-    logger.warn({ err }, "Markets candles failed");
+    warnDbOrThrottle(err, "Markets candles failed");
     res.status(500).json({ candles: [] });
   });
 });

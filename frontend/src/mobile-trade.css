@@ -1800,6 +1800,11 @@ html.cap-native .mobile-dock-apk-row {
   overflow: hidden;
 }
 
+/* Amount + “x” must not clip the suffix (e.g. “1x”) */
+.mobile-stepper-pill--amount {
+  overflow: visible;
+}
+
 .mobile-stepper-nudge {
   flex: 0 0 40px;
   border: none;
@@ -1837,30 +1842,24 @@ html.cap-native .mobile-dock-apk-row {
 
 .mobile-stepper-inr-wrap {
   cursor: text;
-  gap: 2px;
+  gap: 0;
   min-width: 0;
-}
-
-.mobile-stepper-inr-prefix {
-  flex-shrink: 0;
-  color: #9aa0a8;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  justify-content: center;
+  align-items: center;
 }
 
 .mobile-stepper-inr-input {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
-  width: 100%;
-  max-width: 92px;
+  width: auto;
+  max-width: 78px;
   border: none;
   background: transparent;
   color: #e8eaed;
   font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  text-align: center;
+  text-align: right;
   padding: 4px 0;
   margin: 0;
   -moz-appearance: textfield;
@@ -1881,7 +1880,19 @@ html.cap-native .mobile-dock-apk-row {
   margin: 0;
 }
 
-/* Quick % of wallet balance → amount field */
+/* Same style as digits so “1” reads as “1x” */
+.mobile-stepper-inr-suffix {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #e8eaed;
+  letter-spacing: 0;
+  line-height: 1;
+  padding-left: 1px;
+}
+
+/* Multiply entered amount (2x / 3x / …) */
 .mobile-stake-pct-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

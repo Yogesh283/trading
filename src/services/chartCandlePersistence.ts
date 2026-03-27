@@ -1,6 +1,6 @@
 import { TRADE_TIMEFRAMES_SEC } from "../config/timeframes";
 import { saveChartCandle, upsertChartCandle, type ChartCandleRow } from "../db/appDb";
-import { logger } from "../utils/logger";
+import { warnDbOrThrottle } from "../utils/dbTransientErrorThrottle";
 
 type OpenBar = {
   bucketStart: number;
@@ -27,7 +27,7 @@ function flushBar(sym: string, tf: number, b: OpenBar): void {
     close_price: b.c
   };
   void saveChartCandle(row).catch((err) => {
-    logger.warn({ err, sym, tf, bucket: b.bucketStart }, "chart_candles save failed");
+    warnDbOrThrottle(err, "chart_candles save failed", { sym, tf, bucket: b.bucketStart });
   });
 }
 
@@ -92,6 +92,10 @@ export async function persistOpenBarBeforeCandlesRead(
   try {
     await upsertChartCandle(row);
   } catch (err) {
-    logger.warn({ err, sym, timeframeSec, bucket: b.bucketStart }, "chart_candles open-bar upsert failed");
+    warnDbOrThrottle(err, "chart_candles open-bar upsert failed", {
+      sym,
+      timeframeSec,
+      bucket: b.bucketStart
+    });
   }
 }

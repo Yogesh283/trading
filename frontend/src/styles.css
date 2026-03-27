@@ -3274,8 +3274,20 @@ button.desktop-demo-cta:disabled,
   color: #7a8aad;
 }
 
-.desktop-demo-block select,
-.desktop-demo-amt {
+.desktop-demo-block select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 16px;
+  min-width: 88px;
+}
+
+.desktop-demo-amt-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -3286,7 +3298,31 @@ button.desktop-demo-cta:disabled,
 }
 
 .desktop-demo-amt {
-  width: 96px;
+  width: 72px;
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-demo-amt:focus {
+  outline: none;
+}
+
+.desktop-demo-amt-suffix {
+  flex-shrink: 0;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+  font-size: 16px;
+  padding-left: 1px;
 }
 
 .desktop-demo-pair-btn {
@@ -3759,6 +3795,12 @@ button.desktop-demo-cta:disabled,
   border-color: rgba(239, 83, 80, 0.45);
 }
 
+.order-placed-modal--down .order-placed-icon {
+  background: rgba(239, 83, 80, 0.18);
+  border-color: rgba(239, 83, 80, 0.5);
+  color: #ff8a80;
+}
+
 /* Demo wallet top-up success — same shell as trade-created */
 .order-placed-modal--demo-funds .order-placed-direction {
   font-size: 0.95rem;
@@ -3849,5 +3891,13 @@ button.desktop-demo-cta:disabled,
 }
 
 .order-placed-ok:hover {
+  filter: brightness(1.08);
+}
+
+.order-placed-ok--loss {
+  background: linear-gradient(135deg, #c62828, #8e0000);
+}
+
+.order-placed-ok--loss:hover {
   filter: brightness(1.08);
 }
