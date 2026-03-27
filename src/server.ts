@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import cron from "node-cron";
+import { DEFAULT_DEMO_BALANCE_INR } from "./config/demo";
 import { env } from "./config/env";
 import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
 import { getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
@@ -50,6 +51,7 @@ import {
 import { createWithdrawal, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
 import {
   applyLedger,
+  ensureWallet,
   getWalletBalance,
   listTransactionsForUser,
   saveDemoBalanceToDb,
@@ -501,6 +503,49 @@ app.post("/api/me/withdrawal-totp/confirm", (req, res) => {
       }
       const msg = e instanceof Error ? e.message : "Failed";
       return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` to add one default tranche (`DEMO_START_BALANCE`). */
+app.post("/api/me/demo/add-funds", (req, res) => {
+  void (async () => {
+    const MIN_ADD = 1;
+    const MAX_ADD_PER_REQUEST = 5_000_000;
+    const MAX_DEMO_BALANCE_TOTAL = 50_000_000;
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const raw = req.body?.amount;
+      const useDefault = raw === undefined || raw === null || raw === "";
+      const parsed = useDefault ? DEFAULT_DEMO_BALANCE_INR : Number(raw);
+      if (!Number.isFinite(parsed)) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+      const requested = Math.round(parsed * 100) / 100;
+      if (requested < MIN_ADD || requested > MAX_ADD_PER_REQUEST) {
+        return res.status(400).json({
+          message: `Amount must be between ${MIN_ADD} and ${MAX_ADD_PER_REQUEST.toLocaleString("en-IN")} INR`
+        });
+      }
+      await ensureWallet(user.id);
+      await prepareAccountForRequest(user.id, "demo");
+      const acc = getAccountForWallet(user.id, "demo");
+      const room = Math.max(0, MAX_DEMO_BALANCE_TOTAL - acc.balance);
+      const add = Math.min(requested, room);
+      if (add < 0.01) {
+        return res.status(400).json({
+          message: `Demo balance is capped at ${MAX_DEMO_BALANCE_TOTAL.toLocaleString("en-IN")} INR`
+        });
+      }
+      acc.creditDeposit(add);
+      await saveDemoBalanceToDb(user.id, acc.balance);
+      return res.json({ ok: true, demo_balance: acc.balance, added: add });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "demo add-funds");
+      return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
     }
   })();
 });

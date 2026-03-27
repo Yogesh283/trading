@@ -24,6 +24,11 @@
   box-sizing: border-box;
 }
 
+/* Global text ~+2px vs 16px default (also scales rem/em-based copy) */
+html {
+  font-size: 18px;
+}
+
 body {
   margin: 0;
   min-width: 280px;
@@ -166,7 +171,7 @@ select {
   flex-wrap: nowrap;
   min-width: min-content;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 20px;
   letter-spacing: -0.03em;
 }
 
@@ -186,7 +191,7 @@ select {
 }
 
 .app-nav-mode-pill {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -217,7 +222,7 @@ select {
 
 .app-nav-account-toggle button {
   padding: 5px 12px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -253,7 +258,7 @@ select {
 }
 
 .app-nav-drawer-wallet-label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #94a3b8;
   text-transform: uppercase;
@@ -264,6 +269,33 @@ select {
   flex: 1;
   max-width: 220px;
   margin-left: auto;
+}
+
+.app-nav-drawer-demo-topup {
+  padding: 0 16px 14px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.app-nav-drawer-demo-topup-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  background: rgba(22, 101, 52, 0.18);
+  color: #86efac;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-nav-drawer-demo-topup-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-nav-drawer-demo-topup-btn:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .app-main-nav-desktop {
@@ -283,7 +315,7 @@ select {
   border: 1px solid transparent;
   background: transparent;
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -325,7 +357,7 @@ select {
   background: linear-gradient(180deg, rgba(6, 78, 59, 0.35) 0%, rgba(4, 47, 36, 0.45) 100%);
   border: 1px solid rgba(52, 211, 153, 0.35);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   color: #6ee7b7;
   font-variant-numeric: tabular-nums;
   max-width: 120px;
@@ -387,7 +419,7 @@ select {
 
 .app-nav-balance-col-label {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -406,7 +438,7 @@ select {
 .app-nav-balance-col-amt {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: #e2e8f0;
@@ -422,7 +454,7 @@ select {
   border: 1px solid rgba(248, 113, 113, 0.22);
   background: rgba(248, 113, 113, 0.08);
   color: #fecaca;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
@@ -439,10 +471,33 @@ select {
   z-index: 1;
   margin: 0;
   padding: 0 16px 14px;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748b;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   padding-top: 12px;
+}
+
+.app-main-nav-sub .app-nav-inline-link {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #86efac;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-main-nav-sub .app-nav-inline-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app-main-nav-sub .app-nav-inline-link:hover:not(:disabled) {
+  color: #bbf7d0;
 }
 
 .app-nav-drawer-backdrop {
@@ -508,7 +563,7 @@ select {
 
 .app-nav-drawer-title {
   font-weight: 800;
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .app-nav-drawer-close {
@@ -518,7 +573,7 @@ select {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
 }
@@ -532,12 +587,12 @@ select {
 }
 
 .app-nav-drawer-user strong {
-  font-size: 16px;
+  font-size: 18px;
   color: #fff;
 }
 
 .app-nav-drawer-user span {
-  font-size: 13px;
+  font-size: 15px;
   color: #9aa8b8;
   word-break: break-all;
 }
@@ -564,7 +619,7 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   color: #e5edf7;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -687,7 +742,7 @@ select {
   border: 0;
   background: transparent;
   color: #73c8ff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   padding: 8px 12px;
@@ -710,7 +765,7 @@ select {
   justify-content: center;
   gap: 10px;
   font-weight: 800;
-  font-size: 17px;
+  font-size: 19px;
   color: #fff;
   min-width: 0;
   max-width: min(100%, 72vw);
@@ -739,7 +794,7 @@ select {
   border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.04);
   color: #c5d4e8;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -818,7 +873,7 @@ select {
   border: 0;
   background: transparent;
   color: #73c8ff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   padding: 8px 0;
@@ -919,7 +974,7 @@ select {
   margin-left: auto;
   margin-right: auto;
   line-height: 1.55;
-  font-size: 15px;
+  font-size: 17px;
   color: #9eb0c8;
 }
 
@@ -974,7 +1029,7 @@ select {
 .auth-card-tagline {
   margin: 0;
   color: #8da2c0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   max-width: 22rem;
 }
@@ -992,12 +1047,12 @@ select {
   color: #73c8ff;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(32px, 5vw, 58px);
+  font-size: clamp(34px, 5vw, 60px);
   line-height: 1;
   max-width: 720px;
 }
@@ -1031,13 +1086,13 @@ select {
 .status-card strong {
   display: block;
   margin-top: 6px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .status-card-meta {
   margin-top: 8px;
   color: #8da2c0;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .wallet-toggle {
@@ -1054,7 +1109,7 @@ select {
   background: rgba(255, 255, 255, 0.04);
   color: #b8cce6;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -1077,7 +1132,7 @@ select {
   border-radius: 999px;
   background: rgba(112, 240, 180, 0.15);
   color: #70f0b4;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1088,7 +1143,7 @@ select {
   border-radius: 999px;
   background: rgba(255, 193, 7, 0.12);
   color: #ffd666;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1155,7 +1210,7 @@ select {
 
 .auth-metric span {
   color: #8da2c0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1164,7 +1219,7 @@ select {
 .auth-metric strong {
   display: block;
   margin-top: 8px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 800;
   color: #e8f0ff;
   font-variant-numeric: tabular-nums;
@@ -1185,7 +1240,7 @@ select {
 }
 
 .auth-demo strong {
-  font-size: 15px;
+  font-size: 17px;
   color: #fff;
 }
 
@@ -1225,7 +1280,7 @@ select {
   padding: 11px 16px;
   border-radius: 999px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1265,7 +1320,7 @@ select {
   display: grid;
   gap: 8px;
   color: #b8c8dc;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -1319,7 +1374,7 @@ select {
   display: block;
   width: auto;
   box-sizing: border-box;
-  font-size: 15px;
+  font-size: 17px;
   color: #f0f5ff;
 }
 
@@ -1388,7 +1443,7 @@ select {
   gap: 0;
   padding: 0 2px;
   color: #b8c8dc;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.02em;
   direction: ltr;
@@ -1434,7 +1489,7 @@ select {
   background: transparent;
   box-shadow: none;
   padding: 14px 12px;
-  font-size: 15px;
+  font-size: 17px;
   color: #f0f5ff;
 }
 
@@ -1475,7 +1530,7 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.35);
   color: #f0f5ff;
-  font-size: 15px;
+  font-size: 17px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
@@ -1522,7 +1577,7 @@ select {
   background: linear-gradient(135deg, #00e676, #00c853);
   color: #0a0a0a;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 17px;
   letter-spacing: 0.03em;
   cursor: pointer;
   box-shadow: 0 8px 28px rgba(0, 230, 118, 0.38);
@@ -1546,7 +1601,7 @@ select {
   margin-top: 4px;
   padding: 13px 16px;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.45;
   background: rgba(239, 83, 80, 0.12);
   border: 1px solid rgba(239, 83, 80, 0.35);
@@ -1557,7 +1612,7 @@ select {
   color: #8da2c0;
   margin: 22px 0 0;
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
 }
 
@@ -1622,7 +1677,7 @@ select {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(110, 160, 255, 0.16);
   color: #d8e6fb;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .chart-card {
@@ -1673,7 +1728,7 @@ select {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: #2962ff;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1693,7 +1748,7 @@ select {
 
 .tv-chart-toolbar .tv-symbol {
   color: #f5f6f8;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
@@ -1701,7 +1756,7 @@ select {
 }
 
 .tv-ohlc {
-  font-size: 12px;
+  font-size: 14px;
   color: #9aa4b2;
   font-variant-numeric: tabular-nums;
   margin-right: 10px;
@@ -1710,7 +1765,7 @@ select {
 }
 
 .tv-ema {
-  font-size: 12px;
+  font-size: 14px;
   color: #2962ff;
   font-variant-numeric: tabular-nums;
   margin-right: 10px;
@@ -1719,13 +1774,13 @@ select {
 
 .tv-change.up {
   color: var(--candle-bull);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .tv-change.down {
   color: var(--candle-bear);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -1737,7 +1792,7 @@ select {
   gap: 0 6px;
   margin-top: 5px;
   width: 100%;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: #9aa4b2;
@@ -1773,7 +1828,7 @@ select {
 .tv-spot-tick {
   display: inline-block;
   margin: 0 6px 0 4px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   vertical-align: middle;
 }
@@ -1806,7 +1861,7 @@ select {
 
 .tv-chart-meta {
   color: #9aa4b2 !important;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.04em;
 }
@@ -1837,7 +1892,7 @@ select {
 
 .tv-price-label {
   fill: #c8ccd4;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   font-family: system-ui, -apple-system, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -1858,48 +1913,48 @@ select {
 
 .tv-time-label {
   fill: #787b86;
-  font-size: 10px;
+  font-size: 12px;
   font-family: system-ui, -apple-system, sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
 .tv-chart-mobile .tv-time-label {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 700;
   fill: #b8bdc4;
 }
 
 .tv-chart-mobile .tv-price-label {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   fill: #e8eaed;
 }
 
 .tv-chart-mobile .tv-tag-price-val-white {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
 }
 
 /* Mobile: compact asset row above chart (pair + OHLC + %) */
 .tv-chart-mobile .tv-chart-toolbar .tv-symbol {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .tv-chart-mobile .tv-ohlc {
-  font-size: 10px;
+  font-size: 12px;
   color: #848e9c;
   line-height: 1.25;
 }
 
 .tv-chart-mobile .tv-change.up,
 .tv-chart-mobile .tv-change.down {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .tv-chart-mobile .tv-timer-badge-text {
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 700;
 }
 
@@ -1912,7 +1967,7 @@ select {
 
 .tv-tag-price-val-white {
   fill: #000000;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
   font-variant-numeric: tabular-nums;
@@ -1926,7 +1981,7 @@ select {
 
 .tv-timer-badge-text {
   fill: #d1d4dc;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -1943,20 +1998,20 @@ select {
 
 .tv-tag-price-symbol {
   fill: rgba(255, 255, 255, 0.92);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .tv-tag-price-val {
   fill: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .tv-tag-countdown {
   fill: rgba(255, 255, 255, 0.85);
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1966,7 +2021,7 @@ select {
 
 .tv-tag-ema-val {
   fill: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -1979,7 +2034,7 @@ select {
 
 .tv-trade-tag {
   fill: #d1d4dc;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   paint-order: stroke;
   stroke: #000000;
@@ -1995,7 +2050,7 @@ select {
 }
 
 .chart-meta strong {
-  font-size: 22px;
+  font-size: 24px;
 }
 
 .chart-meta-right {
@@ -2004,7 +2059,7 @@ select {
   align-items: flex-end;
   gap: 4px;
   color: #a8b8cf;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .tv-chart-toolbar .chart-meta-right {
@@ -2065,7 +2120,7 @@ select {
 }
 
 .tv-chart-candle-timer-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2075,7 +2130,7 @@ select {
 }
 
 .tv-chart-candle-timer-val {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: #f5f6f8;
   letter-spacing: 0.04em;
@@ -2178,7 +2233,7 @@ select {
   gap: 5px;
   padding: 4px 8px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #d1d4dc;
@@ -2191,14 +2246,14 @@ select {
 
 .chart-lw-axis-pill-tf {
   color: #848e9c;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .chart-lw-axis-pill-cd {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -2209,7 +2264,7 @@ select {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 3px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #131722;
@@ -2266,7 +2321,7 @@ select {
 
 .tv-live-badge--timer-only .tv-live-badge-cd {
   margin-top: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.04em;
 }
@@ -2307,7 +2362,7 @@ select {
 
 .tv-live-badge-tag {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   opacity: 0.95;
@@ -2316,13 +2371,13 @@ select {
 
 .tv-live-badge-price {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .tv-live-badge-cd {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   margin-top: 3px;
   opacity: 0.95;
@@ -2330,7 +2385,7 @@ select {
 }
 
 .tv-live-badge-cd.zoomed {
-  font-size: 15px;
+  font-size: 17px;
   margin-top: 4px;
 }
 
@@ -2342,7 +2397,7 @@ select {
 }
 
 .tv-live-badge-arrow {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   line-height: 1;
 }
@@ -2401,11 +2456,11 @@ select {
 }
 
 .tv-chart-mobile .tv-live-badge-price {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .tv-chart-mobile .tv-live-badge-cd {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .chart-weekend-pill {
@@ -2417,7 +2472,7 @@ select {
   background: rgba(255, 193, 7, 0.15);
   border: 1px solid rgba(255, 193, 7, 0.45);
   color: #ffc107;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   margin-right: 8px;
 }
@@ -2450,7 +2505,7 @@ select {
 
 .chart-weekend-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   color: #f0f3f8;
   letter-spacing: 0.02em;
@@ -2458,17 +2513,17 @@ select {
 
 .chart-weekend-sub {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #9aa0a6;
 }
 
 .tv-chart-mobile .chart-weekend-title {
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .tv-chart-mobile .chart-weekend-sub {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 button.mobile-cta:disabled,
@@ -2508,7 +2563,7 @@ button.desktop-demo-cta:disabled,
   min-width: 38px;
   height: 34px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #848e9c;
@@ -2532,7 +2587,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .chart-toolbar-vertical .chart-toolbar-icon {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -2544,7 +2599,7 @@ button.desktop-demo-cta:disabled,
   height: 34px;
   margin: 0;
   padding: 0 4px 0 6px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
@@ -2597,7 +2652,7 @@ button.desktop-demo-cta:disabled,
 .chart-zoom-controls button {
   width: 36px;
   height: 28px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   line-height: 1;
   color: #eaecef;
@@ -2676,7 +2731,7 @@ button.desktop-demo-cta:disabled,
 
 .trade-label {
   fill: #f3f6fb;
-  font-size: 12px;
+  font-size: 14px;
   paint-order: stroke;
   stroke: rgba(5, 9, 20, 0.85);
   stroke-width: 3px;
@@ -2698,7 +2753,7 @@ button.desktop-demo-cta:disabled,
 .stat strong {
   display: block;
   margin-top: 4px;
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .price-list {
@@ -2731,7 +2786,7 @@ button.desktop-demo-cta:disabled,
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
   line-height: 1;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -2739,12 +2794,12 @@ button.desktop-demo-cta:disabled,
 }
 
 .price-row-left strong {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
 }
 
 .price-row-value {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -2791,7 +2846,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-select-label-text {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #8da2c0;
 }
@@ -2804,7 +2859,7 @@ button.desktop-demo-cta:disabled,
   border: 1px solid rgba(110, 160, 255, 0.28);
   background: rgba(255, 255, 255, 0.06);
   color: #edf4ff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -2817,7 +2872,7 @@ button.desktop-demo-cta:disabled,
 
 .asset-select-or {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .asset-grid-scroll {
@@ -2895,7 +2950,7 @@ button.desktop-demo-cta:disabled,
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   background: rgba(0, 0, 0, 0.25);
   border-radius: 12px;
@@ -2911,19 +2966,19 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-tile--row .asset-tile-name {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .asset-tile--row .asset-tile-pair {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .asset-tile--row .asset-tile-price {
   flex-shrink: 0;
   margin-left: auto;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   text-align: right;
 }
@@ -2944,22 +2999,22 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-tile-icon {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
 }
 
 .asset-tile-name {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .asset-tile-pair {
-  font-size: 11px;
+  font-size: 13px;
   color: #787b86;
 }
 
 .asset-tile-price {
-  font-size: 12px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   color: #d1d4dc;
 }
@@ -2978,7 +3033,7 @@ button.desktop-demo-cta:disabled,
   height: 36px;
   line-height: 34px;
   text-align: center;
-  font-size: 20px;
+  font-size: 22px;
   margin-right: 10px;
   vertical-align: middle;
   background: rgba(255, 255, 255, 0.08);
@@ -3102,7 +3157,7 @@ button.desktop-demo-cta:disabled,
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #cbd8ea;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
@@ -3145,7 +3200,7 @@ button.desktop-demo-cta:disabled,
   .asset-tile--row .asset-tile-icon {
     width: 40px;
     height: 40px;
-    font-size: 20px;
+    font-size: 22px;
   }
 }
 
@@ -3175,7 +3230,7 @@ button.desktop-demo-cta:disabled,
 .binary-buttons-compact .btn-buy-up,
 .binary-buttons-compact .btn-buy-down {
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .app-guest-desktop-dock {
@@ -3212,7 +3267,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .desktop-demo-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -3226,7 +3281,7 @@ button.desktop-demo-cta:disabled,
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.35);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   min-width: 88px;
 }
 
@@ -3244,7 +3299,7 @@ button.desktop-demo-cta:disabled,
   background: rgba(41, 98, 255, 0.15);
   color: #e8eeff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -3265,7 +3320,7 @@ button.desktop-demo-cta:disabled,
   background: rgba(0, 0, 0, 0.25);
   color: #b8c8e8;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -3307,7 +3362,7 @@ button.desktop-demo-cta:disabled,
   padding: 14px 22px;
   border: 0;
   border-radius: 12px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   cursor: pointer;
   color: #fff;
@@ -3326,7 +3381,7 @@ button.desktop-demo-cta:disabled,
 .desktop-demo-cta small {
   display: block;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 14px;
   opacity: 0.95;
   margin-top: 2px;
 }
@@ -3340,7 +3395,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .desktop-demo-open-pill {
-  font-size: 12px;
+  font-size: 14px;
   padding: 6px 12px;
   border-radius: 999px;
   background: rgba(255, 193, 7, 0.1);
@@ -3356,7 +3411,7 @@ button.desktop-demo-cta:disabled,
 .desktop-demo-bar-msg {
   max-width: 1280px;
   margin: 8px auto 0;
-  font-size: 13px;
+  font-size: 15px;
   color: #7ef0b5;
   text-align: center;
 }
@@ -3397,14 +3452,14 @@ button.desktop-demo-cta:disabled,
   background: rgba(41, 98, 255, 0.12);
   border: 1px solid rgba(41, 98, 255, 0.28);
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 15px;
   color: #b8c8e8;
   line-height: 1.4;
 }
 
 .trade-timeout-label {
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #7eb0ff;
@@ -3412,7 +3467,7 @@ button.desktop-demo-cta:disabled,
 
 .trade-timeout-banner strong {
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .trade-timeout-mid {
@@ -3427,7 +3482,7 @@ button.desktop-demo-cta:disabled,
 
 .active-trades-title {
   margin: 0 0 10px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #cbd8ea;
 }
@@ -3449,13 +3504,13 @@ button.desktop-demo-cta:disabled,
   padding: 10px 12px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .countdown-badge {
   font-variant-numeric: tabular-nums;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 17px;
   padding: 4px 10px;
   border-radius: 8px;
   background: rgba(255, 193, 7, 0.15);
@@ -3471,7 +3526,7 @@ button.desktop-demo-cta:disabled,
   color: white;
   font-weight: 700;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .btn-buy-up:hover {
@@ -3486,7 +3541,7 @@ button.desktop-demo-cta:disabled,
   color: white;
   font-weight: 700;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .btn-buy-down:hover {
@@ -3526,14 +3581,14 @@ button.desktop-demo-cta:disabled,
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   color: #ffc107;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .table-close-price {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   color: #dbe7f7;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .table-row {
@@ -3621,7 +3676,7 @@ button.desktop-demo-cta:disabled,
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -3649,7 +3704,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .wallet-tx-row-main strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #c5d4e8;
   text-transform: capitalize;
@@ -3668,7 +3723,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .wallet-tx-row-sub {
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 6px;
 }
 
@@ -3704,6 +3759,15 @@ button.desktop-demo-cta:disabled,
   border-color: rgba(239, 83, 80, 0.45);
 }
 
+/* Demo wallet top-up success — same shell as trade-created */
+.order-placed-modal--demo-funds .order-placed-direction {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.95;
+}
+
 .order-placed-icon {
   width: 56px;
   height: 56px;
@@ -3712,7 +3776,7 @@ button.desktop-demo-cta:disabled,
   background: rgba(0, 230, 118, 0.18);
   border: 2px solid rgba(0, 230, 118, 0.5);
   color: #69f0ae;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
   line-height: 52px;
 }
@@ -3722,7 +3786,7 @@ button.desktop-demo-cta:disabled,
   margin: 0 0 10px;
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -3778,7 +3842,7 @@ button.desktop-demo-cta:disabled,
   border-radius: 12px;
   background: linear-gradient(135deg, #00c853, #009624);
   color: #fff;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;

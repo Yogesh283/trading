@@ -17,27 +17,12 @@
   z-index: 50;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
   background: rgba(10, 14, 20, 0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.about-back {
-  border: none;
-  background: transparent;
-  color: #c4cdd6;
-  font-size: 0.95rem;
-  cursor: pointer;
-  padding: 0.35rem 0.5rem;
-  border-radius: 8px;
-}
-
-.about-back:hover {
-  color: var(--ot-green, #00e676);
-  background: rgba(0, 230, 118, 0.08);
 }
 
 .about-top-brand {

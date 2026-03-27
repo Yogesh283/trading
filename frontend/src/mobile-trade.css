@@ -5,11 +5,11 @@
 
 /* Logged-in mobile: APK strip above dock — extra scroll room so content isn’t hidden */
 .app-mobile-trade:has(.mobile-bottom-dock-stack) {
-  padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(126px + env(safe-area-inset-bottom, 0px));
 }
 
 html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
-  padding-bottom: calc(102px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Narrower shell padding on phones so chart + trade row use full width */
@@ -121,7 +121,8 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
   background: linear-gradient(90deg, transparent, rgba(134, 239, 172, 0.4), rgba(74, 222, 128, 0.25), transparent);
 }
 
-.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar {
+/* Demo tint on chart bar — only when not using reference “trading” top row layout */
+.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar:not(.mobile-chart-topbar--trading) {
   background: linear-gradient(165deg, rgba(14, 28, 22, 0.98) 0%, rgba(6, 14, 12, 0.99) 100%);
   border-color: rgba(74, 222, 128, 0.22);
   box-shadow:
@@ -131,7 +132,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
     0 0 40px -12px rgba(74, 222, 128, 0.1);
 }
 
-.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar::before {
+.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar:not(.mobile-chart-topbar--trading)::before {
   background: linear-gradient(90deg, transparent, rgba(134, 239, 172, 0.42), transparent);
 }
 
@@ -144,10 +145,10 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-chart-wrap {
-  border-color: rgba(74, 222, 128, 0.32);
+  border-color: #2b3139;
   box-shadow:
-    0 0 0 1px rgba(74, 222, 128, 0.1) inset,
-    0 2px 0 rgba(52, 211, 153, 0.07) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 2px 0 rgba(252, 213, 53, 0.05) inset,
     0 16px 40px rgba(0, 0, 0, 0.5);
 }
 
@@ -208,11 +209,11 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
 }
 
 .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
-  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
 }
 
 html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
-  padding-bottom: calc(122px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-mobile-trade .app-main-nav {
@@ -243,11 +244,11 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .app-mobile-trade .app-nav-brand {
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .app-mobile-trade .app-nav-balance-pill {
-  font-size: 12px;
+  font-size: 14px;
   padding: 6px 10px;
   max-width: 90px;
 }
@@ -275,11 +276,11 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .app-mobile-trade .app-nav-balance-col-label {
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .app-mobile-trade .app-nav-balance-col-amt {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   margin-top: 1px;
 }
@@ -312,6 +313,269 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   gap: 0;
   min-width: 0;
   padding: 8px 8px max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+/* Wallet bar: shared across all mobile sections (deposit, referral, trading, …) */
+.app-mobile-trade .mobile-wallet-nav-wrap {
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+/* Row 1: profile + balance + Demo/Real + neon wallet (reference: dark charcoal bar) */
+.mobile-trading-page-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  background: linear-gradient(180deg, #1a1e26 0%, #12151c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 2px 10px rgba(0, 0, 0, 0.38);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-trading-page-nav {
+  background: linear-gradient(180deg, #1a1e26 0%, #12151c 100%);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Safe top inset lives on `.mobile-wallet-nav-wrap`; chart column uses normal padding */
+.app-mobile-trade[data-dashboard-section="trading"] .mobile-trade-root {
+  padding-top: 8px;
+}
+
+.mobile-tpn-profile {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #2d323c 0%, #1f2329 100%);
+  color: #f1f5f9;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tpn-profile-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-tpn-profile-ring svg {
+  width: 16px;
+  height: 16px;
+}
+
+.mobile-tpn-profile-dot {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 1px solid #12151c;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-profile-dot {
+  background: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.45);
+}
+
+.mobile-tpn-center-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.mobile-tpn-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  max-width: 100%;
+  padding: 1px 2px;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tpn-balance {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  line-height: 1.05;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-balance {
+  color: #f8fafc;
+}
+
+.mobile-tpn-account-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+/* Reference: “Demo account” in orange; Real in cool neutral */
+.mobile-tpn-account-line--demo {
+  color: #fb923c;
+}
+
+.mobile-tpn-account-line--demo .mobile-tpn-chevron {
+  color: #fdba74;
+  opacity: 1;
+}
+
+.mobile-tpn-account-line--live {
+  color: #a5b4fc;
+}
+
+.mobile-tpn-account-line--live .mobile-tpn-chevron {
+  color: #c4b5fd;
+  opacity: 1;
+}
+
+.mobile-tpn-chevron {
+  font-size: 9px;
+  opacity: 0.9;
+}
+
+.mobile-tpn-dropdown {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 4px);
+  transform: translateX(-50%);
+  z-index: 50;
+  min-width: min(200px, 88vw);
+  padding: 4px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(22, 32, 48, 0.98) 0%, rgba(12, 18, 28, 0.99) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-dropdown {
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.mobile-tpn-dropdown button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tpn-dropdown button + button {
+  margin-top: 2px;
+}
+
+.mobile-tpn-dropdown button.active {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7dd3fc;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-dropdown button.active {
+  background: rgba(74, 222, 128, 0.16);
+  color: #86efac;
+}
+
+.mobile-tpn-dd-amt {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  opacity: 0.92;
+}
+
+.mobile-tpn-dropdown button.mobile-tpn-dd-add-demo {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  color: #86efac;
+  font-size: 13px;
+}
+
+.mobile-tpn-dropdown button.mobile-tpn-dd-add-demo:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mobile-tpn-dd-add-hint {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.82;
+  color: #cbd5e1;
+}
+
+.mobile-tpn-wallet-fab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(165deg, #4ade80 0%, #22c55e 38%, #16a34a 100%);
+  color: #0a0a0a;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 0 1px rgba(21, 128, 61, 0.35),
+    0 3px 12px rgba(34, 197, 94, 0.38),
+    0 1px 3px rgba(0, 0, 0, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-tpn-wallet-fab svg {
+  width: 16px;
+  height: 16px;
+  stroke: #0a0a0a;
+  stroke-width: 1.75;
+}
+
+.mobile-tpn-wallet-fab:active {
+  transform: scale(0.97);
 }
 
 .mobile-chart-topbar {
@@ -349,6 +613,134 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   z-index: 1;
 }
 
+/* Reference (2nd image): one row — Asset | TF | Chart type | Live — compact strip */
+.mobile-chart-topbar.mobile-chart-topbar--trading {
+  margin-bottom: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: stretch;
+  gap: 4px;
+  padding: 5px 6px;
+  background: linear-gradient(180deg, #141820 0%, #0c0f14 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.mobile-chart-topbar.mobile-chart-topbar--trading::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+}
+
+.mobile-chart-topbar--trading .mobile-tf-wrap,
+.mobile-chart-topbar--trading .mobile-chart-type-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.mobile-chart-topbar--trading .mobile-asset-pill {
+  max-width: none;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 6px;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(180deg, #2f343e 0%, #23272f 100%);
+  color: #f8fafc;
+  border-radius: 8px;
+}
+
+.mobile-chart-topbar--trading .mobile-asset-pill-icon {
+  font-size: 16px;
+}
+
+.mobile-chart-topbar--trading .mobile-asset-pill .mobile-chevron {
+  color: rgba(248, 250, 252, 0.55);
+}
+
+.mobile-chart-topbar--trading .mobile-tf-pill,
+.mobile-chart-topbar--trading .mobile-chart-type-pill {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #2f343e 0%, #23272f 100%);
+  color: #f8fafc;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.mobile-chart-topbar--trading .mobile-chart-type-pill {
+  max-width: none;
+  min-width: 48px;
+}
+
+.mobile-chart-topbar--trading .mobile-tf-pill {
+  min-width: 42px;
+  max-width: 62px;
+}
+
+.mobile-chart-topbar--trading .mobile-tf-pill .mobile-chevron,
+.mobile-chart-topbar--trading .mobile-chart-type-pill .mobile-chevron {
+  color: rgba(248, 250, 252, 0.45);
+  font-size: 9px;
+}
+
+.mobile-chart-topbar--trading .mobile-live-badge {
+  flex-shrink: 0;
+  align-self: center;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #2f343e 0%, #23272f 100%);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mobile-chart-topbar--trading .mobile-live-badge .live-dot {
+  width: 6px;
+  height: 6px;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar--trading .mobile-tf-pill,
+.app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar--trading .mobile-chart-type-pill {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Toolbar lives inside .mobile-chart-wrap — top strip of the card */
+.mobile-chart-wrap .mobile-chart-topbar.mobile-chart-topbar--in-card {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  z-index: 5;
+}
+
+.mobile-chart-wrap .mobile-tf-wrap,
+.mobile-chart-wrap .mobile-chart-type-wrap {
+  z-index: 280;
+}
+
+.mobile-chart-wrap .mobile-chart-topbar--in-card + .chart-lw-outer {
+  border-radius: 0;
+}
+
 .mobile-asset-pill {
   display: flex;
   align-items: center;
@@ -359,7 +751,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border-radius: 12px;
   background: linear-gradient(180deg, #2f2818 0%, #1c1810 100%);
   color: #e8c76b;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   cursor: pointer;
   flex: 1;
@@ -369,7 +761,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .mobile-asset-pill-icon {
-  font-size: 22px;
+  font-size: 24px;
   flex-shrink: 0;
 }
 
@@ -382,7 +774,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 .mobile-chevron {
   flex-shrink: 0;
   color: #787b86;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 /* Trade — Select asset: visible list on mobile */
@@ -396,7 +788,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 .mobile-asset-list-heading {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   color: #e8edf4;
   letter-spacing: 0.02em;
@@ -404,7 +796,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 .mobile-asset-list-hint {
   margin: 0 0 6px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .mobile-asset-chips {
@@ -474,18 +866,18 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .mobile-asset-chip-icon {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
 }
 
 .mobile-asset-chip-pair {
   font-weight: 800;
-  font-size: 17px;
+  font-size: 19px;
   letter-spacing: 0.02em;
 }
 
 .mobile-asset-chip-price {
-  font-size: 16px;
+  font-size: 18px;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
   min-width: 4.8em;
@@ -517,7 +909,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
   color: #b8c5d9;
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -541,7 +933,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border: 1px solid rgba(110, 160, 255, 0.28);
   background: #000000;
   color: #e5edf7;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -568,7 +960,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border: 1px solid rgba(110, 160, 255, 0.28);
   background: #000000;
   color: #e5edf7;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -610,7 +1002,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border: none;
   background: transparent;
   color: #b2b5be;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -639,7 +1031,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   border-radius: 10px;
   background: rgba(38, 166, 154, 0.14);
   color: #4db6ac;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -675,7 +1067,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   box-sizing: border-box;
   position: relative;
   background: #070a0f;
-  border-radius: 12px;
+  border-radius: 0;
   /* visible so price scale + zoom pill are not clipped */
   overflow: visible;
   border: 1px solid #2b3139;
@@ -683,6 +1075,27 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
     0 0 0 1px rgba(255, 255, 255, 0.04) inset,
     0 2px 0 rgba(252, 213, 53, 0.05) inset,
     0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+/* Trading screen: chart + toolbar — neutral frame (no green border) */
+.app-mobile-trade[data-dashboard-section="trading"] .mobile-chart-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 !important;
+  border: 1px solid #2b3139;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 2px 0 rgba(252, 213, 53, 0.05) inset,
+    0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.app-mobile-trade[data-dashboard-section="trading"] .mobile-chart-wrap > .chart-lw-outer {
+  flex: 1 1 auto;
+  min-height: min(38dvh, 360px);
+  min-width: 0;
+  padding: 4px 2px 8px;
 }
 
 /* Lightweight-charts host (replaces old .tv-chart-svg). */
@@ -705,7 +1118,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   flex-direction: column;
   min-height: 0;
   overflow: visible;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   box-shadow: none;
   border: none;
@@ -746,7 +1159,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 .tv-chart-mobile .chart-lw-host {
   flex: 1 1 auto;
-  min-height: 220px;
+  min-height: 280px;
 }
 
 /* Countdown pill — bottom-left; native chart shows symbol + price on right axis. */
@@ -786,14 +1199,14 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   display: inline;
   flex: 0 0 auto;
   margin-bottom: 0;
-  font-size: 10px !important;
+  font-size: 12px !important;
   line-height: 1.2;
   letter-spacing: 0.02em;
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-ohlc {
   display: inline;
-  font-size: 6px !important;
+  font-size: 8px !important;
   line-height: 1.2;
   letter-spacing: -0.02em;
   word-break: normal;
@@ -807,7 +1220,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   display: inline;
   flex: 0 1 auto;
   min-width: 0;
-  font-size: 7px !important;
+  font-size: 9px !important;
   font-weight: 600 !important;
   margin-top: 0;
   white-space: nowrap;
@@ -815,7 +1228,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 .tv-chart-mobile .tv-chart-toolbar .tv-spot-tick {
   display: inline;
-  font-size: 10px !important;
+  font-size: 12px !important;
   margin: 0 2px 0 1px;
   vertical-align: middle;
 }
@@ -831,7 +1244,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   gap: 2px;
   margin-left: auto;
   max-width: 48px;
-  font-size: 7px !important;
+  font-size: 9px !important;
   opacity: 0.92;
 }
 
@@ -840,7 +1253,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .tv-chart-mobile .tv-chart-meta-right > span:last-of-type {
-  font-size: 6px !important;
+  font-size: 8px !important;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
@@ -851,11 +1264,11 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .tv-chart-mobile .tv-chart-candle-timer-label {
-  font-size: 7px !important;
+  font-size: 9px !important;
 }
 
 .tv-chart-mobile .tv-chart-candle-timer-val {
-  font-size: 8px !important;
+  font-size: 10px !important;
 }
 
 .tv-chart-mobile .tv-chart-meta-sep {
@@ -870,7 +1283,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   flex: 0 1 auto;
   margin-top: 1px;
   gap: 0 4px;
-  font-size: 7px !important;
+  font-size: 9px !important;
   line-height: 1.2;
 }
 
@@ -880,13 +1293,14 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .tv-chart-mobile .tv-chart-toolbar .tv-stat-label {
-  font-size: 7px !important;
+  font-size: 9px !important;
   margin-right: 1px;
 }
 
 /* Smaller on-chart last-price pill on narrow mobile card */
 .tv-chart-mobile .chart-lw-axis-pill {
   max-width: min(48vw, 200px);
+  transition: top 0.14s ease-out;
 }
 
 .tv-chart-mobile .chart-lw-axis-pill-timer {
@@ -904,7 +1318,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .tv-chart-mobile .chart-lw-axis-pill-price {
-  font-size: 11px !important;
+  font-size: 13px !important;
   padding: 3px 7px !important;
 }
 
@@ -930,7 +1344,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 .tv-chart-mobile .chart-zoom-controls button {
   width: 32px;
   height: 28px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1;
   color: #eaecef;
@@ -969,21 +1383,21 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   flex-direction: column;
   align-items: stretch;
   isolation: isolate;
-  /* Sits slightly above the home edge — matches extra scroll padding */
-  transform: translateY(-10px);
+  /* Was -10px (lifted); 0 keeps the bar flush lower — “thoda nicha” to the bottom edge */
+  transform: translateY(0);
 }
 
 .mobile-dock-apk-row {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 8px 10px 2px;
+  padding: 2px 10px 10px;
   flex-shrink: 0;
-  margin: 33px;
+  margin: 0 10px 0;
 }
 
 .mobile-dock-apk-link {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: var(--dock-label, #8ab4f8);
@@ -992,7 +1406,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   align-items: center;
   padding: 5px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(56, 189, 248, 0.32);
+  border: none;
   background: rgba(12, 16, 24, 0.92);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   -webkit-tap-highlight-color: transparent;
@@ -1005,7 +1419,6 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-dock-apk-link {
   color: var(--dock-label, #86efac);
-  border-color: rgba(74, 222, 128, 0.35);
 }
 
 html.cap-native .mobile-dock-apk-row {
@@ -1044,13 +1457,13 @@ html.cap-native .mobile-dock-apk-row {
 
 /* Logged-in phone: bottom bar matches top nav surface + accent; tighter footprint. */
 .app-mobile-trade .mobile-bottom-dock {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 72px minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 84px minmax(0, 1fr) minmax(0, 1fr);
   padding-left: 4px;
   padding-right: 4px;
   padding-bottom: max(6px, env(safe-area-inset-bottom, 0px) + 4px);
   border-radius: 22px 22px 0 0;
   border: none;
-  border-top: var(--dock-top-edge);
+  border-top: none;
   background:
     linear-gradient(
       165deg,
@@ -1091,7 +1504,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .app-mobile-trade .mobile-dock-label {
-  font-size: 7px;
+  font-size: 9px;
   letter-spacing: 0.035em;
   -webkit-line-clamp: 2;
 }
@@ -1114,30 +1527,47 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .app-mobile-trade .mobile-dock-trade.mobile-dock-cell {
-  width: 72px;
-  max-width: 76px;
+  width: 84px;
+  max-width: 88px;
 }
 
+/* Lower FAB vs Download APK; ring uses theme vars (cyan live / mint demo). */
 .app-mobile-trade .mobile-dock-trade-inner {
-  margin-top: -40px;
-  width: 52px;
-  height: 52px;
-  border-width: 2px;
+  margin-top: -15px;
+  width: 60px;
+  height: 60px;
+  border: 2px solid var(--dock-fab-border);
+  box-shadow: var(--dock-fab-shadow);
 }
 
 .app-mobile-trade .mobile-dock-trade-inner .mobile-dock-fg-icon {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
 }
 
 .app-mobile-trade .mobile-dock-trade-inner .mobile-dock-fg-icon--trade {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
 }
 
 .app-mobile-trade .mobile-dock-trade-text {
-  margin-top: 14px;
-  font-size: 8px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--dock-trade-text);
+}
+
+.app-mobile-trade .mobile-dock-trade:hover .mobile-dock-trade-inner,
+.app-mobile-trade .mobile-dock-trade:focus-visible .mobile-dock-trade-inner {
+  box-shadow: var(--dock-fab-shadow-hover);
+}
+
+.app-mobile-trade .mobile-dock-trade.is-active .mobile-dock-trade-inner {
+  border-color: var(--dock-fab-border-active);
+  box-shadow: var(--dock-fab-shadow-active);
+}
+
+.app-mobile-trade .mobile-dock-trade.is-active .mobile-dock-trade-text {
+  color: var(--dock-trade-text-active);
 }
 
 .mobile-dock-cell {
@@ -1178,7 +1608,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-dock-label {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1328,7 +1758,7 @@ html.cap-native .mobile-dock-apk-row {
   position: relative;
   z-index: 1;
   margin-top: 26px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1375,7 +1805,7 @@ html.cap-native .mobile-dock-apk-row {
   border: none;
   background: rgba(0, 0, 0, 0.2);
   color: #b7bdc6;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
@@ -1393,7 +1823,7 @@ html.cap-native .mobile-dock-apk-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 700;
   color: #e8eaed;
   letter-spacing: 0.02em;
@@ -1414,7 +1844,7 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-stepper-inr-prefix {
   flex-shrink: 0;
   color: #9aa0a8;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -1427,7 +1857,7 @@ html.cap-native .mobile-dock-apk-row {
   border: none;
   background: transparent;
   color: #e8eaed;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -1451,6 +1881,34 @@ html.cap-native .mobile-dock-apk-row {
   margin: 0;
 }
 
+/* Quick % of wallet balance → amount field */
+.mobile-stake-pct-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mobile-stake-pct-btn {
+  margin: 0;
+  padding: 8px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(36, 38, 45, 0.88);
+  color: #c8cdd5;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-stake-pct-btn:active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #e8eaed;
+}
+
 /* Bottom row: Down | clock | Up — tap = place trade */
 .mobile-trade-updown {
   display: grid;
@@ -1469,7 +1927,7 @@ html.cap-native .mobile-dock-apk-row {
   padding: 12px 16px;
   border: none;
   border-radius: 14px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 800;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1481,7 +1939,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-trade-dir-arrow {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1;
   opacity: 0.95;
@@ -1540,7 +1998,7 @@ html.cap-native .mobile-dock-apk-row {
   min-height: 46px;
   border: none;
   border-radius: 14px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.06);
@@ -1572,7 +2030,7 @@ html.cap-native .mobile-dock-apk-row {
 
 .mobile-field-label {
   display: block;
-  font-size: 13px;
+  font-size: 15px;
   color: #787b86;
   margin-bottom: 8px;
   font-weight: 500;
@@ -1592,7 +2050,7 @@ html.cap-native .mobile-dock-apk-row {
   border: 1px solid rgba(110, 160, 255, 0.22);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -1608,7 +2066,7 @@ html.cap-native .mobile-dock-apk-row {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: transparent;
   color: #73c8ff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1622,7 +2080,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-mult-val {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   color: #e5edf7;
 }
@@ -1639,7 +2097,7 @@ html.cap-native .mobile-dock-apk-row {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: #b8c5d9;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -1684,12 +2142,12 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-cta-text strong {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
 }
 
 .mobile-cta-text small {
-  font-size: 15px;
+  font-size: 17px;
   opacity: 0.95;
   font-variant-numeric: tabular-nums;
 }
@@ -1705,7 +2163,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-cta-arrow {
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 300;
   line-height: 1;
   opacity: 0.95;
@@ -1717,7 +2175,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-cta.mobile-cta--created .mobile-cta-title {
-  font-size: clamp(17px, 4.5vw, 22px);
+  font-size: clamp(19px, 4.5vw, 24px);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -1766,7 +2224,7 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-trade-msg {
   margin-top: 8px !important;
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .binary-settle-banner {
@@ -1798,13 +2256,13 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-timeout-strong {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   color: #fff;
 }
 
 .mobile-timeout-sub {
-  font-size: 12px;
+  font-size: 14px;
   color: #8a9ab8;
 }
 
@@ -1818,14 +2276,14 @@ html.cap-native .mobile-dock-apk-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: 15px;
   padding: 8px 10px;
   background: rgba(0, 0, 0, 0.25);
   border-radius: 8px;
 }
 
 .mobile-open-timer-row .countdown-badge {
-  font-size: 14px;
+  font-size: 16px;
   padding: 3px 8px;
 }
 
@@ -1844,20 +2302,20 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-account-history-heading {
   margin: 0 0 4px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   color: #e8eef7;
 }
 
 .mobile-account-history-hint {
   margin: 0 0 10px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
 /* Legacy: <details> summary (if used elsewhere) */
 .mobile-more-panel summary {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   padding: 10px 8px;
   list-style: none;
@@ -1871,13 +2329,13 @@ html.cap-native .mobile-dock-apk-row {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 15px;
   margin-bottom: 10px;
   color: #b8c5d9;
 }
 
 .mobile-history-compact {
-  font-size: 12px;
+  font-size: 14px;
   max-height: min(52vh, 360px);
   overflow-y: auto;
 }
@@ -1894,14 +2352,14 @@ html.cap-native .mobile-dock-apk-row {
   min-width: 320px;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: #e5edf7;
 }
 
 .mobile-hist-table thead th {
   padding: 6px 4px 8px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1959,7 +2417,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-hist-close {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: #dbe4f0;
 }
@@ -1967,7 +2425,7 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-hist-meta {
   margin: 0;
   padding: 4px 4px 8px !important;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
   color: rgba(184, 197, 217, 0.88);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -1975,7 +2433,7 @@ html.cap-native .mobile-dock-apk-row {
 
 .mobile-hist-meta--settled {
   color: #d7e2f0;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 

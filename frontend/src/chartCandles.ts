@@ -186,10 +186,20 @@ export function clampChartCandleBar(c: CandlePoint, intervalSeconds: number): Ca
   if (range <= maxReasonable) {
     return c;
   }
-  /** Open/close can still span the whole gap (e.g. seeded DB vs live); shrink to a doji at last price. */
-  const p = close;
-  const eps = Math.max(mid * 0.00002, 1e-6);
-  return { ...c, open: p, high: p + eps, low: p - eps, close: p };
+  /**
+   * Old behaviour: collapse to a doji at `close`, which erased the body and left a huge empty gap
+   * above/below the bar when price jumped sharply. Scale the whole OHLC into `maxReasonable` span
+   * around the same midpoint so the bar still reads as a real move (bear/bull wick).
+   */
+  const scale = maxReasonable / range;
+  const map = (x: number) => mid + (x - mid) * scale;
+  return {
+    ...c,
+    open: map(open),
+    high: map(high),
+    low: map(low),
+    close: map(close)
+  };
 }
 
 /**

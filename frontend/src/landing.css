@@ -76,7 +76,7 @@
   border: 0;
   color: #e8eaed;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   padding: 9px 18px;
@@ -133,7 +133,7 @@ a.landing-pill-link:hover {
 }
 
 .landing-lang-flag {
-  font-size: 20px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -144,7 +144,7 @@ a.landing-pill-link:hover {
   background: #2c323c;
   color: #f1f5f9;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -165,7 +165,7 @@ a.landing-pill-link:hover {
   background: linear-gradient(180deg, #00ff88, #00e676);
   color: #04140a;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 4px 24px rgba(0, 230, 118, 0.35);
@@ -187,7 +187,7 @@ a.landing-pill-link:hover {
   align-items: center;
   gap: 10px;
   font-weight: 800;
-  font-size: 18px;
+  font-size: 20px;
   color: #fff;
   min-width: 0;
 }
@@ -219,7 +219,7 @@ a.landing-pill-link:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
   color: #fff;
 }
 
@@ -234,7 +234,7 @@ a.landing-pill-link:hover {
   background: none;
   border: 0;
   color: #9aa0a6;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   padding: 8px 12px;
@@ -267,7 +267,7 @@ a.landing-link {
   background: transparent;
   color: #69f0ae;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   transition:
     background 0.2s ease,
@@ -296,7 +296,7 @@ a.landing-link {
   background: linear-gradient(180deg, #00e676, #00c853);
   color: #04210f;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(0, 200, 83, 0.35);
   transition:
@@ -322,7 +322,7 @@ a.landing-link {
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -332,7 +332,7 @@ a.landing-link {
 
 .landing-btn-lg {
   padding: 14px 28px;
-  font-size: 16px;
+  font-size: 18px;
   border-radius: 12px;
 }
 
@@ -364,7 +364,7 @@ a.landing-link {
 .landing-eyebrow {
   color: #00e676;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin: 0 0 16px;
@@ -372,7 +372,7 @@ a.landing-link {
 
 .landing-hero h1 {
   margin: 0;
-  font-size: clamp(32px, 7vw, 52px);
+  font-size: clamp(34px, 7vw, 54px);
   font-weight: 800;
   line-height: 1.12;
   color: #fff;
@@ -389,7 +389,7 @@ a.landing-link {
 .landing-hero-sub {
   margin: 24px auto 0;
   max-width: 520px;
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.55;
   color: #9aa0a6;
 }
@@ -408,7 +408,7 @@ a.landing-link {
 
 .landing-hero-note {
   margin-top: 20px;
-  font-size: 14px;
+  font-size: 16px;
   color: #6b7280;
 }
 
@@ -420,7 +420,7 @@ a.landing-link {
 
 .landing-section-title {
   text-align: center;
-  font-size: clamp(30px, 4.5vw, 36px);
+  font-size: clamp(32px, 4.5vw, 38px);
   font-weight: 800;
   margin: 0 0 40px;
   color: #fff;
@@ -453,20 +453,20 @@ a.landing-link {
 }
 
 .landing-feature-icon {
-  font-size: 28px;
+  font-size: 30px;
   display: block;
   margin-bottom: 12px;
 }
 
 .landing-feature-card h3 {
   margin: 0 0 8px;
-  font-size: 17px;
+  font-size: 19px;
   color: #fff;
 }
 
 .landing-feature-card p {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   color: #9aa0a6;
   line-height: 1.5;
 }
@@ -515,7 +515,7 @@ a.landing-link {
 
 .landing-demo-inner h2 {
   margin: 0 0 12px;
-  font-size: clamp(26px, 4vw, 32px);
+  font-size: clamp(28px, 4vw, 34px);
   font-weight: 800;
   color: #fff;
 }
@@ -577,7 +577,7 @@ a.landing-link {
 
 .landing-trust-line {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   color: #5c6370;
   max-width: 720px;
   margin-inline: auto;
@@ -614,7 +614,7 @@ a.landing-link {
 
 .landing-footer p {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.65;
   color: #6b7280;
   text-align: center;
@@ -629,7 +629,7 @@ a.landing-link {
   background: none;
   padding: 0;
   font: inherit;
-  font-size: 13px;
+  font-size: 15px;
   color: #38bdf8;
   cursor: pointer;
   text-decoration: underline;
@@ -725,7 +725,7 @@ a.landing-link {
 
 .landing-drawer-title {
   font-weight: 800;
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .landing-drawer-close {
@@ -735,7 +735,7 @@ a.landing-link {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
@@ -765,7 +765,7 @@ a.landing-link {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: #111318;
   color: #e8eaed;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -882,7 +882,7 @@ a.landing-link {
   z-index: 2;
   text-align: center;
   padding: 14px 20px;
-  font-size: clamp(15px, 2.5vw, 18px);
+  font-size: clamp(17px, 2.5vw, 20px);
   font-weight: 800;
   letter-spacing: 0.06em;
   color: #ffffff;
@@ -910,7 +910,7 @@ a.landing-link {
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.5);
   color: #fff;
-  font-size: 26px;
+  font-size: 28px;
   line-height: 1;
   cursor: pointer;
   display: flex;
@@ -995,7 +995,7 @@ a.landing-link {
 .landing-showcase-tagline {
   margin: 16px auto 0;
   max-width: 400px;
-  font-size: clamp(15px, 2.2vw, 17px);
+  font-size: clamp(17px, 2.2vw, 19px);
   font-weight: 600;
   line-height: 1.5;
   color: #4a5568;
@@ -1003,7 +1003,7 @@ a.landing-link {
 
 .landing-showcase-start0 {
   margin: 22px 0 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.14em;
   color: #16a34a;
@@ -1017,7 +1017,7 @@ a.landing-link {
   background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%);
   color: #fff;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
@@ -1064,7 +1064,7 @@ a.landing-link {
   text-align: center;
   margin: 0;
   padding: 0 20px 24px;
-  font-size: 14px;
+  font-size: 16px;
   color: #94a3b8;
 }
 
@@ -1093,7 +1093,7 @@ a.landing-link {
   .landing-showcase-nav {
     width: 38px;
     height: 38px;
-    font-size: 22px;
+    font-size: 24px;
   }
 }
 
@@ -1158,7 +1158,7 @@ a.landing-link {
 
 .landing-ot-hero-label {
   margin: 0 0 18px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1181,7 +1181,7 @@ a.landing-link {
 
 .landing-ot-hero-title {
   margin: 0;
-  font-size: clamp(42px, 10vw, 76px);
+  font-size: clamp(44px, 10vw, 78px);
   font-weight: 800;
   line-height: 1.06;
   color: #fff;
@@ -1198,7 +1198,7 @@ a.landing-link {
 .landing-ot-hero-sub {
   margin: 28px auto 0;
   max-width: 560px;
-  font-size: clamp(17px, 2.8vw, 20px);
+  font-size: clamp(19px, 2.8vw, 22px);
   line-height: 1.55;
   color: #9aa0a6;
 }
@@ -1369,7 +1369,7 @@ a.landing-link {
   background: linear-gradient(180deg, var(--ot-green), var(--ot-green-d));
   color: #04210f;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 6px 28px rgba(0, 200, 83, 0.4);
@@ -1398,7 +1398,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-btn-xl {
   padding: 18px 48px;
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .landing-ot-btn-ghost {
@@ -1407,7 +1407,7 @@ a.landing-ot-btn-main {
   background: transparent;
   color: var(--ot-green);
   font-family: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   text-decoration: underline;
@@ -1611,7 +1611,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-apk-inner h2 {
   margin: 0 0 12px;
-  font-size: clamp(22px, 4vw, 30px);
+  font-size: clamp(24px, 4vw, 32px);
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.02em;
@@ -1619,7 +1619,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-apk-inner p {
   margin: 0 0 22px;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.6;
   color: #9aa3ad;
 }
@@ -1689,7 +1689,7 @@ a.landing-ot-btn-main {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--ot-border);
   color: #c4c7cc;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   transition:
     border-color 0.2s ease,
@@ -1780,14 +1780,14 @@ a.landing-ot-btn-main {
 
 .landing-ot-binary-card h3 {
   margin: 0 0 10px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 800;
   color: #fff;
 }
 
 .landing-ot-binary-card p {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
   color: #9aa0a6;
 }
@@ -1802,7 +1802,7 @@ a.landing-ot-btn-main {
   border-radius: 8px;
   background: rgba(0, 230, 118, 0.15);
   color: var(--ot-green);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -1811,7 +1811,7 @@ a.landing-ot-btn-main {
   padding: 3px 10px;
   margin: 0 2px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -1830,7 +1830,7 @@ a.landing-ot-btn-main {
   margin: 28px auto 0;
   max-width: 560px;
   text-align: center;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   color: #6b7280;
 }
@@ -1848,7 +1848,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-band-title {
   margin: 0;
-  font-size: clamp(28px, 4.8vw, 42px);
+  font-size: clamp(30px, 4.8vw, 44px);
   font-weight: 800;
   color: #fff;
   line-height: 1.2;
@@ -1856,14 +1856,14 @@ a.landing-ot-btn-main {
 
 .landing-ot-band-text {
   margin: 16px 0 0;
-  font-size: 17px;
+  font-size: 19px;
   line-height: 1.6;
   color: #8b9299;
 }
 
 .landing-ot-h2 {
   margin: 0 0 12px;
-  font-size: clamp(26px, 4.2vw, 38px);
+  font-size: clamp(28px, 4.2vw, 40px);
   font-weight: 800;
   color: #fff;
 }
@@ -1876,14 +1876,14 @@ a.landing-ot-btn-main {
   margin: 0 auto;
   max-width: 560px;
   text-align: center;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.6;
   color: #8b9299;
 }
 
 .landing-ot-lead {
   margin: 0 0 20px;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.6;
   color: #9aa0a6;
 }
@@ -1908,7 +1908,7 @@ a.landing-ot-btn-main {
   padding-left: 22px;
   color: #b0b8c1;
   line-height: 1.8;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .landing-ot-split-btns {
@@ -1988,7 +1988,7 @@ a.landing-ot-btn-main {
   gap: 8px;
   padding: 12px 14px;
   background: rgba(0, 0, 0, 0.4);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
 }
@@ -2016,7 +2016,7 @@ a.landing-ot-btn-main {
   padding: 10px;
   border-radius: 10px;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .landing-ot-phone-pills .up {
@@ -2070,13 +2070,13 @@ a.landing-ot-btn-main {
 
 .landing-ot-demo-card h3 {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: 20px;
   color: #fff;
 }
 
 .landing-ot-demo-card p {
   margin: 0 0 18px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
   color: #8b9299;
 }
@@ -2086,7 +2086,7 @@ a.landing-ot-btn-main {
   background: none;
   color: var(--ot-green);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   padding: 4px 0;
   font-family: inherit;
@@ -2117,7 +2117,7 @@ a.landing-ot-btn-main {
   margin: 0 auto;
   max-width: 900px;
   text-align: center;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.65;
   color: #a8b0b8;
 }
@@ -2159,13 +2159,13 @@ a.landing-ot-btn-main {
 
 .landing-ot-support-card h3 {
   margin: 0 0 10px;
-  font-size: 17px;
+  font-size: 19px;
   color: #fff;
 }
 
 .landing-ot-support-card p {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
   color: #8b9299;
 }
@@ -2228,13 +2228,13 @@ a.landing-ot-btn-main {
 
 .landing-ot-stat strong {
   display: block;
-  font-size: 22px;
+  font-size: 24px;
   color: var(--ot-green);
   margin-bottom: 6px;
 }
 
 .landing-ot-stat span {
-  font-size: 13px;
+  font-size: 15px;
   color: #8b9299;
   line-height: 1.4;
 }
@@ -2276,7 +2276,7 @@ a.landing-ot-btn-main {
   border-radius: 50%;
   background: linear-gradient(135deg, var(--ot-green-d), #00695c);
   color: #fff;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -2287,19 +2287,19 @@ a.landing-ot-btn-main {
   margin: 0 0 8px;
   font-weight: 800;
   color: #fff;
-  font-size: 17px;
+  font-size: 19px;
 }
 
 .landing-ot-review-text {
   margin: 0 0 16px;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.6;
   color: #b0b8c1;
 }
 
 .landing-ot-review-name {
   margin: 0 0 20px;
-  font-size: 14px;
+  font-size: 16px;
   color: #6b7280;
 }
 
@@ -2317,7 +2317,7 @@ a.landing-ot-btn-main {
   border: 1px solid var(--ot-border);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
-  font-size: 20px;
+  font-size: 22px;
   cursor: pointer;
   transition:
     border-color 0.2s ease,
@@ -2340,7 +2340,7 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-review-nav span {
-  font-size: 13px;
+  font-size: 15px;
   color: #6b7280;
 }
 
@@ -2352,7 +2352,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-final-cta h2 {
   margin: 0 0 24px;
-  font-size: clamp(30px, 4.8vw, 44px);
+  font-size: clamp(32px, 4.8vw, 46px);
   font-weight: 800;
   color: #fff;
 }

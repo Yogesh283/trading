@@ -5,13 +5,11 @@ import { BrandLogo } from "./BrandLogo";
 
 type Props =
   | {
-      /** Inside dashboard (demo or live) — return to trading view */
+      /** Inside dashboard (demo or live) */
       embeddedInApp: true;
-      onBack: () => void;
     }
   | {
       embeddedInApp?: false;
-      onBack: () => void;
       onLogin: () => void;
       onRegister: () => void;
       onTryDemo: () => void;
@@ -19,16 +17,12 @@ type Props =
 
 export default function AboutPage(props: Props) {
   const embeddedInApp = props.embeddedInApp === true;
-  const onBack = props.onBack;
   return (
     <div
       className={`landing-page about-page landing-ot${embeddedInApp ? " about-page--embedded" : ""}`}
       lang="en"
     >
       <header className="about-top-bar">
-        <button type="button" className="about-back" onClick={onBack}>
-          {embeddedInApp ? "← Trading" : "← Back"}
-        </button>
         <span className="about-top-brand">
           <BrandLogo size={32} className="about-top-logo" />
           <span>{APP_NAME}</span>
@@ -104,13 +98,7 @@ export default function AboutPage(props: Props) {
           </ul>
         </section>
 
-        {embeddedInApp ? (
-          <div className="about-cta-row">
-            <button type="button" className="landing-ot-btn-main" onClick={onBack}>
-              Back to trading
-            </button>
-          </div>
-        ) : (
+        {embeddedInApp ? null : (
           <div className="about-cta-row">
             <button type="button" className="landing-ot-btn-main" onClick={props.onTryDemo}>
               Try demo

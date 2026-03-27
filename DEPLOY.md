@@ -230,8 +230,8 @@ Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**, 
 
 
 /////////////apk//
-
-<!-- $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+<!-- 
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 cd D:\xampp\htdocs\tradeing
 npm run frontend:build

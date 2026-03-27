@@ -59,7 +59,7 @@
 }
 
 .splash-mark {
-  font-size: 36px;
+  font-size: 38px;
   font-weight: 800;
   color: #fff;
   font-family: system-ui, sans-serif;
@@ -67,7 +67,7 @@
 
 .splash-title {
   margin: 0;
-  font-size: clamp(28px, 6vw, 40px);
+  font-size: clamp(30px, 6vw, 42px);
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.02em;
@@ -76,7 +76,7 @@
 .splash-tagline {
   margin: 10px 0 28px;
   color: rgba(255, 255, 255, 0.55);
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .splash-loader {

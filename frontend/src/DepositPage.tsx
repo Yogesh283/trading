@@ -43,8 +43,6 @@ const OPEN_IN_APP_WALLETS: { id: WalletGatewayId; name: string }[] = [
 
 type Props = {
   token: string;
-  /** Back to trading (same as Withdraw / Invest). */
-  onBack?: () => void;
   onSuccess?: () => void;
 };
 
@@ -72,7 +70,7 @@ function depositStatusLabel(status: string): string {
   return status.replace(/_/g, " ");
 }
 
-export default function DepositPage({ token, onBack, onSuccess }: Props) {
+export default function DepositPage({ token, onSuccess }: Props) {
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -502,11 +500,6 @@ export default function DepositPage({ token, onBack, onSuccess }: Props) {
 
   return (
     <div className="funds-page funds-gateway">
-      {onBack ? (
-        <button type="button" className="funds-back" onClick={onBack}>
-          ← Dashboard
-        </button>
-      ) : null}
       <div className="funds-card">
         <div className="funds-title-row">
           <BrandLogo size={44} />

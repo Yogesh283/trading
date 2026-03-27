@@ -10,7 +10,6 @@ import { BrandLogo } from "./BrandLogo";
 
 type Props = {
   token: string;
-  onBack: () => void;
   onSuccess?: () => void;
 };
 
@@ -27,7 +26,7 @@ const currency = new Intl.NumberFormat("en-US", {
   currency: "USD"
 });
 
-export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
+export default function InvestmentPage({ token, onSuccess }: Props) {
   const [info, setInfo] = useState<InvestmentInfo | null>(null);
   const [addAmount, setAddAmount] = useState("100");
   const [wdAmount, setWdAmount] = useState("");
@@ -104,9 +103,6 @@ export default function InvestmentPage({ token, onBack, onSuccess }: Props) {
   return (
     <main className="funds-page investment-page">
       <div className="funds-inner">
-        <button type="button" className="funds-back" onClick={onBack}>
-          ← Back to trading
-        </button>
         <div className="funds-title-row investment-title-row">
           <BrandLogo size={44} />
           <h1>Investment</h1>

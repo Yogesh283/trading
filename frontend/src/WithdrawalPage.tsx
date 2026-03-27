@@ -15,12 +15,11 @@ const MIN_BALANCE_INR = MIN_WITHDRAW_USDT * INR_PER_USDT;
 
 type Props = {
   token: string;
-  onBack: () => void;
   balance: number;
   onSuccess: () => void;
 };
 
-export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Props) {
+export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
   const [tpnField, setTpnField] = useState("");
@@ -144,10 +143,6 @@ export default function WithdrawalPage({ token, onBack, balance, onSuccess }: Pr
 
   return (
     <div className="funds-page">
-      <button type="button" className="funds-back" onClick={onBack}>
-        ← Dashboard
-      </button>
-
       <div className="funds-card">
         <div className="funds-title-row">
           <BrandLogo size={44} />

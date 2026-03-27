@@ -34,6 +34,7 @@ import {
   TIMEFRAME_OPTIONS,
   type ChartTimeframeSec,
   coerceTradeTimeframeSec,
+  addDemoFunds,
   createDemoOrder,
   createLiveOrder,
   loadAccount,
@@ -164,6 +165,14 @@ const FX_BASE_ICON: Record<string, string> = {
 
 function formatForexPair(sym: string) {
   return /^[A-Z]{6}$/.test(sym) ? `${sym.slice(0, 3)}/${sym.slice(3)}` : sym;
+}
+
+/** Compact pair label for mobile chart top bar (e.g. EUR/USD → "EU…"). */
+function formatForexPairTopbarShort(sym: string) {
+  if (/^[A-Z]{6}$/.test(sym)) {
+    return `${sym.slice(0, 2)}…`;
+  }
+  return sym.length > 5 ? `${sym.slice(0, 3)}…` : sym;
 }
 
 function formatFxPrice(_sym: string, p: number) {
@@ -324,6 +333,11 @@ export default function App() {
   /** Scroll target for “clock” control in mobile trade bar (expiry / open trades). */
   const mobileBinaryExpiryRef = useRef<HTMLDivElement>(null);
   const mobileChartTypeWrapRef = useRef<HTMLDivElement>(null);
+  const tradingPageWalletWrapRef = useRef<HTMLDivElement>(null);
+  const [tradingPageWalletMenuOpen, setTradingPageWalletMenuOpen] = useState(false);
+  const [demoTopUpBusy, setDemoTopUpBusy] = useState(false);
+  const [demoFundsSuccessPopup, setDemoFundsSuccessPopup] = useState<null | { added: number; balance: number }>(null);
+  const demoFundsPopupTimeoutRef = useRef<number | null>(null);
   /** After binary timeout, server settles in RAM — WS does not push trades; we poll + show this banner. */
   const [binarySettleNotice, setBinarySettleNotice] = useState<null | { text: string; pnl: number }>(
     null
@@ -360,10 +374,21 @@ export default function App() {
   []
 );
 
+  const dismissDemoFundsSuccessPopup = useCallback(() => {
+    if (demoFundsPopupTimeoutRef.current != null) {
+      window.clearTimeout(demoFundsPopupTimeoutRef.current);
+      demoFundsPopupTimeoutRef.current = null;
+    }
+    setDemoFundsSuccessPopup(null);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (orderPopupTimeoutRef.current) {
         clearTimeout(orderPopupTimeoutRef.current);
+      }
+      if (demoFundsPopupTimeoutRef.current != null) {
+        window.clearTimeout(demoFundsPopupTimeoutRef.current);
       }
       if (binaryCreatedTimerRef.current != null) {
         window.clearTimeout(binaryCreatedTimerRef.current);
@@ -402,6 +427,15 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [orderPlacedPopup, dismissOrderPlacedPopup]);
+
+  useEffect(() => {
+    if (!demoFundsSuccessPopup) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissDemoFundsSuccessPopup();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [demoFundsSuccessPopup, dismissDemoFundsSuccessPopup]);
 
   useEffect(() => {
     if (!session) return;
@@ -502,6 +536,29 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
     };
   }, [mobileChartTypeMenuOpen]);
+
+  useEffect(() => {
+    if (!tradingPageWalletMenuOpen) {
+      return;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (tradingPageWalletWrapRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setTradingPageWalletMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setTradingPageWalletMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [tradingPageWalletMenuOpen]);
 
   useEffect(() => {
     if (!mainNavOpen) return;
@@ -775,6 +832,30 @@ export default function App() {
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
+
+  const handleAddDemoFunds = useCallback(async () => {
+    if (!session?.token) {
+      return;
+    }
+    setDemoTopUpBusy(true);
+    setMessage("");
+    try {
+      const out = await addDemoFunds(session.token);
+      await refreshRef.current(accountWallet, { skipMarketTicks: true });
+      if (demoFundsPopupTimeoutRef.current != null) {
+        window.clearTimeout(demoFundsPopupTimeoutRef.current);
+      }
+      setDemoFundsSuccessPopup({ added: out.added, balance: out.demo_balance });
+      demoFundsPopupTimeoutRef.current = window.setTimeout(() => {
+        setDemoFundsSuccessPopup(null);
+        demoFundsPopupTimeoutRef.current = null;
+      }, 5000);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Could not add demo funds.");
+    } finally {
+      setDemoTopUpBusy(false);
+    }
+  }, [session, accountWallet]);
 
   useEffect(() => {
     if (!walletActivityOpen || !session) {
@@ -1106,6 +1187,22 @@ export default function App() {
     setQuantity(String(Math.max(1, cur + delta)));
   };
 
+  /**
+   * Quick stake from wallet: 2x→20%, 3x→30%, 5x→50%, 10x→100% of balance (e.g. bal 100 → 10x = 100).
+   */
+  const applyMobileStakeMultiplier = (mult: number) => {
+    const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
+    if (bal == null || !Number.isFinite(bal) || bal <= 0) {
+      setMessage("Balance not loaded — wait or refresh.");
+      return;
+    }
+    const cap = Math.max(1, Math.floor(bal));
+    const raw = Math.floor((bal * mult) / 10);
+    const next = Math.min(Math.max(1, raw), cap);
+    setQuantity(String(next));
+    setMessage("");
+  };
+
   const handleAuth = async (event: FormEvent) => {
     event.preventDefault();
     setAuthBusy(true);
@@ -1211,7 +1308,6 @@ export default function App() {
     if (publicScreen === "about") {
       return (
         <AboutPage
-          onBack={() => setPublicScreen("landing")}
           onLogin={() => {
             setAuthView("login");
             setPublicScreen("auth");
@@ -1256,7 +1352,9 @@ export default function App() {
       className={`app-shell${session && isPhone ? " app-mobile-trade" : ""}${session && !isPhone ? " app-guest-desktop-dock" : ""}`}
       data-dock={session && isPhone ? "theme" : undefined}
       data-account-wallet={session && isPhone ? accountWallet : undefined}
+      data-dashboard-section={session && isPhone ? dashboardSection : undefined}
     >
+      {!(session && isPhone) ? (
       <header className={`app-main-nav${mainNavOpen ? " app-main-nav--drawer-open" : ""}`}>
         <div className="app-main-nav-row">
           {isPhone ? (
@@ -1439,12 +1537,26 @@ export default function App() {
         </div>
         {!isPhone ? (
           <p className="app-main-nav-sub">
-            {accountWallet === "demo"
-              ? "Demo — virtual funds · switch to Live for your funded balance"
-              : formatAuthUserContact(session.user)}
+            {accountWallet === "demo" ? (
+              <>
+                Demo — virtual funds ·{" "}
+                <button
+                  type="button"
+                  className="app-nav-inline-link"
+                  disabled={demoTopUpBusy}
+                  onClick={() => void handleAddDemoFunds()}
+                >
+                  Add demo funds
+                </button>
+                {" · "}switch to Live for your funded balance
+              </>
+            ) : (
+              formatAuthUserContact(session.user)
+            )}
           </p>
         ) : null}
       </header>
+      ) : null}
 
       {/*
         Drawer must NOT live inside <header>: .app-main-nav uses backdrop-filter, which creates a containing
@@ -1506,6 +1618,19 @@ export default function App() {
                   Live
                 </button>
               </div>
+            </div>
+            <div className="app-nav-drawer-demo-topup">
+              <button
+                type="button"
+                className="app-nav-drawer-demo-topup-btn"
+                disabled={demoTopUpBusy}
+                onClick={() => {
+                  setMainNavOpen(false);
+                  void handleAddDemoFunds();
+                }}
+              >
+                Add demo funds (+{formatInr(DEFAULT_DEMO_BALANCE_INR)} default)
+              </button>
             </div>
             <div className="app-nav-drawer-links">
               <button
@@ -1643,48 +1768,168 @@ export default function App() {
         </div>
       ) : null}
 
+      {session && isPhone ? (
+        <div className="mobile-wallet-nav-wrap">
+          <div className="mobile-trading-page-nav" aria-label="Wallet and account">
+            <button
+              type="button"
+              className="mobile-tpn-profile"
+              aria-label="Open menu"
+              onClick={() => setMainNavOpen(true)}
+            >
+              <span className="mobile-tpn-profile-ring" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.6" />
+                  <path
+                    d="M6 19.5c0-3 2.5-5 6-5s6 2 6 5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+              <span className="mobile-tpn-profile-dot" aria-hidden />
+            </button>
+            <div className="mobile-tpn-center-wrap" ref={tradingPageWalletWrapRef}>
+              <button
+                type="button"
+                className="mobile-tpn-center"
+                aria-expanded={tradingPageWalletMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setTradingPageWalletMenuOpen((o) => !o)}
+              >
+                <span className="mobile-tpn-balance">
+                  {fmtHeaderWallet(accountWallet === "demo" ? dualBalances.demo : dualBalances.live)}
+                </span>
+                <span
+                  className={`mobile-tpn-account-line${
+                    accountWallet === "demo" ? " mobile-tpn-account-line--demo" : " mobile-tpn-account-line--live"
+                  }`}
+                >
+                  {accountWallet === "demo" ? "Demo account" : "Live account"}
+                  <span className="mobile-tpn-chevron" aria-hidden>
+                    ▾
+                  </span>
+                </span>
+              </button>
+              {tradingPageWalletMenuOpen ? (
+                <div className="mobile-tpn-dropdown" role="menu" aria-label="Switch trading account">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={accountWallet === "demo" ? "active" : ""}
+                    onClick={() => {
+                      setUserAccountWallet("demo");
+                      void refresh("demo").catch(() => undefined);
+                      setTradingPageWalletMenuOpen(false);
+                    }}
+                  >
+                    <span>Demo</span>
+                    <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.demo)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={accountWallet === "live" ? "active" : ""}
+                    onClick={() => {
+                      setUserAccountWallet("live");
+                      void refresh("live").catch(() => undefined);
+                      setTradingPageWalletMenuOpen(false);
+                    }}
+                  >
+                    <span>Live</span>
+                    <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.live)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="mobile-tpn-dd-add-demo"
+                    disabled={demoTopUpBusy}
+                    onClick={() => {
+                      setTradingPageWalletMenuOpen(false);
+                      void handleAddDemoFunds();
+                    }}
+                  >
+                    <span>Add demo funds</span>
+                    <span className="mobile-tpn-dd-add-hint">
+                      +{formatInr(DEFAULT_DEMO_BALANCE_INR)} default
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="mobile-tpn-wallet-fab"
+              aria-label={accountWallet === "demo" ? "Switch to live account" : "Switch to demo account"}
+              title={accountWallet === "demo" ? "Switch to live" : "Switch to demo"}
+              onClick={() => {
+                const next = accountWallet === "demo" ? "live" : "demo";
+                setUserAccountWallet(next);
+                void refresh(next).catch(() => undefined);
+                setTradingPageWalletMenuOpen(false);
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path
+                  d="M4 8a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+                <path d="M4 10h16" stroke="currentColor" strokeWidth="1.6" />
+                <path
+                  d="M8 6V5a2 2 0 012-2h4a2 2 0 012 2v1"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {dashboardSection === "about" ? (
-        <AboutPage embeddedInApp onBack={() => setDashboardSection("trading")} />
+        <AboutPage embeddedInApp />
       ) : dashboardSection === "deposit" ? (
         <DepositPage
           token={session.token}
-          onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
       ) : dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
           balance={account?.balance ?? 0}
-          onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
       ) : dashboardSection === "investment" ? (
         <InvestmentPage
           token={session.token}
-          onBack={() => setDashboardSection("trading")}
           onSuccess={() => void refresh()}
         />
       ) : dashboardSection === "referral" ? (
-        <ReferralPage token={session.token} onBack={() => setDashboardSection("trading")} />
+        <ReferralPage token={session.token} />
       ) : dashboardSection === "help" ? (
-        <HelpTicketPage token={session.token} onBack={() => setDashboardSection("trading")} />
+        <HelpTicketPage token={session.token} />
       ) : (
       <>
       {session && isPhone ? (
         <main className="mobile-trade-root">
-          <header className="mobile-chart-topbar">
-            <button
-              type="button"
-              className="mobile-asset-pill"
-              onClick={() => setAssetPickerOpen(true)}
-            >
-              <span className="mobile-asset-pill-icon">{getAssetIcon(symbol)}</span>
-              <span className="mobile-asset-pill-text">{formatForexPair(symbol)} · FX</span>
-              <span className="mobile-chevron" aria-hidden>
-                ▾
-              </span>
-            </button>
-            <div className="mobile-topbar-right">
+          <section className="panel wide mobile-chart-wrap" id="app-chart-anchor">
+            <header className="mobile-chart-topbar mobile-chart-topbar--trading mobile-chart-topbar--in-card">
+              <button
+                type="button"
+                className="mobile-asset-pill"
+                title={formatForexPair(symbol)}
+                onClick={() => setAssetPickerOpen(true)}
+              >
+                <span className="mobile-asset-pill-icon">{getAssetIcon(symbol)}</span>
+                <span className="mobile-asset-pill-text">{formatForexPairTopbarShort(symbol)}</span>
+                <span className="mobile-chevron" aria-hidden>
+                  ▾
+                </span>
+              </button>
               <div className="mobile-tf-wrap" ref={mobileTfWrapRef}>
                 <button
                   type="button"
@@ -1737,7 +1982,9 @@ export default function App() {
                   }}
                 >
                   <span className="mobile-chart-type-pill-label">
-                    {CHART_GRAPH_OPTIONS.find((o) => o.value === chartGraphType)?.label ?? "Candles"}
+                    {chartGraphType === "candles"
+                      ? "Candl…"
+                      : CHART_GRAPH_OPTIONS.find((o) => o.value === chartGraphType)?.label ?? "Chart"}
                   </span>
                   <span className="mobile-chevron" aria-hidden>
                     ▾
@@ -1768,10 +2015,7 @@ export default function App() {
                 <span className="live-dot" />
                 Live
               </span>
-            </div>
-          </header>
-
-          <section className="panel wide mobile-chart-wrap" id="app-chart-anchor">
+            </header>
             <LiveChart
               points={chartSeries}
               closedCandlesFromDb={dbClosedCandles[`${symbol}:${chartTimeframe}`] ?? []}
@@ -1827,7 +2071,7 @@ export default function App() {
                   −
                 </button>
                 <label className="mobile-stepper-mid mobile-stepper-mid--inr mobile-stepper-inr-wrap">
-                  <span className="mobile-stepper-inr-prefix">INR</span>
+                  <span className="mobile-stepper-inr-prefix"></span>
                   <input
                     id="mob-trading-amount-inr"
                     type="number"
@@ -1863,6 +2107,19 @@ export default function App() {
                   +
                 </button>
               </div>
+            </div>
+
+            <div className="mobile-stake-pct-row" role="group" aria-label="Stake as percent of balance: 2x 20%, 3x 30%, 5x 50%, 10x 100%">
+              {([2, 3, 5, 10] as const).map((mult) => (
+                <button
+                  key={mult}
+                  type="button"
+                  className="mobile-stake-pct-btn"
+                  onClick={() => applyMobileStakeMultiplier(mult)}
+                >
+                  {mult}x
+                </button>
+              ))}
             </div>
 
             <div className="mobile-trade-updown" role="group" aria-label="Place binary trade">
@@ -2098,7 +2355,7 @@ export default function App() {
               >
                 Copy
               </button>
-              <p style={{ margin: "0.35rem 0 0", fontSize: "0.88rem" }}>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.95rem" }}>
                 Share link: add <code>?ref={session.user.selfReferralCode}</code> to the site URL. When your team
                 places live binary bets, you earn <strong>0.1%</strong> of trading amount per level up to{" "}
                 <strong>5 levels</strong> (wallet credit: level income).
@@ -2222,7 +2479,7 @@ export default function App() {
                 Auto cut when timer hits 00:00 — win/loss by price vs entry
               </span>
             </div>
-            <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
+            <p className="muted" style={{ fontSize: "0.98rem", marginTop: "0.35rem" }}>
               Win: wallet gets <strong>1.8×</strong> trading amount (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full
               trading amount already taken.
             </p>
@@ -2287,7 +2544,7 @@ export default function App() {
               <span className="trade-timeout-mid">·</span>
               <span>Auto cut at 00:00</span>
             </div>
-            <p className="muted" style={{ fontSize: "0.9rem", marginTop: "0.35rem" }}>
+            <p className="muted" style={{ fontSize: "0.98rem", marginTop: "0.35rem" }}>
               Win: <strong>1.8×</strong> trading amount back (e.g. {formatInr(100)} → {formatInr(180)}). Loss: full
               trading amount.
             </p>
@@ -2739,6 +2996,36 @@ export default function App() {
               {orderPlacedPopup.summary}
             </p>
             <button type="button" className="order-placed-ok" onClick={dismissOrderPlacedPopup}>
+              OK
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {demoFundsSuccessPopup ? (
+        <div
+          className="order-placed-backdrop"
+          role="presentation"
+          onClick={dismissDemoFundsSuccessPopup}
+        >
+          <div
+            className="order-placed-modal order-placed-modal--up order-placed-modal--demo-funds"
+            role="alertdialog"
+            aria-labelledby="demo-funds-success-title"
+            aria-describedby="demo-funds-success-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="order-placed-icon" aria-hidden>
+              ✓
+            </div>
+            <p className="order-placed-badge demo">Demo account</p>
+            <p className="order-placed-direction order-placed-direction--up">Balance updated</p>
+            <h2 id="demo-funds-success-title" className="order-placed-title">
+              Good — demo funds added
+            </h2>
+            <p id="demo-funds-success-desc" className="order-placed-summary">
+              {formatInr(demoFundsSuccessPopup.added)} added · New balance {formatInr(demoFundsSuccessPopup.balance)}
+            </p>
+            <button type="button" className="order-placed-ok" onClick={dismissDemoFundsSuccessPopup}>
               OK
             </button>
           </div>
@@ -3389,91 +3676,80 @@ function LiveChart({
 
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
-      <div className="chart-meta tv-chart-toolbar">
-        <div className="tv-toolbar-left">
-          <strong className="tv-symbol">{pairLabel}</strong>
-          {tickDirection ? (
-            <span className={`tv-spot-tick ${tickDirection}`} aria-hidden>
-              {tickDirection === "up" ? "↑" : "↓"}
+      {!isMobileChart ? (
+        <div className="chart-meta tv-chart-toolbar">
+          <div className="tv-toolbar-left">
+            <strong className="tv-symbol">{pairLabel}</strong>
+            {tickDirection ? (
+              <span className={`tv-spot-tick ${tickDirection}`} aria-hidden>
+                {tickDirection === "up" ? "↑" : "↓"}
+              </span>
+            ) : null}
+            <span
+              className="tv-ohlc"
+              title={`O ${fp(current.open)} H ${fp(current.high)} L ${fp(current.low)} C ${fp(current.close)}`}
+            >
+              O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
             </span>
-          ) : null}
-          <span
-            className="tv-ohlc"
-            title={`O ${fp(current.open)} H ${fp(current.high)} L ${fp(current.low)} C ${fp(current.close)}`}
-          >
-            {isMobileChart ? (
-              <>
-                O{fp(current.open)}H{fp(current.high)}L{fp(current.low)}C{fp(current.close)}
-              </>
-            ) : (
-              <>
-                O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
-              </>
-            )}
-          </span>
-          <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
-            {change >= 0 ? "+" : ""}
-            {isMobileChart ? change.toFixed(2) : change.toFixed(4)} ({changePct.toFixed(2)}%)
-          </span>
-          <span
-            className={`tv-chart-extra-stats${isMobileChart ? " tv-chart-extra-stats--compact" : ""}`}
-            aria-label="Current candle metrics"
-          >
-            <span className="tv-stat tv-stat--range" title="Range (high − low), this candle">
-              <span className="tv-stat-label">R</span>
-              {fp(candleRange)}
+            <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
+              {change >= 0 ? "+" : ""}
+              {change.toFixed(4)} ({changePct.toFixed(2)}%)
             </span>
-            <span className="tv-stat-sep" aria-hidden>
+            <span className="tv-chart-extra-stats" aria-label="Current candle metrics">
+              <span className="tv-stat tv-stat--range" title="Range (high − low), this candle">
+                <span className="tv-stat-label">R</span>
+                {fp(candleRange)}
+              </span>
+              <span className="tv-stat-sep" aria-hidden>
+                ·
+              </span>
+              <span
+                className={`tv-stat tv-stat--body ${candleBody >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
+                title="Body (close − open), this candle"
+              >
+                <span className="tv-stat-label">Δ</span>
+                {candleBody >= 0 ? "+" : ""}
+                {fp(candleBody)}
+              </span>
+              {vsPrevClose != null ? (
+                <>
+                  <span className="tv-stat-sep" aria-hidden>
+                    ·
+                  </span>
+                  <span
+                    className={`tv-stat tv-stat--prev ${vsPrevClose >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
+                    title="Change vs previous candle close"
+                  >
+                    <span className="tv-stat-label">Prev</span>
+                    {vsPrevClose >= 0 ? "+" : ""}
+                    {fp(vsPrevClose)}
+                  </span>
+                </>
+              ) : null}
+            </span>
+          </div>
+          <div className="chart-meta-right tv-chart-meta">
+            <span
+              className={`tv-chart-candle-timer${
+                tickDirection === "up"
+                  ? " tv-chart-candle-timer--up"
+                  : tickDirection === "down"
+                    ? " tv-chart-candle-timer--down"
+                    : ""
+              }`}
+              aria-live="polite"
+              title="Time until this candle closes"
+            >
+              <span className="tv-chart-candle-timer-label">{tfLabel(timeframeSec)}</span>
+              <span className="tv-chart-candle-timer-val">{countdownStr}</span>
+            </span>
+            <span className="tv-chart-meta-sep" aria-hidden>
               ·
             </span>
-            <span
-              className={`tv-stat tv-stat--body ${candleBody >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
-              title="Body (close − open), this candle"
-            >
-              <span className="tv-stat-label">Δ</span>
-              {candleBody >= 0 ? "+" : ""}
-              {fp(candleBody)}
-            </span>
-            {vsPrevClose != null ? (
-              <>
-                <span className="tv-stat-sep" aria-hidden>
-                  ·
-                </span>
-                <span
-                  className={`tv-stat tv-stat--prev ${vsPrevClose >= 0 ? "tv-stat--bull" : "tv-stat--bear"}`}
-                  title="Change vs previous candle close"
-                >
-                  <span className="tv-stat-label">{isMobileChart ? "P" : "Prev"}</span>
-                  {vsPrevClose >= 0 ? "+" : ""}
-                  {fp(vsPrevClose)}
-                </span>
-              </>
-            ) : null}
-          </span>
+            <span title={`Open trades: ${openTrades.length}`}>Trades: {openTrades.length}</span>
+          </div>
         </div>
-        <div className="chart-meta-right tv-chart-meta">
-          <span
-            className={`tv-chart-candle-timer${
-              tickDirection === "up"
-                ? " tv-chart-candle-timer--up"
-                : tickDirection === "down"
-                  ? " tv-chart-candle-timer--down"
-                  : ""
-            }`}
-            aria-live="polite"
-            title="Time until this candle closes"
-          >
-            <span className="tv-chart-candle-timer-label">{tfLabel(timeframeSec)}</span>
-            <span className="tv-chart-candle-timer-val">{countdownStr}</span>
-          </span>
-          <span className="tv-chart-meta-sep" aria-hidden>
-            ·
-          </span>
-          <span title={`Open trades: ${openTrades.length}`}>
-            {isMobileChart ? `T:${openTrades.length}` : `Trades: ${openTrades.length}`}
-          </span>
-        </div>
-      </div>
+      ) : null}
       <div className="chart-svg-wrap chart-lw-wrap">
         <div
           className="chart-touch-layer chart-lw-touch"

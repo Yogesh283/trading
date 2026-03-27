@@ -23,42 +23,25 @@
   position: relative;
 }
 
-.funds-back {
-  position: absolute;
-  top: 24px;
-  left: 20px;
-  border: 0;
-  background: transparent;
-  color: #73c8ff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 8px 0;
-}
-
-.funds-back:hover {
-  text-decoration: underline;
-}
-
 .funds-card {
   background: rgba(8, 8, 8, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 28px;
-  margin-top: 48px;
+  margin-top: 0;
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.25);
 }
 
 .funds-card h1 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: 26px;
   color: #e5edf7;
 }
 
 .funds-network {
   margin: 0 0 24px;
   color: #8da2c0;
-  font-size: 14px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -71,7 +54,7 @@
   background: rgba(0, 200, 83, 0.2);
   color: #70f0b4;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .funds-block {
@@ -82,7 +65,7 @@
   display: block;
   margin-bottom: 8px;
   color: #a8b8cf;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .funds-address-row {
@@ -100,7 +83,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(110, 160, 255, 0.15);
   color: #d8e6fb;
-  font-size: 13px;
+  font-size: 15px;
   word-break: break-all;
 }
 
@@ -134,7 +117,7 @@
 }
 
 .funds-balance strong {
-  font-size: 22px;
+  font-size: 24px;
   color: #e5edf7;
 }
 
@@ -148,7 +131,7 @@
   display: grid;
   gap: 8px;
   color: #a8b8cf;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .funds-form input {
@@ -157,7 +140,7 @@
   border: 1px solid rgba(110, 160, 255, 0.2);
   background: rgba(255, 255, 255, 0.04);
   color: #edf4ff;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .funds-form input::placeholder {
@@ -172,7 +155,7 @@
   color: #fff;
   font-weight: 700;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .funds-form button:disabled {
@@ -186,7 +169,7 @@
   border-radius: 12px;
   background: rgba(126, 240, 181, 0.12);
   color: #70f0b4;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .funds-warn {
@@ -201,20 +184,20 @@
   display: block;
   margin-bottom: 8px;
   color: #ffd666;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .funds-warn ul {
   margin: 0;
   padding-left: 20px;
   color: #cbd8ea;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
 .funds-note {
   margin: 20px 0 0;
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7a8f;
   line-height: 1.5;
 }
@@ -232,7 +215,7 @@
   border: 1px solid rgba(110, 160, 255, 0.25);
   background: rgba(255, 255, 255, 0.05);
   color: #b8cce6;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -254,7 +237,7 @@
   border-radius: 14px;
   background: rgba(0, 163, 255, 0.1);
   border: 1px solid rgba(0, 163, 255, 0.25);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.55;
   color: #b8d4f0;
 }
@@ -266,7 +249,7 @@
 }
 
 .funds-mobile-tip code {
-  font-size: 11px;
+  font-size: 13px;
   background: rgba(0, 0, 0, 0.25);
   padding: 2px 6px;
   border-radius: 4px;
@@ -293,7 +276,7 @@
   gap: 8px;
   margin-bottom: 20px;
   color: #a8b8cf;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .funds-gateway .funds-amount-label input {
@@ -302,26 +285,26 @@
   border: 1px solid rgba(110, 160, 255, 0.2);
   background: rgba(255, 255, 255, 0.04);
   color: #edf4ff;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .funds-wallets-title {
   margin: 24px 0 6px;
-  font-size: 16px;
+  font-size: 18px;
   color: #e5edf7;
 }
 
 .funds-wallets-hint {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: 15px;
   color: #8da2c0;
 }
 
 .deposit-flow-steps {
   margin: 0 0 20px;
   padding-left: 1.15rem;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.55;
   color: #a8b8cf;
 }
@@ -340,7 +323,7 @@
 
 .deposit-flow-mobile-hint {
   margin: 0 0 18px;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   color: #8da2c0;
 }
@@ -357,7 +340,7 @@
   border: none;
   background: linear-gradient(135deg, #00c853 0%, #00a344 100%);
   color: #041208;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.02em;
   cursor: pointer;
@@ -378,7 +361,7 @@
 
 .deposit-direct-sub {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   color: #8da2c0;
 }
@@ -389,7 +372,7 @@
   border-radius: 14px;
   background: rgba(255, 180, 0, 0.08);
   border: 1px solid rgba(255, 200, 80, 0.25);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   color: #e8c97a;
 }
@@ -403,7 +386,7 @@
   border: 1px solid rgba(0, 200, 255, 0.45);
   background: rgba(0, 163, 255, 0.12);
   color: #7fd8ff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   text-align: center;
@@ -451,16 +434,16 @@
 
 .wallet-tile-name {
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .wallet-tile-desc {
-  font-size: 11px;
+  font-size: 13px;
   color: #8da2c0;
 }
 
 .wallet-tile-busy {
-  font-size: 11px;
+  font-size: 13px;
   color: #70f0b4;
 }
 
@@ -486,12 +469,12 @@
 
 .deposit-inr-preview {
   margin: -6px 0 14px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .withdrawal-inr-line {
   margin: -8px 0 12px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .funds-message-wide {
@@ -511,7 +494,7 @@
 .deposit-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -528,7 +511,7 @@
 }
 
 .deposit-table th {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -537,7 +520,7 @@
 
 .deposit-table-wallet {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: 0.01em;
   color: #f1f5f9;
   line-height: 1.35;
@@ -554,7 +537,7 @@
 
 .dep-status {
   text-transform: capitalize;
-  font-size: 11px;
+  font-size: 13px;
   padding: 2px 8px;
   border-radius: 6px;
 }
@@ -621,7 +604,7 @@
 }
 
 .deposit-qr-amount-hint {
-  font-size: 12px;
+  font-size: 14px;
   margin: -6px 0 4px;
   line-height: 1.4;
 }
@@ -677,7 +660,7 @@
 
 .funds-err {
   color: #ff8a8a;
-  font-size: 13px;
+  font-size: 15px;
   margin-top: 10px;
 }
 
@@ -689,7 +672,7 @@
 
 .funds-history h2 {
   margin: 0 0 14px;
-  font-size: 16px;
+  font-size: 18px;
   color: #cbd8ea;
 }
 
@@ -709,19 +692,19 @@
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.04);
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .funds-history-status {
   text-transform: capitalize;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #ffc107;
 }
 
 .funds-history-meta {
   grid-column: 1 / -1;
-  font-size: 12px;
+  font-size: 14px;
   color: #8da2c0;
 }
 
@@ -745,13 +728,13 @@
 
 .investment-stat span {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   color: #8da2c0;
   margin-bottom: 6px;
 }
 
 .investment-stat strong {
-  font-size: 18px;
+  font-size: 20px;
   color: #7ee787;
 }
 
@@ -778,7 +761,7 @@
 
 .investment-page .funds-card h2 {
   margin: 0 0 8px;
-  font-size: 18px;
+  font-size: 20px;
   color: #e5edf7;
 }
 
@@ -839,7 +822,7 @@
 
 .withdrawal-tpn-url-input,
 .withdrawal-tpn-secret-input {
-  font-size: 12px;
+  font-size: 14px;
   word-break: break-all;
 }
 
@@ -869,7 +852,7 @@
 
 .referral-h2 {
   margin: 0 0 12px;
-  font-size: 16px;
+  font-size: 18px;
   color: #b8c9e0;
   font-weight: 600;
 }
@@ -900,7 +883,7 @@
   color: #e8fff4;
   font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .referral-copy-btn:hover,
@@ -926,12 +909,12 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.45);
   color: #c5d4e8;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .referral-commission-hint {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -972,13 +955,13 @@
 
 .referral-stat-value {
   display: block;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: #7ee787;
 }
 
 .referral-stat-label {
-  font-size: 12px;
+  font-size: 14px;
   color: #8da2c0;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -994,7 +977,7 @@
 .referral-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .referral-table th,
@@ -1007,7 +990,7 @@
 .referral-table th {
   color: #8da2c0;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1035,7 +1018,7 @@
 .referral-table-empty {
   text-align: center;
   color: #8da2c0;
-  font-size: 13px;
+  font-size: 15px;
   padding: 18px 14px !important;
 }
 
@@ -1086,7 +1069,7 @@
 }
 
 .referral-total-earn-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1115,7 +1098,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: 15px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -1151,7 +1134,7 @@
 .referral-copy-toast {
   color: #7ee787;
   margin: 8px 0 0;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .help-ticket-form {
@@ -1165,7 +1148,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #9aacbf;
 }
@@ -1179,7 +1162,7 @@
   background: rgba(0, 0, 0, 0.35);
   color: #e8edf4;
   font: inherit;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .help-ticket-textarea {
@@ -1195,7 +1178,7 @@
   background: linear-gradient(180deg, rgba(14, 165, 233, 0.25) 0%, rgba(2, 132, 199, 0.15) 100%);
   color: #e0f2fe;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
   cursor: pointer;
 }
 
@@ -1229,12 +1212,12 @@
 }
 
 .help-ticket-id {
-  font-size: 13px;
+  font-size: 15px;
   color: #7dd3fc;
 }
 
 .help-ticket-status {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1247,21 +1230,21 @@
 
 .help-ticket-subj {
   display: block;
-  font-size: 15px;
+  font-size: 17px;
   color: #f1f5f9;
   margin-bottom: 6px;
 }
 
 .help-ticket-body {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
   color: #9aacbf;
   white-space: pre-wrap;
 }
 
 .help-ticket-time {
-  font-size: 12px;
+  font-size: 14px;
   color: #64748b;
 }
 
@@ -1276,14 +1259,14 @@
 
 .deposit-address-title {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 800;
   color: #b8f5ce;
 }
 
 .deposit-address-line {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   word-break: break-all;
   color: #e8f0ff;
@@ -1305,7 +1288,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -1316,19 +1299,19 @@
 .deposit-scan-link {
   color: #7ecbff;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .deposit-mm-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.55;
   color: #9aacbf;
 }
 
 .deposit-your-wallet {
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: 15px;
   color: #8da2c0;
 }
 

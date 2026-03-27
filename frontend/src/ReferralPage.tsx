@@ -6,7 +6,6 @@ import { formatInr } from "./fundsConfig";
 
 type Props = {
   token: string;
-  onBack: () => void;
 };
 
 function buildReferralLink(code: string): string {
@@ -17,7 +16,7 @@ function buildReferralLink(code: string): string {
   return u.toString();
 }
 
-export default function ReferralPage({ token, onBack }: Props) {
+export default function ReferralPage({ token }: Props) {
   const [data, setData] = useState<ReferralSummary | null>(null);
   const [error, setError] = useState("");
   const [copyMsg, setCopyMsg] = useState("");
@@ -65,10 +64,6 @@ export default function ReferralPage({ token, onBack }: Props) {
 
   return (
     <div className="funds-page referral-page">
-      <button type="button" className="funds-back" onClick={onBack}>
-        ← Back
-      </button>
-
       <div className="funds-card referral-card">
         <div className="funds-title-row investment-title-row">
           <BrandLogo size={40} />

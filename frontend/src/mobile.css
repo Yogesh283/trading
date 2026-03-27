@@ -37,7 +37,7 @@ body {
   }
 
   .hero h1 {
-    font-size: clamp(28px, 4.5vw, 48px);
+    font-size: clamp(30px, 4.5vw, 50px);
   }
 }
 
@@ -80,7 +80,7 @@ body {
   .auth-nav-back {
     flex-shrink: 0;
     padding: 8px 4px 8px 0;
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .auth-nav-brand .auth-nav-brand-logo {
@@ -139,12 +139,12 @@ body {
   }
 
   .hero h1 {
-    font-size: clamp(24px, 8vw, 40px);
+    font-size: clamp(26px, 8vw, 42px);
     line-height: 1.08;
   }
 
   .subtext {
-    font-size: 14px;
+    font-size: 16px;
     margin-top: 10px;
   }
 
@@ -164,7 +164,7 @@ body {
   .dashboard-nav-funds button {
     width: 100%;
     min-height: 48px;
-    font-size: 14px;
+    font-size: 16px;
     padding: 12px 14px;
     -webkit-tap-highlight-color: transparent;
   }
@@ -180,7 +180,7 @@ body {
   }
 
   .panel h2 {
-    font-size: 17px;
+    font-size: 19px;
   }
 
   .stats {
@@ -194,7 +194,7 @@ body {
   }
 
   .stat strong {
-    font-size: 16px;
+    font-size: 18px;
     word-break: break-word;
   }
 
@@ -209,7 +209,7 @@ body {
   }
 
   .badge {
-    font-size: 12px;
+    font-size: 14px;
     padding: 8px 10px;
   }
 
@@ -232,7 +232,7 @@ body {
   }
 
   .tv-ohlc {
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.4;
     word-break: break-all;
   }
@@ -253,7 +253,7 @@ body {
   }
 
   .tv-time-label {
-    font-size: 22px !important;
+    font-size: 24px !important;
     font-weight: 700;
   }
 
@@ -266,7 +266,7 @@ body {
   .chart-toolbar-vertical button {
     min-width: 32px;
     height: 28px;
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .chart-zoom-controls {
@@ -276,14 +276,14 @@ body {
   .chart-zoom-controls button {
     width: 32px;
     height: 24px;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .trade-form input,
   .trade-form select,
   .trade-form button {
     min-height: 48px;
-    font-size: 16px;
+    font-size: 18px;
     width: 100%;
     max-width: 100%;
   }
@@ -317,13 +317,13 @@ body {
 
   .auth-form input {
     min-height: 48px;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .auth-form button {
     min-height: 50px;
     width: 100%;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .secondary-button {
@@ -343,13 +343,13 @@ body {
   }
 
   .auth-footer {
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.5;
   }
 
   .message {
     word-break: break-word;
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .table-scroll {
@@ -368,7 +368,7 @@ body {
   .table-row {
     padding: 10px 12px;
     gap: 8px;
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .wallet-pill {
@@ -384,18 +384,6 @@ body {
     padding-top: max(12px, env(safe-area-inset-top, 0px));
   }
 
-  .funds-back {
-    position: relative;
-    top: auto;
-    left: auto;
-    margin-bottom: 8px;
-    min-height: 44px;
-    padding: 10px 0;
-    display: inline-flex;
-    align-items: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-
   .funds-card {
     margin-top: 0;
     padding: 18px 14px;
@@ -403,21 +391,21 @@ body {
   }
 
   .funds-card h1 {
-    font-size: clamp(18px, 5vw, 22px);
+    font-size: clamp(20px, 5vw, 24px);
     line-height: 1.25;
   }
 
   .funds-card h2 {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .funds-network {
     flex-wrap: wrap;
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .funds-gateway .funds-amount-label input {
-    font-size: 16px;
+    font-size: 18px;
     width: 100%;
   }
 
@@ -433,7 +421,7 @@ body {
   }
 
   .wallet-tile-name {
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .deposit-table-wrap {
@@ -445,7 +433,7 @@ body {
 
   .deposit-table {
     min-width: 560px;
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .deposit-table th,
@@ -470,13 +458,13 @@ body {
     width: 100%;
     min-width: 0;
     min-height: 48px;
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .funds-form input,
   .funds-form button {
     min-height: 48px;
-    font-size: 16px;
+    font-size: 18px;
     width: 100%;
   }
 
@@ -487,7 +475,7 @@ body {
   }
 
   .funds-balance strong {
-    font-size: 20px;
+    font-size: 22px;
   }
 
   .funds-address-row {
@@ -520,7 +508,7 @@ body {
 
   .landing-brand {
     justify-content: flex-start;
-    font-size: 17px;
+    font-size: 19px;
     flex: 1;
     min-width: 0;
   }
@@ -563,7 +551,7 @@ body {
   }
 
   .landing-section-title {
-    font-size: 22px;
+    font-size: 24px;
     margin-bottom: 28px;
   }
 
@@ -604,7 +592,7 @@ body {
   }
 
   .splash-title {
-    font-size: clamp(22px, 6vw, 28px);
+    font-size: clamp(24px, 6vw, 30px);
   }
 }
 
@@ -615,7 +603,7 @@ body {
   }
 
   .eyebrow {
-    font-size: 11px;
+    font-size: 13px;
   }
 
   .stats {
@@ -623,11 +611,11 @@ body {
   }
 
   .landing-hero h1 {
-    font-size: clamp(24px, 9vw, 34px);
+    font-size: clamp(26px, 9vw, 36px);
   }
 
   .landing-hero-sub {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .landing-hero-cta {
@@ -662,10 +650,10 @@ body {
 
 @media (max-width: 380px) {
   .panel h2 {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .badge {
-    font-size: 11px;
+    font-size: 13px;
   }
 }

@@ -5,10 +5,9 @@ import { BrandLogo } from "./BrandLogo";
 
 type Props = {
   token: string;
-  onBack: () => void;
 };
 
-export default function HelpTicketPage({ token, onBack }: Props) {
+export default function HelpTicketPage({ token }: Props) {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,10 +53,6 @@ export default function HelpTicketPage({ token, onBack }: Props) {
 
   return (
     <div className="funds-page referral-page help-ticket-page">
-      <button type="button" className="funds-back" onClick={onBack}>
-        ← Back
-      </button>
-
       <div className="funds-card referral-card">
         <div className="funds-title-row investment-title-row">
           <BrandLogo size={40} />
