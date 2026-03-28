@@ -107,7 +107,7 @@ export default function ReferralPage({ token }: Props) {
               {data.inviter ? (
                 <div className="referral-inviter">
                   <strong>{data.inviter.name}</strong>
-                  <span className="muted">{data.inviter.email}</span>
+                  <span className="muted referral-inviter-mobile">{data.inviter.mobile}</span>
                 </div>
               ) : (
                 <p className="muted">You signed up without a promotion code.</p>
@@ -118,10 +118,6 @@ export default function ReferralPage({ token }: Props) {
               <h2 className="referral-h2" id="referral-total-earn-heading">
                 Total earnings
               </h2>
-              <p className="muted referral-total-earn-hint">
-                Totals shown are promotion commissions already credited to your live wallet — from team binary trading,
-                staking (investment add-ons), and monthly investment ROI upline payouts.
-              </p>
               <div className="referral-total-earn-card">
                 <div className="referral-total-earn-hero">
                   <span className="referral-total-earn-label">Total (INR)</span>
@@ -252,7 +248,8 @@ export default function ReferralPage({ token }: Props) {
                   <thead>
                     <tr>
                       <th>Name</th>
-                      <th>Email</th>
+                      <th className="referral-col-email">Email</th>
+                      <th className="referral-col-mobile">Mobile</th>
                       <th>Joined</th>
                       <th>Live wallet</th>
                       <th>Deposits</th>
@@ -262,7 +259,7 @@ export default function ReferralPage({ token }: Props) {
                   <tbody>
                     {data.directTeam.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="referral-table-empty">
+                        <td colSpan={7} className="referral-table-empty">
                           No direct referrals yet — share your promotion link above to grow your team.
                         </td>
                       </tr>
@@ -270,7 +267,8 @@ export default function ReferralPage({ token }: Props) {
                       data.directTeam.map((m) => (
                         <tr key={m.id}>
                           <td>{m.name}</td>
-                          <td className="referral-email">{m.email}</td>
+                          <td className="referral-email referral-col-email">{m.email}</td>
+                          <td className="referral-mobile referral-col-mobile">{m.mobile}</td>
                           <td className="referral-date">
                             {new Date(m.createdAt).toLocaleDateString(undefined, {
                               year: "numeric",

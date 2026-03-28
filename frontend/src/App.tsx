@@ -2035,7 +2035,7 @@ export default function App() {
                   type="button"
                   className="mobile-stepper-nudge"
                   aria-label="Decrease trading amount"
-                  onClick={() => bumpMobileStake(-10)}
+                  onClick={() => bumpMobileStake(-1)}
                 >
                   −
                 </button>
@@ -2073,7 +2073,7 @@ export default function App() {
                   type="button"
                   className="mobile-stepper-nudge"
                   aria-label="Increase trading amount"
-                  onClick={() => bumpMobileStake(10)}
+                  onClick={() => bumpMobileStake(1)}
                 >
                   +
                 </button>

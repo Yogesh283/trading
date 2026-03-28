@@ -345,6 +345,7 @@ export interface ReferralTeamMember {
   id: string;
   name: string;
   email: string;
+  mobile: string;
   createdAt: string;
   selfReferralCode: string;
   liveWalletBalanceInr: number;
@@ -374,7 +375,7 @@ export interface MonthlyRoiLevelScheduleRow {
 
 export interface ReferralSummary {
   selfReferralCode: string;
-  inviter: { name: string; email: string } | null;
+  inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMember[];
   directCount: number;
   totalTeamCount: number;

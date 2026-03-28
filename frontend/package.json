@@ -28,10 +28,13 @@
     "updownfx": "file:.."
   },
   "devDependencies": {
+    "@metamask/logo": "^4.0.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.14",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "cryptocurrency-icons": "^0.18.1",
+    "simple-icons": "^16.13.0",
     "typescript": "^5.9.3",
     "vite": "^7.1.7"
   }

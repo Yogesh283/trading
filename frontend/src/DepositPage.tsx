@@ -35,10 +35,10 @@ import {
 } from "./walletGateway";
 
 /** Mobile deep links only — no long grid of “connect” tiles. */
-const OPEN_IN_APP_WALLETS: { id: WalletGatewayId; name: string }[] = [
-  { id: "metamask", name: "MetaMask" },
-  { id: "trust_wallet", name: "Trust" },
-  { id: "coinbase_wallet", name: "Coinbase" }
+const OPEN_IN_APP_WALLETS: { id: WalletGatewayId; name: string; icon: string }[] = [
+  { id: "metamask", name: "MetaMask", icon: "/wallets/metamask.svg" },
+  { id: "trust_wallet", name: "Trust", icon: "/wallets/trust.svg" },
+  { id: "coinbase_wallet", name: "Coinbase", icon: "/wallets/coinbase.svg" }
 ];
 
 type Props = {
@@ -593,6 +593,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
                   disabled={!!busy}
                   onClick={() => void payWithWallet(w.id, w.name)}
                 >
+                  <img className="wallet-tile-icon" src={w.icon} alt="" width={26} height={26} decoding="async" />
                   <span className="wallet-tile-name">{w.name}</span>
                   {busy != null && (busy === w.name || busy === "Wallet") ? (
                     <span className="wallet-tile-busy">…</span>

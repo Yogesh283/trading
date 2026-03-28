@@ -793,6 +793,8 @@ export type ReferralTeamMemberPublic = {
   id: string;
   name: string;
   email: string;
+  /** Display phone (country + local), same format as admin tables. */
+  mobile: string;
   createdAt: string;
   selfReferralCode: string;
   /** Live trading wallet balance (INR). */
@@ -855,7 +857,7 @@ function formatFractionAsPercentLabel(fraction: number): string {
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
 export async function getReferralDashboardForUser(userId: string): Promise<{
   selfReferralCode: string;
-  inviter: { name: string; email: string } | null;
+  inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMemberPublic[];
   directCount: number;
   totalTeamCount: number;
@@ -963,28 +965,37 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     }
   }
 
-  let inviter: { name: string; email: string } | null = null;
+  let inviter: { name: string; email: string; mobile: string } | null = null;
   const mySignupRef = String(me.referral_code ?? "").trim();
   if (mySignupRef) {
-    const inv = await dbGet<{ name: string; email: string }>(
+    const inv = await dbGet<{
+      name: string;
+      email: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
+    }>(
       isMysqlMode()
-        ? "SELECT name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?) LIMIT 1"
-        : "SELECT name, email FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?)",
+        ? "SELECT name, email, phone_country_code, phone_local FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?) LIMIT 1"
+        : "SELECT name, email, phone_country_code, phone_local FROM users WHERE UPPER(TRIM(self_referral_code)) = UPPER(?)",
       [mySignupRef]
     );
     if (inv) {
-      inviter = { name: inv.name, email: inv.email };
+      inviter = {
+        name: inv.name,
+        email: inv.email,
+        mobile: formatAdminMobile(inv.phone_country_code, inv.phone_local)
+      };
     }
   }
 
   let directTeam: ReferralTeamMemberPublic[] = [];
   if (myCode) {
     const directSql = isMysqlMode()
-      ? `SELECT id, name, email, created_at, self_referral_code FROM users
+      ? `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
          ORDER BY created_at DESC`
-      : `SELECT id, name, email, created_at, self_referral_code FROM users
+      : `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
          ORDER BY created_at DESC`;
@@ -992,6 +1003,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       id: string | number;
       name: string;
       email: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
       created_at: string;
       self_referral_code: string | null;
     }>(directSql, [myCode]);
@@ -999,6 +1012,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       id: String(r.id),
       name: r.name,
       email: r.email,
+      mobile: formatAdminMobile(r.phone_country_code, r.phone_local),
       createdAt: r.created_at,
       selfReferralCode: String(r.self_referral_code ?? "").trim() || "—",
       liveWalletBalanceInr: 0,
