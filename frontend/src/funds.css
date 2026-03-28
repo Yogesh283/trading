@@ -1368,6 +1368,14 @@
   color: #86efac;
 }
 
+.help-ticket-status--in_progress {
+  color: #fde047;
+}
+
+.help-ticket-status--closed {
+  color: #94a3b8;
+}
+
 .help-ticket-subj {
   display: block;
   font-size: 17px;

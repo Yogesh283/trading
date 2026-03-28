@@ -713,6 +713,38 @@ export async function adminApproveDeposit(adminToken: string, depositId: string)
   };
 }
 
+export async function adminApproveWithdrawal(adminToken: string, withdrawalId: string) {
+  const response = await fetch(`${apiBase()}/api/admin/withdrawals/approve`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ withdrawalId })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Approve failed");
+  }
+  return j as { ok: boolean; withdrawalId: string; userId?: string; idempotent?: boolean };
+}
+
+export async function adminRejectWithdrawal(adminToken: string, withdrawalId: string) {
+  const response = await fetch(`${apiBase()}/api/admin/withdrawals/reject`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ withdrawalId })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Reject failed");
+  }
+  return j as { ok: boolean; withdrawalId: string; userId?: string; idempotent?: boolean; refundedInr?: number };
+}
+
 export async function loadMyDeposits(token: string) {
   const response = await fetch(`${apiBase()}/api/deposits/my`, {
     headers: { ...requestHeaders(token) }

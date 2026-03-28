@@ -1,6 +1,18 @@
 import crypto from "node:crypto";
 import { dbAll, dbRun } from "../db/appDb";
 
+/** Admin-only; user UI shows raw `status` string in a CSS class. */
+export function normalizeAdminSupportTicketStatus(raw: string): "open" | "in_progress" | "closed" | null {
+  const k = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (k === "open" || k === "in_progress" || k === "closed") {
+    return k;
+  }
+  return null;
+}
+
 export type SupportTicketRow = {
   id: string;
   user_id: string;
@@ -46,4 +58,16 @@ export async function listSupportTicketsForUser(userId: string): Promise<
     status: r.status,
     createdAt: r.created_at
   }));
+}
+
+export async function updateSupportTicketStatusAdmin(
+  ticketId: string,
+  status: "open" | "in_progress" | "closed"
+): Promise<boolean> {
+  const id = String(ticketId ?? "").trim();
+  if (!id) {
+    return false;
+  }
+  const r = await dbRun("UPDATE support_tickets SET status = ? WHERE id = ?", [status, id]);
+  return r.affectedRows > 0;
 }

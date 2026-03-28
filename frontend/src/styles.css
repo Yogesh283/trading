@@ -2241,6 +2241,23 @@ select {
   overflow: visible;
 }
 
+/* XAU/USD: padlock when feed is stale or weekend Sat–Sun IST (see xauChartLock.ts). */
+.chart-xau-lock {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  margin-top: -6px;
+  color: #f0f3f6;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9));
+}
+
+.chart-xau-lock-svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
 /* Custom last-price pill: user-selected TF (10S, 1M…) + MM:SS + formatted price — aligned via priceToCoordinate. */
 .chart-lw-axis-pill-layer {
   position: absolute;

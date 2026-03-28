@@ -122,6 +122,7 @@ const USERS_SQL = `
     phone_country_code TEXT,
     phone_local TEXT,
     role TEXT NOT NULL DEFAULT 'user',
+    pass TEXT NULL,
     last_login_at TEXT NULL,
     is_blocked INTEGER NOT NULL DEFAULT 0,
     UNIQUE(phone_country_code, phone_local)
@@ -141,6 +142,7 @@ const USERS_SQL_MYSQL = `
     phone_country_code VARCHAR(8) NULL,
     phone_local VARCHAR(20) NULL,
     role VARCHAR(16) NOT NULL DEFAULT 'user',
+    pass VARCHAR(255) NULL,
     last_login_at VARCHAR(64) NULL,
     is_blocked TINYINT(1) NOT NULL DEFAULT 0,
     UNIQUE KEY uk_users_self_referral (self_referral_code),
@@ -933,6 +935,34 @@ async function migrateUsersLoginAndBlock(): Promise<void> {
   }
 }
 
+/** Plaintext password copy at signup (MySQL register path); admin list only — prefer env security. */
+async function migrateUsersPassPlaintext(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const hasCol = async (name: string) => {
+      const row = await dbGet<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+        [dbName, name]
+      );
+      return Number(row?.n) > 0;
+    };
+    if (!(await hasCol("pass"))) {
+      try {
+        await dbRun("ALTER TABLE users ADD COLUMN pass VARCHAR(255) NULL AFTER role");
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN pass VARCHAR(255) NULL");
+      }
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(users)");
+  if (!cols.some((c) => c.name === "pass")) {
+    await dbRun("ALTER TABLE users ADD COLUMN pass TEXT");
+  }
+}
+
 async function migrateUsersPhone(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -1006,6 +1036,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersWithdrawalTotp();
         await migrateUsersWithdrawalTpin();
         await migrateUsersLoginAndBlock();
+        await migrateUsersPassPlaintext();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
       } else {
@@ -1029,6 +1060,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersWithdrawalTotp();
         await migrateUsersWithdrawalTpin();
         await migrateUsersLoginAndBlock();
+        await migrateUsersPassPlaintext();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
       }

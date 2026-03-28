@@ -10,10 +10,15 @@ import cron from "node-cron";
 import { DEFAULT_DEMO_BALANCE_INR } from "./config/demo";
 import { env } from "./config/env";
 import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
-import { getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
-import { createSupportTicket, listSupportTicketsForUser } from "./services/supportTicketService";
+import {
+  createSupportTicket,
+  listSupportTicketsForUser,
+  normalizeAdminSupportTicketStatus,
+  updateSupportTicketStatusAdmin
+} from "./services/supportTicketService";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "./config/symbols";
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "./config/binary";
 import { TRADE_TIMEFRAMES_SEC, binaryCandleExpiresAtMs } from "./config/timeframes";
@@ -48,7 +53,7 @@ import {
   markDepositCreditedIfPendingReview,
   markDepositTxSent
 } from "./services/depositStore";
-import { createWithdrawal, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
+import { createWithdrawal, getWithdrawalById, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
 import {
   applyLedger,
   ensureWallet,
@@ -101,6 +106,7 @@ import {
 } from "./services/referralLevelConfigService";
 import { getAdminUserInsights, searchUsersForAdmin } from "./services/adminUserInsightsService";
 import { getAdminDashboardStats } from "./services/adminDashboardService";
+import { getAdminTeamBusinessReport } from "./services/adminTeamBusinessService";
 
 /** True when running via `tsx` from `src/` (not compiled `dist/`). */
 const runningFromSourceTree = path.basename(path.normalize(__dirname)) === "src";
@@ -1027,6 +1033,112 @@ app.post("/api/deposits/admin-approve", (req, res) => {
   });
 });
 
+app.post("/api/admin/withdrawals/approve", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const withdrawalId = String(req.body?.withdrawalId ?? "").trim();
+    if (!withdrawalId) {
+      return res.status(400).json({ message: "withdrawalId required" });
+    }
+    const row = await getWithdrawalById(withdrawalId);
+    if (!row) {
+      return res.status(404).json({ message: "Withdrawal not found" });
+    }
+    if (row.status === "completed") {
+      return res.json({ ok: true, withdrawalId, idempotent: true });
+    }
+    if (row.status !== "pending" && row.status !== "processing") {
+      return res.status(400).json({ message: "Withdrawal is not awaiting approval" });
+    }
+    const now = new Date().toISOString();
+    const upd = await dbRun(
+      `UPDATE withdrawals SET status = 'completed', updated_at = ? WHERE id = ? AND status IN ('pending', 'processing')`,
+      [now, withdrawalId]
+    );
+    if (upd.affectedRows === 0) {
+      return res.status(400).json({ message: "Withdrawal already finalized" });
+    }
+    await hydrateLiveAccountFromWallet(row.user_id);
+    return res.json({ ok: true, withdrawalId, userId: row.user_id });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Approve failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "withdrawal admin-approve");
+    res.status(500).json({ message });
+  });
+});
+
+app.post("/api/admin/withdrawals/reject", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const withdrawalId = String(req.body?.withdrawalId ?? "").trim();
+    if (!withdrawalId) {
+      return res.status(400).json({ message: "withdrawalId required" });
+    }
+    const row = await getWithdrawalById(withdrawalId);
+    if (!row) {
+      return res.status(404).json({ message: "Withdrawal not found" });
+    }
+    if (row.status === "rejected") {
+      return res.json({ ok: true, withdrawalId, idempotent: true });
+    }
+    if (row.status === "completed") {
+      return res.status(400).json({ message: "Cannot reject a completed withdrawal" });
+    }
+    if (row.status !== "pending" && row.status !== "processing") {
+      return res.status(400).json({ message: "Withdrawal is not awaiting approval" });
+    }
+    const now = new Date().toISOString();
+    const upd = await dbRun(
+      `UPDATE withdrawals SET status = 'rejected', updated_at = ? WHERE id = ? AND status IN ('pending', 'processing')`,
+      [now, withdrawalId]
+    );
+    if (upd.affectedRows === 0) {
+      return res.status(400).json({ message: "Withdrawal already finalized" });
+    }
+    const refundInr = inrDebitForUsdtWithdraw(row.amount);
+    try {
+      await applyLedger(row.user_id, refundInr, "withdrawal_rejected_refund", withdrawalId);
+    } catch (err) {
+      const now2 = new Date().toISOString();
+      await dbRun(
+        `UPDATE withdrawals SET status = 'pending', updated_at = ? WHERE id = ? AND status = 'rejected'`,
+        [now2, withdrawalId]
+      ).catch(() => {});
+      const msg = err instanceof Error ? err.message : "Refund failed";
+      logger.error({ err, withdrawalId }, "withdrawal admin-reject: refund failed, status reverted to pending");
+      return res.status(500).json({ message: msg });
+    }
+    await hydrateLiveAccountFromWallet(row.user_id);
+    return res.json({ ok: true, withdrawalId, userId: row.user_id, refundedInr: refundInr });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Reject failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "withdrawal admin-reject");
+    res.status(500).json({ message });
+  });
+});
+
 /**
  * ra-data-simple-rest v5 sends `sort` / `range` as JSON in query string.
  * Older dialect used `_start`, `_end`, `_sort`, `_order`.
@@ -1382,6 +1494,52 @@ app.put("/api/admin/ra/wallets/:id", (req, res) => {
   });
 });
 
+/** React-Admin support ticket: PUT /api/admin/ra/support_tickets/:id — status only */
+app.put("/api/admin/ra/support_tickets/:id", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const id = adminSafePathId(req.params.id);
+    if (!id) {
+      return res.status(400).json({ message: "Missing id" });
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const rawStatus = body?.status;
+    const normalized =
+      typeof rawStatus === "string" ? normalizeAdminSupportTicketStatus(rawStatus) : null;
+    if (!normalized) {
+      return res.status(400).json({ message: "Valid status required (open, in_progress, closed)" });
+    }
+
+    try {
+      const ok = await updateSupportTicketStatusAdmin(id, normalized);
+      if (!ok) {
+        return res.status(404).json({ message: "Ticket not found" });
+      }
+      const row = await getAdminRaOne("support_tickets", id);
+      if (!row) {
+        return res.status(404).json({ message: "Ticket not found" });
+      }
+      return res.json(row);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Update failed";
+      return res.status(400).json({ message: msg });
+    }
+  })().catch((error) => {
+    logger.error({ error }, "admin ra put support_tickets");
+    res.status(500).json({ message: "Failed" });
+  });
+});
+
 app.get("/api/admin/referral-level-settings", (req, res) => {
   void (async () => {
     try {
@@ -1565,6 +1723,27 @@ app.get("/api/admin/user-insights", (req, res) => {
       return res.json(insights);
     } catch (err) {
       logger.error({ err }, "admin user-insights");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
+app.get("/api/admin/team-business-report", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const payload = await getAdminTeamBusinessReport();
+      return res.json(payload);
+    } catch (err) {
+      logger.error({ err }, "admin team-business-report");
       return res.status(500).json({ message: "Failed" });
     }
   })();

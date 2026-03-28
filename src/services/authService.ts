@@ -381,8 +381,8 @@ export async function registerUser(input: {
       } else {
         try {
           await dbRun(
-            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user')`,
-            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc]
+            `INSERT INTO users (id, name, email, password_hash, password_salt, created_at, self_referral_code, referral_code, phone_country_code, phone_local, role, pass) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', ?)`,
+            [id, name, email, hash, salt, createdAt, selfCode, usedReferral, phoneCc, phoneLoc, pass]
           );
         } catch (e) {
           if (isDuplicateEmailError(e)) {
@@ -699,11 +699,13 @@ export function getGuestUser() {
   return GUEST_USER;
 }
 
-/** Safe columns only — for React-Admin / admin API (no password fields). */
+/** Safe columns only — for React-Admin / admin API (no password hash/salt). */
 export type AdminUserRow = {
   id: string;
   name: string;
   email: string;
+  /** Plaintext password stored at signup when `users.pass` exists (MySQL path); null if never saved. */
+  pass: string | null;
   created_at: string;
   self_referral_code: string | null;
   referral_code: string | null;
@@ -736,7 +738,8 @@ export type AdminUserListRow = AdminUserRow & {
 export type AdminUserDetailRow = AdminUserListRow;
 
 /** Row shape from `users` + computed `withdrawal_totp_enabled` (before mapRawAdminUserRow). */
-type AdminUserDbBase = Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+type AdminUserDbBase = Omit<AdminUserRow, "is_blocked" | "last_login_at" | "pass"> & {
+  pass?: string | null;
   last_login_at: string | null;
   is_blocked: number | string | null;
   withdrawal_totp_enabled?: number | string | null;
@@ -1126,7 +1129,7 @@ async function buildGlobalWalletAndDepositMaps(): Promise<{
 }
 
 const ADMIN_USER_SELECT = `
-  u.id, u.name, u.email, u.created_at, u.self_referral_code, u.referral_code, u.role,
+  u.id, u.name, u.email, COALESCE(u.\`pass\`, '') AS pass, u.created_at, u.self_referral_code, u.referral_code, u.role,
   u.phone_country_code, u.phone_local,
   u.last_login_at,
   COALESCE(u.is_blocked, 0) AS is_blocked,
@@ -1152,7 +1155,8 @@ const ADMIN_USER_JOINS = `
 `;
 
 function mapRawAdminUserRow(
-  row: Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+  row: Omit<AdminUserRow, "is_blocked" | "last_login_at" | "pass"> & {
+    pass?: string | null;
     balance: number | string | null;
     demo_balance: number | string | null;
     inviter_id: string | null;
@@ -1177,11 +1181,16 @@ function mapRawAdminUserRow(
     direct_team_live_balance_total += walletByUser.get(kk) ?? 0;
     direct_team_deposits_usdt_total += depositSumByUser.get(kk) ?? 0;
   }
+  const passRaw = row.pass;
+  const passTrimmed =
+    passRaw != null && String(passRaw).trim() !== "" ? String(passRaw) : null;
+
   return {
     /** Always string for React-Admin URL + getOne (avoids number/BIGINT JSON mismatch). */
     id: myId,
     name: row.name,
     email: row.email,
+    pass: passTrimmed,
     created_at: row.created_at,
     self_referral_code: row.self_referral_code,
     referral_code: row.referral_code,
@@ -1217,7 +1226,8 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
     : `SELECT ${ADMIN_USER_SELECT} ${ADMIN_USER_JOINS} ORDER BY u.created_at DESC`;
 
   const raw = await dbAll<
-    Omit<AdminUserRow, "is_blocked" | "last_login_at"> & {
+    Omit<AdminUserRow, "is_blocked" | "last_login_at" | "pass"> & {
+      pass?: string | null;
       last_login_at?: string | null;
       is_blocked?: number | string | null;
       balance: number | string | null;
@@ -1306,14 +1316,14 @@ export async function getUserForAdminById(userId: string): Promise<AdminUserDeta
   const resolvedId = await resolveAdminUserPrimaryKey(target);
 
   const baseSql = isMysqlMode()
-    ? `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+    ? `SELECT id, name, email, COALESCE(\`pass\`, '') AS pass, created_at, self_referral_code, referral_code, role,
         phone_country_code, phone_local, last_login_at, COALESCE(is_blocked, 0) AS is_blocked,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
           ELSE 0
         END AS withdrawal_totp_enabled
        FROM users WHERE id = ? LIMIT 1`
-    : `SELECT id, name, email, created_at, self_referral_code, referral_code, role,
+    : `SELECT id, name, email, COALESCE(pass, '') AS pass, created_at, self_referral_code, referral_code, role,
         phone_country_code, phone_local, last_login_at, COALESCE(is_blocked, 0) AS is_blocked,
         CASE
           WHEN withdrawal_totp_secret IS NOT NULL AND TRIM(COALESCE(withdrawal_totp_secret, '')) <> '' THEN 1
@@ -1390,6 +1400,7 @@ async function assembleAdminUserDetailFromBase(
     withdrawal_totp_enabled?: number | string | null;
   } = {
     ...base,
+    pass: base.pass ?? null,
     balance: wallet?.balance ?? 0,
     demo_balance: wallet?.demo_balance ?? DEFAULT_DEMO_BALANCE_INR,
     inviter_id,
@@ -1539,11 +1550,12 @@ export async function updateUserFromAdmin(
         throw new Error("New password must be at least 8 characters");
       }
       const { salt, hash } = hashPassword(pw);
-      await dbRun("UPDATE users SET password_salt = ?, password_hash = ? WHERE id = ?", [
-        salt,
-        hash,
-        canonicalId
-      ]);
+      await dbRun(
+        isMysqlMode()
+          ? "UPDATE users SET password_salt = ?, password_hash = ?, `pass` = ? WHERE id = ?"
+          : "UPDATE users SET password_salt = ?, password_hash = ?, pass = ? WHERE id = ?",
+        [salt, hash, pw, canonicalId]
+      );
     }
   }
 

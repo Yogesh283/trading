@@ -7,6 +7,7 @@ import {
   fetchTraderMadeLive
 } from "./forexExternalRates";
 import { logger } from "../utils/logger";
+import { isXauIstWeeklyLockWindow, isXauUsdSymbol } from "../utils/xauIstWeekend";
 
 export interface ForexTick {
   symbol: string;
@@ -139,8 +140,13 @@ export class ForexFeed extends EventEmitter {
   }
 
   private pushTick(symbol: string, price: number, timestamp: number) {
-    const p = this.roundPrice(symbol, price);
-    const tick: ForexTick = { symbol, price: p, timestamp, source: "forex" };
+    const sym = symbol.toUpperCase();
+    /** XAU/USD only: no new ticks Sat–Sun IST — price stays at last weekday close in memory/WS/DB/candles. */
+    if (isXauUsdSymbol(sym) && isXauIstWeeklyLockWindow(timestamp)) {
+      return;
+    }
+    const p = this.roundPrice(sym, price);
+    const tick: ForexTick = { symbol: sym, price: p, timestamp, source: "forex" };
     this.latest.set(symbol, tick);
     const buf = this.history.get(symbol) ?? [];
     buf.push(tick);

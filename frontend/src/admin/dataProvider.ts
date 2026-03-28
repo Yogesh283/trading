@@ -29,6 +29,7 @@ const baseAdminDataProvider = simpleRestProvider(adminApiRoot(), httpClient, "X-
 /** Custom admin pages (no React-Admin REST list backend). */
 const STUB_LIST_RESOURCES = new Set([
   "user_insights",
+  "team_business",
   "referral_level_settings",
   "investment_roi_settings"
 ]);

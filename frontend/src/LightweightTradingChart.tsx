@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaSeries,
   CandlestickSeries,
@@ -20,6 +20,7 @@ import type {
 import type { CandlestickData, LineData } from "lightweight-charts";
 import type { CandlePoint } from "./chartCandles";
 import { CHART_ZOOM_BAR_SPACING, effectiveZoomIndexForView } from "./chartBarSpacing";
+import { isXauUsdSymbol, shouldShowXauMarketLock } from "./xauChartLock";
 
 /**
  * TradingView [Lightweight Charts](https://github.com/tradingview/lightweight-charts) — same family many brokers
@@ -31,6 +32,17 @@ const CANDLE_UP = "#089981";
 const CANDLE_DOWN = "#f23645";
 const CANDLE_BORDER_UP = "#068f76";
 const CANDLE_BORDER_DOWN = "#d12e3a";
+/** Muted OHLC when XAU is weekend / stale (market “off”). */
+const XAU_CANDLE_OFF = {
+  upColor: "#4a5a52",
+  downColor: "#5c4548",
+  borderUpColor: "#3d4a44",
+  borderDownColor: "#4a3a3d",
+  wickUpColor: "#3d4a44",
+  wickDownColor: "#4a3a3d"
+};
+const XAU_LINE_OFF = "#6b7280";
+const XAU_PRICE_LINE_OFF = "#7a8290";
 const CHART_BG = "#0b0d12";
 const GRID_VERT = "rgba(42, 46, 58, 0.35)";
 const GRID_HORZ = "rgba(42, 46, 58, 0.4)";
@@ -168,6 +180,44 @@ export const CHART_GRAPH_OPTIONS: { value: ChartGraphType; label: string }[] = [
   { value: "line", label: "Line" },
   { value: "area", label: "Area" }
 ];
+
+function applyXauSeriesVisualLock(
+  series: ISeriesApi<"Candlestick" | "Line" | "Area">,
+  graphType: ChartGraphType,
+  locked: boolean,
+  tickDirection: "up" | "down" | null,
+  assetTag: string
+): void {
+  if (!isXauUsdSymbol(assetTag)) {
+    return;
+  }
+  if (graphType === "candles") {
+    const s = series as ISeriesApi<"Candlestick">;
+    if (locked) {
+      s.applyOptions(XAU_CANDLE_OFF);
+    } else {
+      s.applyOptions({
+        upColor: CANDLE_UP,
+        downColor: CANDLE_DOWN,
+        borderUpColor: CANDLE_BORDER_UP,
+        borderDownColor: CANDLE_BORDER_DOWN,
+        wickUpColor: CANDLE_BORDER_UP,
+        wickDownColor: CANDLE_BORDER_DOWN
+      });
+    }
+  } else if (graphType === "line") {
+    const s = series as ISeriesApi<"Line">;
+    const col = locked ? XAU_LINE_OFF : priceLineColorForTick(tickDirection);
+    s.applyOptions({ color: col });
+  } else {
+    const s = series as ISeriesApi<"Area">;
+    const lc = locked ? XAU_LINE_OFF : priceLineColorForTick(tickDirection);
+    s.applyOptions({
+      lineColor: lc,
+      topColor: locked ? "rgba(107, 114, 128, 0.35)" : areaSeriesFillTop(tickDirection)
+    });
+  }
+}
 
 function yExtentFromCandlesRobust(cd: MergedCandle[]): { min: number; max: number } {
   if (cd.length === 0) {
@@ -331,6 +381,8 @@ type Props = {
   /** Full-width horizontal lines at each open trade’s entry price (this symbol). */
   tradeEntryLines?: ChartTradeEntryLine[];
   graphType?: ChartGraphType;
+  /** Latest of last tick ts and last candle bucket start (ms); used for XAU stale lock. */
+  lastChartActivityMs?: number;
 };
 
 export function LightweightTradingChart({
@@ -348,7 +400,8 @@ export function LightweightTradingChart({
   tickDirection = null,
   tradeMarkers = [],
   tradeEntryLines = [],
-  graphType = "candles"
+  graphType = "candles",
+  lastChartActivityMs = 0
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -366,6 +419,8 @@ export function LightweightTradingChart({
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const [axisPillTop, setAxisPillTop] = useState<number | null>(null);
+  /** XAU: padlock at last bar (weekend IST or stale feed). */
+  const [lockOverlay, setLockOverlay] = useState<{ left: number; top: number } | null>(null);
   /** Last-price line + pill/timer only when viewport is at the live (right) edge — hide while viewing older candles. */
   const [showLiveRightUi, setShowLiveRightUi] = useState(true);
 
@@ -377,6 +432,16 @@ export function LightweightTradingChart({
   isMobileChartRef.current = isMobileChart;
   const graphTypeRef = useRef(graphType);
   graphTypeRef.current = graphType;
+  const assetTagRef = useRef(assetTag);
+  assetTagRef.current = assetTag;
+  const lastChartActivityMsRef = useRef(lastChartActivityMs);
+  lastChartActivityMsRef.current = lastChartActivityMs;
+
+  const [lockTick, setLockTick] = useState(0);
+  const xauLocked = useMemo(
+    () => shouldShowXauMarketLock(assetTag, lastChartActivityMs),
+    [assetTag, lastChartActivityMs, lockTick]
+  );
 
   const height = useMobileChartHeightPx(isMobileChart);
   const heightRef = useRef(height);
@@ -388,6 +453,7 @@ export function LightweightTradingChart({
     if (!chart || !series || seriesRef.current === null) {
       setShowLiveRightUi(false);
       setAxisPillTop(null);
+      setLockOverlay(null);
       return;
     }
     const list = candlesRef.current;
@@ -395,6 +461,7 @@ export function LightweightTradingChart({
     if (cd.length === 0) {
       setShowLiveRightUi(false);
       setAxisPillTop(null);
+      setLockOverlay(null);
       return;
     }
     const n = cd.length;
@@ -417,11 +484,29 @@ export function LightweightTradingChart({
 
     if (!atLive) {
       setAxisPillTop(null);
+      setLockOverlay(null);
       return;
     }
     const lastBar = cd[cd.length - 1]!;
     const y = series.priceToCoordinate(lastBar.close);
     setAxisPillTop(y != null && Number.isFinite(y) ? y : null);
+
+    const tag = assetTagRef.current;
+    const act = lastChartActivityMsRef.current;
+    if (shouldShowXauMarketLock(tag, act)) {
+      const t = toUtcTime(lastBar.bucketMs);
+      const x = chart.timeScale().timeToCoordinate(t as Time);
+      const gt0 = graphTypeRef.current;
+      const price = gt0 === "candles" ? lastBar.high : lastBar.close;
+      const yLock = series.priceToCoordinate(price);
+      if (x != null && yLock != null && Number.isFinite(x) && Number.isFinite(yLock)) {
+        setLockOverlay({ left: x, top: yLock });
+      } else {
+        setLockOverlay(null);
+      }
+    } else {
+      setLockOverlay(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -561,10 +646,13 @@ export function LightweightTradingChart({
     };
 
     const refreshPriceLine = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
+      const xau = isXauUsdSymbol(assetTag);
+      const plCandle = xauLocked && xau ? XAU_PRICE_LINE_OFF : PRO_LAST_PRICE;
+      const plLine = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       if (graphType === "candles") {
         const opts = {
           price: lastPt.close,
-          color: PRO_LAST_PRICE,
+          color: plCandle,
           lineWidth: 1 as const,
           lineStyle: 0 as const,
           axisLabelVisible: false
@@ -577,7 +665,7 @@ export function LightweightTradingChart({
       } else if (graphType === "line") {
         const opts = {
           price: lastPt.close,
-          color: lineCol,
+          color: plLine,
           lineWidth: 1 as const,
           lineStyle: 2 as const,
           axisLabelVisible: false
@@ -715,10 +803,11 @@ export function LightweightTradingChart({
         autoscaleInfoProvider: autoscale
       });
       series.setData(candleRows);
+      applyXauSeriesVisualLock(series, graphType, xauLocked, tickDirection, assetTag);
       prevCandlestickRowsRef.current = candleRows;
       priceLineRef.current = series.createPriceLine({
         price: lastPt.close,
-        color: PRO_LAST_PRICE,
+        color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : PRO_LAST_PRICE,
         lineWidth: 1,
         lineStyle: 0,
         axisLabelVisible: false
@@ -738,9 +827,10 @@ export function LightweightTradingChart({
         autoscaleInfoProvider: autoscale
       });
       series.setData(lineData);
+      applyXauSeriesVisualLock(series, graphType, xauLocked, tickDirection, assetTag);
       priceLineRef.current = series.createPriceLine({
         price: lastPt.close,
-        color: lineCol,
+        color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : lineCol,
         lineWidth: 1,
         lineStyle: 2,
         axisLabelVisible: false
@@ -761,6 +851,7 @@ export function LightweightTradingChart({
         autoscaleInfoProvider: autoscale
       });
       series.setData(lineData);
+      applyXauSeriesVisualLock(series, graphType, xauLocked, tickDirection, assetTag);
       if (tradeMarkers.length > 0) {
         markersPluginRef.current = createSeriesMarkers(series, buildSeriesMarkers(cd, tradeMarkers));
       }
@@ -790,8 +881,36 @@ export function LightweightTradingChart({
     tradeEntryLines,
     syncLivePriceChrome,
     zoomIndex,
-    isMobileChart
+    isMobileChart,
+    xauLocked,
+    lastChartActivityMs
   ]);
+
+  /** XAU: dim candles/line/area + last-price line when weekend/stale lock toggles (even if OHLC unchanged). */
+  useEffect(() => {
+    const s = seriesRef.current;
+    if (!s || candles.length === 0) {
+      return;
+    }
+    const cd = candlestickDataFromCandles(candles);
+    if (cd.length === 0) {
+      return;
+    }
+    const lastPt = cd[cd.length - 1]!;
+    applyXauSeriesVisualLock(s, graphType, xauLocked, tickDirection, assetTag);
+    if (!isXauUsdSymbol(assetTag)) {
+      return;
+    }
+    if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
+      priceLineRef.current.applyOptions({
+        price: lastPt.close,
+        color: xauLocked ? XAU_PRICE_LINE_OFF : graphType === "candles" ? PRO_LAST_PRICE : priceLineColorForTick(tickDirection),
+        lineWidth: 1,
+        lineStyle: graphType === "candles" ? 0 : 2,
+        axisLabelVisible: false
+      });
+    }
+  }, [xauLocked, graphType, tickDirection, assetTag, candles]);
 
   const tailKey =
     candles.length > 0
@@ -813,7 +932,15 @@ export function LightweightTradingChart({
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange);
       ro.disconnect();
     };
-  }, [chartResetKey, assetTag, graphType, isMobileChart, tailKey, syncLivePriceChrome, zoomIndex]);
+  }, [chartResetKey, assetTag, graphType, isMobileChart, tailKey, syncLivePriceChrome, zoomIndex, lastChartActivityMs]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setLockTick((n) => n + 1);
+      syncLivePriceChrome();
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, [syncLivePriceChrome]);
 
   const last = candles.length > 0 ? candles[candles.length - 1]! : null;
   const mobileTimerMod =
@@ -833,6 +960,27 @@ export function LightweightTradingChart({
     <div className="chart-lw-outer">
       <div className="chart-lw-stack" style={{ position: "relative", width: "100%", height }}>
         <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
+        {lockOverlay != null && showLiveRightUi ? (
+          <div
+            className="chart-xau-lock"
+            style={{ left: lockOverlay.left, top: lockOverlay.top }}
+            aria-hidden
+            title="Market closed (XAU/USD Sat–Sun IST) or feed paused"
+          >
+            <svg className="chart-xau-lock-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M7 11V8a5 5 0 0110 0v3"
+              />
+              <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+              <circle cx="12" cy="16" r="1.2" fill="currentColor" />
+            </svg>
+          </div>
+        ) : null}
         {last != null && showLiveRightUi && axisPillTop != null ? (
           <div className="chart-lw-axis-pill-layer" aria-hidden>
             <div className={`chart-lw-axis-pill chart-lw-axis-pill--terminal${pillMod}`} style={{ top: axisPillTop }}>

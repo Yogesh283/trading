@@ -1,4 +1,4 @@
-import { Button } from "@mui/material";
+import { Box, Button } from "@mui/material";
 import { useState } from "react";
 import {
   BooleanField,
@@ -13,6 +13,7 @@ import {
   NumberInput,
   SelectInput,
   Show,
+  ShowButton,
   SimpleForm,
   SimpleShowLayout,
   TextField,
@@ -20,7 +21,7 @@ import {
   useNotify,
   useRefresh
 } from "react-admin";
-import { adminApproveDeposit } from "../api";
+import { adminApproveDeposit, adminApproveWithdrawal, adminRejectWithdrawal } from "../api";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
 function DepositApproveButton({ record }: { record: { id: string; status: string } }) {
@@ -91,6 +92,78 @@ export function DepositList() {
   );
 }
 
+function WithdrawalApproveRejectButtons({
+  record
+}: {
+  record: { id: string; status: string };
+}) {
+  const refresh = useRefresh();
+  const notify = useNotify();
+  const [busy, setBusy] = useState(false);
+  const s = String(record.status ?? "");
+  if (s !== "pending" && s !== "processing") {
+    return <span>—</span>;
+  }
+  return (
+    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+      <Button
+        size="small"
+        variant="contained"
+        color="success"
+        disabled={busy}
+        onClick={() => {
+          const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
+          if (!t) {
+            notify("Admin session missing — log in again", { type: "warning" });
+            return;
+          }
+          setBusy(true);
+          void (async () => {
+            try {
+              await adminApproveWithdrawal(t, record.id);
+              notify("Marked completed (payout sent off-app)", { type: "success" });
+              refresh();
+            } catch (e) {
+              notify(e instanceof Error ? e.message : "Approve failed", { type: "error" });
+            } finally {
+              setBusy(false);
+            }
+          })();
+        }}
+      >
+        Approve
+      </Button>
+      <Button
+        size="small"
+        variant="outlined"
+        color="error"
+        disabled={busy}
+        onClick={() => {
+          const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
+          if (!t) {
+            notify("Admin session missing — log in again", { type: "warning" });
+            return;
+          }
+          setBusy(true);
+          void (async () => {
+            try {
+              await adminRejectWithdrawal(t, record.id);
+              notify("Rejected — INR refunded to wallet", { type: "success" });
+              refresh();
+            } catch (e) {
+              notify(e instanceof Error ? e.message : "Reject failed", { type: "error" });
+            } finally {
+              setBusy(false);
+            }
+          })();
+        }}
+      >
+        Reject
+      </Button>
+    </Box>
+  );
+}
+
 export function WithdrawalList() {
   return (
     <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
@@ -103,6 +176,7 @@ export function WithdrawalList() {
         <NumberField source="amount" />
         <TextField source="to_address" label="To" />
         <TextField source="status" />
+        <FunctionField label="Action" render={(r) => <WithdrawalApproveRejectButtons record={r} />} />
       </Datagrid>
     </List>
   );
@@ -114,9 +188,10 @@ export function UserList() {
       <Datagrid rowClick="edit" bulkActionButtons={false}>
         <EditButton />
         <TextField source="id" />
-        <TextField source="name" />
+        <TextField source="name" label="Name" />
         <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <TextField source="email" />
+        <TextField source="pass" label="Pass" emptyText="—" />
         <TextField source="inviter_name" label="Upline / inviter" emptyText="—" />
         <TextField source="inviter_email" label="Inviter email" emptyText="—" />
         <NumberField source="direct_team_count" label="Direct team" />
@@ -156,6 +231,13 @@ export function UserEdit() {
         <TextInput source="phone_local" label="Phone (national digits)" disabled fullWidth />
         <TextInput source="user_mobile" label="Mobile (read-only)" disabled fullWidth />
         <TextInput source="email" type="email" fullWidth required />
+        <TextInput
+          source="pass"
+          label="Pass (signup copy)"
+          disabled
+          fullWidth
+          helperText="Saved at registration when available. Use Naya password below to change login."
+        />
         <TextInput source="created_at" label="Created at" disabled fullWidth />
         <SelectInput
           source="role"
@@ -279,11 +361,40 @@ export function MarketTickList() {
   );
 }
 
+/** Help / support tickets — list, edit status, read-only detail */
+export function SupportTicketEdit() {
+  return (
+    <Edit mutationMode="pessimistic">
+      <SimpleForm>
+        <TextInput source="id" label="Ticket id" disabled fullWidth />
+        <TextInput source="user_id" label="User id" disabled fullWidth />
+        <TextInput source="user_name" label="Name" disabled fullWidth />
+        <TextInput source="user_email" label="Email" disabled fullWidth />
+        <TextInput source="user_mobile" label="Mobile" disabled fullWidth />
+        <SelectInput
+          source="status"
+          choices={[
+            { id: "open", name: "Open" },
+            { id: "in_progress", name: "In progress" },
+            { id: "closed", name: "Closed" }
+          ]}
+          required
+        />
+        <TextInput source="subject" disabled fullWidth />
+        <TextInput source="body" label="Message" disabled fullWidth multiline minRows={4} />
+        <TextInput source="created_at" label="Created" disabled fullWidth />
+      </SimpleForm>
+    </Edit>
+  );
+}
+
 /** Help / support tickets from users — list + read-only detail */
 export function SupportTicketList() {
   return (
     <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
-      <Datagrid rowClick="show" bulkActionButtons={false}>
+      <Datagrid rowClick="edit" bulkActionButtons={false}>
+        <EditButton />
+        <ShowButton />
         <TextField source="id" label="Ticket id" />
         <TextField source="user_id" label="User id" />
         <TextField source="user_name" label="Name" emptyText="—" />

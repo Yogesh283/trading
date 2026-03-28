@@ -19,6 +19,14 @@ export async function ensureWithdrawalsReady() {
   await initAppDb();
 }
 
+export async function getWithdrawalById(id: string): Promise<WithdrawalRow | null> {
+  await ensureWithdrawalsReady();
+  const lim = isMysqlMode() ? " LIMIT 1" : "";
+  return (
+    (await dbGet<WithdrawalRow>(`SELECT * FROM withdrawals WHERE id = ?${lim}`, [String(id).trim()])) ?? null
+  );
+}
+
 export async function createWithdrawal(input: {
   userId: string;
   userEmail: string;

@@ -9,6 +9,7 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import WalletIcon from "@mui/icons-material/Wallet";
 import PercentIcon from "@mui/icons-material/Percent";
+import GroupsIcon from "@mui/icons-material/Groups";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -23,6 +24,7 @@ import { InvestmentRoiSettingsPage } from "./InvestmentRoiSettingsPage";
 import {
   DepositList,
   MarketTickList,
+  SupportTicketEdit,
   SupportTicketList,
   SupportTicketShow,
   TransactionList,
@@ -34,6 +36,7 @@ import {
   WithdrawalList
 } from "./resources";
 import { UserInsightsPage } from "./UserInsightsPage";
+import { TeamBusinessReportPage } from "./TeamBusinessReportPage";
 import "../site-frame.css";
 
 const darkTheme = createTheme({
@@ -70,6 +73,7 @@ ReactDOM.createRoot(adminMount).render(
         <Resource
           name="support_tickets"
           list={SupportTicketList}
+          edit={SupportTicketEdit}
           show={SupportTicketShow}
           icon={SupportAgentIcon}
           options={{ label: "Help tickets" }}
@@ -102,6 +106,12 @@ ReactDOM.createRoot(adminMount).render(
           list={UserInsightsPage}
           icon={SearchIcon}
           options={{ label: "User insights" }}
+        />
+        <Resource
+          name="team_business"
+          list={TeamBusinessReportPage}
+          icon={GroupsIcon}
+          options={{ label: "Team business" }}
         />
         <Resource
           name="referral_level_settings"

@@ -50,6 +50,7 @@ import {
   Trade,
   type WalletLedgerRow
 } from "./api";
+import { isXauUsdSymbol, shouldShowXauMarketLock } from "./xauChartLock";
 import { getBackendWsUrl } from "./backendOrigin";
 import { clearCachesAfterRegistration } from "./clearRegistrationCache";
 import { shouldOpenDepositScreenFromUrl } from "./depositStorage";
@@ -3483,6 +3484,9 @@ function LiveChart({
   /** Touch/tap on timer badge zooms the time text (mobile). */
   const [timerTextZoomed, setTimerTextZoomed] = useState(false);
   const chartWrapRef = useRef<HTMLDivElement>(null);
+  /** XAU locked: freeze candle “wall clock” at first lock frame so new ticks don’t open new buckets. */
+  const xauFreezeWallMsRef = useRef<number | null>(null);
+  const prevChartSymbolRef = useRef(symbol);
   const pinchRef = useRef<{ initialDistance: number; initialZoomIndex: number } | null>(null);
   const zoomIndexRef = useRef(zoomIndex);
   zoomIndexRef.current = zoomIndex;
@@ -3608,15 +3612,41 @@ function LiveChart({
     };
   }, [isMobileChart, zoomIndex]);
 
-  const now = Date.now();
+  const wallNow = Date.now();
+  const lastTickMs = points.length > 0 ? points[points.length - 1]!.timestamp : 0;
+  const lastCandleDbTs =
+    closedCandlesFromDb.length > 0
+      ? closedCandlesFromDb[closedCandlesFromDb.length - 1]!.timestamp
+      : 0;
+  const lastActivityForLock = Math.max(lastTickMs, lastCandleDbTs);
+  if (prevChartSymbolRef.current !== symbol) {
+    prevChartSymbolRef.current = symbol;
+    xauFreezeWallMsRef.current = null;
+  }
+  const xauLocked =
+    isXauUsdSymbol(symbol) &&
+    lastActivityForLock > 0 &&
+    shouldShowXauMarketLock(symbol, lastActivityForLock, wallNow);
+  if (xauLocked) {
+    if (xauFreezeWallMsRef.current === null) {
+      xauFreezeWallMsRef.current = lastActivityForLock;
+    }
+  } else {
+    xauFreezeWallMsRef.current = null;
+  }
+  const freezeWallMs = xauFreezeWallMsRef.current;
+  const candleWallNow = xauLocked && freezeWallMs != null ? freezeWallMs : wallNow;
+  const pointsForCandles =
+    xauLocked && freezeWallMs != null ? points.filter((p) => p.timestamp <= freezeWallMs) : points;
+
   const liveCandles =
-    points.length > 0 ? buildCandles(points, timeframeSec, now) : [];
+    pointsForCandles.length > 0 ? buildCandles(pointsForCandles, timeframeSec, candleWallNow) : [];
 
   let allCandles: CandlePoint[];
   if (points.length === 0) {
     allCandles =
       closedCandlesFromDb.length > 0
-        ? extendClosedCandlesToNow(closedCandlesFromDb, timeframeSec, now)
+        ? extendClosedCandlesToNow(closedCandlesFromDb, timeframeSec, candleWallNow)
         : [];
   } else if (closedCandlesFromDb.length > 0) {
     allCandles = mergeDbClosedWithLiveCandles(closedCandlesFromDb, liveCandles);
@@ -3625,6 +3655,13 @@ function LiveChart({
   }
 
   allCandles = fillCandleTimeGaps(allCandles, timeframeSec);
+
+  const lastChartActivityMs = useMemo(() => {
+    const lp =
+      pointsForCandles.length > 0 ? pointsForCandles[pointsForCandles.length - 1]!.timestamp : 0;
+    const lc = allCandles.length > 0 ? allCandles[allCandles.length - 1]!.timestamp : 0;
+    return Math.max(lp, lc);
+  }, [pointsForCandles, allCandles]);
 
   if (allCandles.length === 0) {
     return (
@@ -3664,8 +3701,8 @@ function LiveChart({
   const pairLabel = formatForexPair(symbol);
 
   /** Same UTC bucket end as server `binaryCandleExpiresAtMs` — new candle when this hits 00:00. */
-  const candleEndMs = candlePeriodEndMs(now, timeframeSec);
-  const msLeft = Math.max(0, candleEndMs - now);
+  const candleEndMs = candlePeriodEndMs(candleWallNow, timeframeSec);
+  const msLeft = Math.max(0, candleEndMs - candleWallNow);
   const totalSec = Math.max(0, Math.ceil(msLeft / 1000));
   const cdSec = Math.min(3599, totalSec);
   const countdownStr = `${String(Math.floor(cdSec / 60)).padStart(2, "0")}:${String(cdSec % 60).padStart(2, "0")}`;
@@ -3776,6 +3813,7 @@ function LiveChart({
             tradeMarkers={chartTradeMarkers}
             tradeEntryLines={chartTradeEntryLines}
             graphType={graphType}
+            lastChartActivityMs={lastChartActivityMs}
           />
         </div>
 
