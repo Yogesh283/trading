@@ -371,7 +371,7 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
             </label>
 
             <label>
-              {pinSet ? "Withdrawal TPIN (4 digits)" : "Authenticator code (6 digits)"}
+              {pinSet ? "Withdrawal TPIN (4 digits)" : "Authenticator code (4 digits)"}
               <input
                 type="password"
                 inputMode="numeric"
