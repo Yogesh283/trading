@@ -376,7 +376,7 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
                 type="password"
                 inputMode="numeric"
                 autoComplete="off"
-                maxLength={codeDigits || 6}
+                maxLength={codeDigits || 4}
                 placeholder={pinSet ? "••••" : "From app"}
                 value={codeField}
                 onChange={(e) =>
