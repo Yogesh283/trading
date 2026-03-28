@@ -676,6 +676,47 @@ async function migrateUsersWithdrawalTotp(): Promise<void> {
   }
 }
 
+async function migrateUsersWithdrawalTpin(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const hasCol = async (name: string) => {
+      const row = await dbGet<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = ?`,
+        [dbName, name]
+      );
+      return Number(row?.n) > 0;
+    };
+    if (!(await hasCol("withdrawal_tpin_hash"))) {
+      try {
+        await dbRun(
+          "ALTER TABLE users ADD COLUMN withdrawal_tpin_hash VARCHAR(128) NULL AFTER withdrawal_totp_pending"
+        );
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN withdrawal_tpin_hash VARCHAR(128) NULL");
+      }
+    }
+    if (!(await hasCol("withdrawal_tpin_salt"))) {
+      try {
+        await dbRun(
+          "ALTER TABLE users ADD COLUMN withdrawal_tpin_salt VARCHAR(255) NULL AFTER withdrawal_tpin_hash"
+        );
+      } catch {
+        await dbRun("ALTER TABLE users ADD COLUMN withdrawal_tpin_salt VARCHAR(255) NULL");
+      }
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(users)");
+  if (!cols.some((c) => c.name === "withdrawal_tpin_hash")) {
+    await dbRun("ALTER TABLE users ADD COLUMN withdrawal_tpin_hash TEXT");
+  }
+  if (!cols.some((c) => c.name === "withdrawal_tpin_salt")) {
+    await dbRun("ALTER TABLE users ADD COLUMN withdrawal_tpin_salt TEXT");
+  }
+}
+
 const APP_SETTINGS_SQLITE = `
   CREATE TABLE IF NOT EXISTS app_settings (
     setting_key TEXT PRIMARY KEY NOT NULL,
@@ -963,6 +1004,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
+        await migrateUsersWithdrawalTpin();
         await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
@@ -985,6 +1027,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersRole();
         await migrateUsersPhone();
         await migrateUsersWithdrawalTotp();
+        await migrateUsersWithdrawalTpin();
         await migrateUsersLoginAndBlock();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();

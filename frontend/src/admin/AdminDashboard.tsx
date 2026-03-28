@@ -151,7 +151,7 @@ export function AdminDashboard() {
       setBlockMsg(null);
       const uid = blockUserId.trim();
       if (!uid) {
-        setBlockMsg("User ID enter karo (Users list se).");
+        setBlockMsg("Enter a user ID (copy from the Users list).");
         return;
       }
       const token = localStorage.getItem(ADMIN_TOKEN_LS_KEY) ?? "";
@@ -326,8 +326,8 @@ export function AdminDashboard() {
             </Typography>
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            User ID (jaise <code>0001</code>) — Users list se copy karo. Blocked user login nahi kar sakta; purana JWT bhi kaam
-            nahi karega.
+            Enter the user ID (e.g. <code>0001</code>) — copy it from the Users list. A blocked user cannot sign in; existing
+            JWTs will stop working.
           </Typography>
           <TextField
             size="small"

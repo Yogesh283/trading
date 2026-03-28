@@ -351,6 +351,62 @@ select {
   margin-left: auto;
 }
 
+/* Circular refresh (header — all logged-in pages, desktop + mobile) */
+.global-refresh-fab {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #00c853;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 200, 83, 0.38);
+  transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.global-refresh-fab:hover:not(:disabled) {
+  background: #00e676;
+  box-shadow: 0 6px 20px rgba(0, 200, 83, 0.45);
+  transform: scale(1.04);
+}
+
+.global-refresh-fab:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.global-refresh-fab:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.global-refresh-fab--sm {
+  width: 34px;
+  height: 34px;
+}
+
+.global-refresh-fab--sm svg {
+  width: 16px;
+  height: 16px;
+}
+
+.global-refresh-fab svg {
+  flex-shrink: 0;
+}
+
+.auth-nav-trailing {
+  grid-column: 3;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .app-nav-balance-pill {
   padding: 8px 14px;
   border-radius: 999px;
@@ -780,8 +836,6 @@ select {
 }
 
 .auth-nav-links-desktop {
-  grid-column: 3;
-  justify-self: end;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -814,8 +868,6 @@ select {
 }
 
 .auth-nav-menu-btn {
-  grid-column: 3;
-  justify-self: end;
   display: none;
   align-items: center;
   justify-content: center;

@@ -1391,7 +1391,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   flex-direction: column;
   align-items: stretch;
   isolation: isolate;
-  /* Was -10px (lifted); 0 keeps the bar flush lower — “thoda nicha” to the bottom edge */
+  /* Was -10px (lifted); 0 keeps the bar flush lower — closer to the bottom edge */
   transform: translateY(0);
 }
 

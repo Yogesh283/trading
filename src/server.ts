@@ -85,11 +85,16 @@ import {
 } from "./services/investmentRoiConfigService";
 import { getUplineFractionSumOfGrossYield } from "./services/investmentRoiLevelService";
 import {
-  assertWithdrawalTotpCode,
   beginWithdrawalTotpSetup,
   confirmWithdrawalTotpSetup,
   getWithdrawalTotpStatus
 } from "./services/withdrawalTotpService";
+import {
+  assertWithdrawalVerificationCode,
+  changeWithdrawalTpin,
+  getWithdrawalTpinStatus,
+  setWithdrawalTpin
+} from "./services/withdrawalTpinService";
 import {
   getReferralLevelConfigPayload,
   updateReferralLevelConfigPayload
@@ -477,11 +482,13 @@ app.get("/api/auth/me", async (req, res) => {
   try {
     const user = await requireSession(req.headers.authorization);
     const totpSt = await getWithdrawalTotpStatus(user.id);
+    const tpinSt = await getWithdrawalTpinStatus(user.id);
     return res.json({
       user: {
         ...user,
         withdrawalTotpEnabled: totpSt.enabled,
-        withdrawalTotpSetupPending: totpSt.setupPending
+        withdrawalTotpSetupPending: totpSt.setupPending,
+        withdrawalTpinSet: tpinSt.pinSet
       }
     });
   } catch {
@@ -527,6 +534,59 @@ app.post("/api/me/withdrawal-totp/confirm", (req, res) => {
       const user = await requireSession(req.headers.authorization);
       const code = String(req.body?.code ?? "");
       await confirmWithdrawalTotpSetup(user.id, code);
+      return res.json({ ok: true });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const msg = e instanceof Error ? e.message : "Failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.get("/api/me/withdrawal-tpin/status", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const st = await getWithdrawalTpinStatus(user.id);
+      return res.json(st);
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "withdrawal tpin status");
+      return res.status(500).json({ message: "Failed" });
+    }
+  })();
+});
+
+app.post("/api/me/withdrawal-tpin/set", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const pin = String(req.body?.pin ?? "");
+      const confirmPin = String(req.body?.confirmPin ?? "");
+      await setWithdrawalTpin(user.id, pin, confirmPin);
+      return res.json({ ok: true });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const msg = e instanceof Error ? e.message : "Failed";
+      return res.status(400).json({ message: msg });
+    }
+  })();
+});
+
+app.post("/api/me/withdrawal-tpin/change", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      const currentPin = String(req.body?.currentPin ?? "");
+      const pin = String(req.body?.pin ?? "");
+      const confirmPin = String(req.body?.confirmPin ?? "");
+      await changeWithdrawalTpin(user.id, currentPin, pin, confirmPin);
       return res.json({ ok: true });
     } catch (e) {
       if (e instanceof Error && e.message === "Unauthorized") {
@@ -1590,7 +1650,7 @@ app.get("/api/admin/ra/:resource", (req, res) => {
   });
 });
 
-const MIN_WITHDRAWAL_USDT = 20;
+const MIN_WITHDRAWAL_USDT = 10;
 const MAX_WITHDRAWAL_USDT = 1_000_000;
 
 app.post("/api/withdrawals", (req, res) => {
@@ -1598,10 +1658,12 @@ app.post("/api/withdrawals", (req, res) => {
     const user = await requireSession(req.headers.authorization);
     const amount = Number(req.body?.amount);
     const toAddress = String(req.body?.toAddress ?? "").trim().toLowerCase();
-    const tpn = String(req.body?.tpn ?? req.body?.totp ?? req.body?.totpCode ?? "").trim();
+    const tpn = String(
+      req.body?.tpin ?? req.body?.tpn ?? req.body?.totp ?? req.body?.totpCode ?? ""
+    ).trim();
 
     try {
-      await assertWithdrawalTotpCode(user.id, tpn);
+      await assertWithdrawalVerificationCode(user.id, tpn);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "TPN required";
       return res.status(400).json({ message: msg });

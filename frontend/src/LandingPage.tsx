@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import "./landing.css";
 import { APP_NAME, APK_DOWNLOAD_URL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
+import GlobalRefreshButton from "./GlobalRefreshButton";
 import { brandBanner1, brandBanner2, brandBanner3, brandHeroVideo, brandLogo } from "./brandUrls";
 
 const PILL_ITEMS = [
@@ -117,7 +118,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
     }
   }, []);
 
-  /** Video poora chalne ke baad band + dubara sirf Play se start */
+  /** After the video ends, pause and reset; only Play restarts playback. */
   const handleCinematicEnded = useCallback(() => {
     setCinematicPlaying(false);
     const el = cinematicVideoRef.current;
@@ -200,6 +201,12 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
                 Try for free
               </button>
             </div>
+            <GlobalRefreshButton
+              className="global-refresh-fab--sm"
+              title="Reload page"
+              aria-label="Refresh page"
+              onClick={() => window.location.reload()}
+            />
             <button
               type="button"
               className="landing-menu-btn"

@@ -64,6 +64,7 @@ import HelpTicketPage from "./HelpTicketPage";
 import { APP_NAME, APK_DOWNLOAD_URL, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
 import { PHONE_COUNTRY_OPTIONS } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
+import GlobalRefreshButton from "./GlobalRefreshButton";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
   DockIconDeposit,
@@ -794,6 +795,11 @@ export default function App() {
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
+  const handleGlobalRefresh = useCallback(() => {
+    void refreshRef.current().catch(() => undefined);
+    setMessage("Data refreshed.");
+  }, []);
+
   const handleAddDemoFunds = useCallback(async () => {
     if (!session?.token) {
       return;
@@ -1445,21 +1451,13 @@ export default function App() {
               >
                 About
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void refresh().catch(() => undefined);
-                  setMessage("");
-                }}
-              >
-                Refresh
-              </button>
               <a className="app-nav-desktop-apk" href={apkDownloadHref} download>
                 Download APK
               </a>
             </nav>
           ) : null}
           <div className="app-nav-right">
+            <GlobalRefreshButton title="Refresh data" onClick={handleGlobalRefresh} />
             <div className="app-nav-dual-balances" role="group" aria-label="Demo and live wallet balances">
               <button
                 type="button"
@@ -1816,6 +1814,11 @@ export default function App() {
                 </div>
               ) : null}
             </div>
+            <GlobalRefreshButton
+              className="global-refresh-fab--sm"
+              title="Refresh data"
+              onClick={handleGlobalRefresh}
+            />
             <button
               type="button"
               className="mobile-tpn-wallet-fab"
@@ -1858,7 +1861,7 @@ export default function App() {
       ) : dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
-          balance={account?.balance ?? 0}
+          balance={dualBalances.live ?? 0}
           onSuccess={() => void refresh()}
         />
       ) : dashboardSection === "investment" ? (
@@ -3099,28 +3102,36 @@ function AuthScreen({
             <BrandLogo className="auth-nav-brand-logo" />
             {APP_NAME}
           </span>
-          <nav className="auth-nav-links-desktop" aria-label="Auth menu">
-            <button type="button" className="auth-nav-link" onClick={onNavigateToAbout}>
-              About
+          <div className="auth-nav-trailing">
+            <GlobalRefreshButton
+              className="global-refresh-fab--sm"
+              title="Reload page"
+              aria-label="Refresh page"
+              onClick={() => window.location.reload()}
+            />
+            <nav className="auth-nav-links-desktop" aria-label="Auth menu">
+              <button type="button" className="auth-nav-link" onClick={onNavigateToAbout}>
+                About
+              </button>
+              <button type="button" className="auth-nav-link" onClick={() => onViewChange("login")}>
+                Log in
+              </button>
+              <button type="button" className="auth-nav-link" onClick={() => onViewChange("register")}>
+                Register
+              </button>
+              <button type="button" className="auth-nav-link primary" onClick={onDemoAccess}>
+                Demo after sign-in
+              </button>
+            </nav>
+            <button
+              type="button"
+              className="auth-nav-menu-btn"
+              aria-label="Open menu"
+              onClick={() => setAuthMenuOpen(true)}
+            >
+              <span className="auth-nav-menu-burger" aria-hidden />
             </button>
-            <button type="button" className="auth-nav-link" onClick={() => onViewChange("login")}>
-              Log in
-            </button>
-            <button type="button" className="auth-nav-link" onClick={() => onViewChange("register")}>
-              Register
-            </button>
-            <button type="button" className="auth-nav-link primary" onClick={onDemoAccess}>
-              Demo after sign-in
-            </button>
-          </nav>
-          <button
-            type="button"
-            className="auth-nav-menu-btn"
-            aria-label="Open menu"
-            onClick={() => setAuthMenuOpen(true)}
-          >
-            <span className="auth-nav-menu-burger" aria-hidden />
-          </button>
+          </div>
         </div>
         {authMenuOpen ? (
           <div

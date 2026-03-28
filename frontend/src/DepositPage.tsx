@@ -616,9 +616,10 @@ export default function DepositPage({ token, onSuccess }: Props) {
 
         <div className="deposit-qr-section">
           <h2 className="funds-wallets-title">QR / external wallet</h2>
-          <p className="funds-wallets-hint">
-            Generate a QR your phone wallet can scan (USDT BEP20). After you send, enter amount, BscScan transaction hash,
-            and your sending address. An admin will approve and your INR wallet will be credited.
+          <p className="deposit-qr-24h-notice" role="status">
+            <strong>24-hour processing:</strong> After you submit your transaction details for a <strong>QR / external</strong>{" "}
+            deposit, crediting to your trading wallet can take up to <strong>24 hours</strong> while we verify on-chain and
+            approve. Use <strong>Refresh</strong> above to update your deposit list.
           </p>
           {!qrPayment ? (
             <button

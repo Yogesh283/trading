@@ -39,6 +39,8 @@ async function main() {
       role VARCHAR(16) NOT NULL DEFAULT 'user',
       withdrawal_totp_secret VARCHAR(128) NULL,
       withdrawal_totp_pending VARCHAR(128) NULL,
+      withdrawal_tpin_hash VARCHAR(128) NULL,
+      withdrawal_tpin_salt VARCHAR(255) NULL,
       last_login_at VARCHAR(64) NULL,
       is_blocked TINYINT(1) NOT NULL DEFAULT 0,
       UNIQUE KEY uk_users_self_referral (self_referral_code),

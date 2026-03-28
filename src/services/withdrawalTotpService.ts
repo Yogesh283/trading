@@ -55,6 +55,15 @@ function totpValid(secret: string, token: string): boolean {
   return r.valid === true;
 }
 
+/** Exported for withdrawal TPIN service (legacy 6-digit authenticator path). */
+export function verifyWithdrawalTotpToken(secret: string, token: string): boolean {
+  const t = String(token ?? "").replace(/\s/g, "");
+  if (!/^\d{6}$/.test(t)) {
+    return false;
+  }
+  return totpValid(secret, t);
+}
+
 /** Confirm pending secret with a valid 6-digit code; activates withdrawal TOTP. */
 export async function confirmWithdrawalTotpSetup(userId: string, code: string): Promise<void> {
   await initAppDb();
@@ -75,7 +84,7 @@ export async function confirmWithdrawalTotpSetup(userId: string, code: string): 
     throw new Error("Start setup first — tap Generate authenticator link");
   }
 
-  if (!totpValid(pending, token)) {
+  if (!verifyWithdrawalTotpToken(pending, token)) {
     throw new Error("Invalid code — check the time on your phone or wait for the next code");
   }
 
@@ -85,27 +94,3 @@ export async function confirmWithdrawalTotpSetup(userId: string, code: string): 
   );
 }
 
-/** Validate code against stored secret (required on every withdrawal). */
-export async function assertWithdrawalTotpCode(userId: string, code: string | undefined): Promise<void> {
-  await initAppDb();
-  const uid = String(userId ?? "").trim();
-  const token = String(code ?? "").replace(/\s/g, "");
-  const row = await dbGet<{ withdrawal_totp_secret: string | null }>(
-    isMysqlMode()
-      ? "SELECT withdrawal_totp_secret FROM users WHERE id = ? LIMIT 1"
-      : "SELECT withdrawal_totp_secret FROM users WHERE id = ?",
-    [uid]
-  );
-  const secret = String(row?.withdrawal_totp_secret ?? "").trim();
-  if (!secret) {
-    throw new Error(
-      "Withdrawal TPN (authenticator) is required. Open Withdraw and complete TPN setup with Google Authenticator or similar."
-    );
-  }
-  if (!/^\d{6}$/.test(token)) {
-    throw new Error("Enter your 6-digit withdrawal TPN from the authenticator app");
-  }
-  if (!totpValid(secret, token)) {
-    throw new Error("Invalid withdrawal TPN — use the current code from your app");
-  }
-}

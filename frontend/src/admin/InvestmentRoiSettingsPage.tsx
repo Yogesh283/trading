@@ -138,10 +138,10 @@ export function InvestmentRoiSettingsPage() {
       <Title title="Investment monthly ROI" />
       <Paper sx={{ p: 2, maxWidth: 720, bgcolor: "background.paper" }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Har mahine <strong>1 tarikh (UTC)</strong> par gross pool = principal × monthly ROI %. Is pool se pehle aap{" "}
-          <strong>5 upline levels</strong> ko alag % de sakte ho (niche table). Investor ko bache hue hisse ka credit{" "}
-          <code>investment_yield</code>; upline ko <code>level_income_roi</code>. Referral / betting level table isse{" "}
-          alag hai.
+          Each month on the <strong>1st (UTC)</strong>, gross pool = principal × monthly ROI %. From this pool you can assign
+          separate percentages to <strong>5 upline levels</strong> (table below). The investor is credited the remainder as{" "}
+          <code>investment_yield</code>; uplines receive <code>level_income_roi</code>. This is separate from the referral /
+          betting level table.
         </Typography>
         <TextField
           label="Monthly ROI (% of principal) — gross pool"

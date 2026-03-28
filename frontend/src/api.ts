@@ -49,10 +49,12 @@ export interface AuthUser {
   /** Your invite code (share with new signups). */
   selfReferralCode: string;
   role: "user" | "admin";
-  /** From /api/auth/me — withdrawal authenticator enabled. */
+  /** From /api/auth/me — withdrawal authenticator enabled (legacy). */
   withdrawalTotpEnabled?: boolean;
   /** Setup started but not confirmed. */
   withdrawalTotpSetupPending?: boolean;
+  /** From /api/auth/me — 4-digit withdrawal TPIN saved (hashed on server). */
+  withdrawalTpinSet?: boolean;
 }
 
 export interface AuthDatabaseInfo {
@@ -508,6 +510,54 @@ export type WithdrawalTotpStatus = {
   setupPending: boolean;
 };
 
+export type WithdrawalTpinStatus = {
+  pinSet: boolean;
+};
+
+export async function loadWithdrawalTpinStatus(token: string): Promise<WithdrawalTpinStatus> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/status`, {
+    headers: { ...requestHeaders(token, "live") }
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to load TPIN status");
+  }
+  return j as WithdrawalTpinStatus;
+}
+
+export async function setWithdrawalTpinApi(
+  token: string,
+  pin: string,
+  confirmPin: string
+): Promise<void> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/set`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
+    body: JSON.stringify({ pin, confirmPin })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to save TPIN");
+  }
+}
+
+export async function changeWithdrawalTpinApi(
+  token: string,
+  currentPin: string,
+  pin: string,
+  confirmPin: string
+): Promise<void> {
+  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/change`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
+    body: JSON.stringify({ currentPin, pin, confirmPin })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Failed to change TPIN");
+  }
+}
+
 export async function loadWithdrawalTotpStatus(token: string): Promise<WithdrawalTotpStatus> {
   const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/status`, {
     headers: { ...requestHeaders(token, "live") }
@@ -547,12 +597,12 @@ export async function submitWithdrawalRequest(
   token: string,
   amount: number,
   toAddress: string,
-  tpn: string
+  tpinOrTotp: string
 ) {
   const response = await fetch(`${apiBase()}/api/withdrawals`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
-    body: JSON.stringify({ amount, toAddress, tpn })
+    body: JSON.stringify({ amount, toAddress, tpin: tpinOrTotp })
   });
   return parseJson<{
     withdrawal: WithdrawalRecord;

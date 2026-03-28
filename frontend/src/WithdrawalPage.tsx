@@ -1,17 +1,22 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
-  beginWithdrawalTotpSetup,
-  confirmWithdrawalTotpSetup,
+  changeWithdrawalTpinApi,
   loadMyWithdrawals,
+  loadWithdrawalTpinStatus,
   loadWithdrawalTotpStatus,
+  setWithdrawalTpinApi,
   submitWithdrawalRequest
 } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import GlobalRefreshButton from "./GlobalRefreshButton";
 import { formatInr, INR_PER_USDT, previewInrFromUsdt } from "./fundsConfig";
 
-const MIN_WITHDRAW_USDT = 20;
+const MIN_WITHDRAW_USDT = 10;
 const MIN_BALANCE_INR = MIN_WITHDRAW_USDT * INR_PER_USDT;
+
+/** BEP20 / EVM address: 0x + 40 hex chars */
+const BEP20_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 type Props = {
   token: string;
@@ -22,31 +27,34 @@ type Props = {
 export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
-  const [tpnField, setTpnField] = useState("");
+  const [codeField, setCodeField] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [totpBusy, setTotpBusy] = useState(false);
-  const [totpEnabled, setTotpEnabled] = useState(false);
-  const [totpPending, setTotpPending] = useState(false);
-  const [setupSecret, setSetupSecret] = useState("");
-  const [setupUrl, setSetupUrl] = useState("");
-  const [confirmCode, setConfirmCode] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinSet, setPinSet] = useState(false);
+  const [totpLegacy, setTotpLegacy] = useState(false);
+  const [newPin, setNewPin] = useState("");
+  const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [currentPin, setCurrentPin] = useState("");
+  const [changePin, setChangePin] = useState("");
+  const [changeConfirm, setChangeConfirm] = useState("");
+  const [showChange, setShowChange] = useState(false);
   const [withdrawals, setWithdrawals] = useState<
     Awaited<ReturnType<typeof loadMyWithdrawals>>["withdrawals"]
   >([]);
+  const [refreshBusy, setRefreshBusy] = useState(false);
 
-  const refreshTotp = useCallback(async () => {
+  const refreshSecurity = useCallback(async () => {
     try {
-      const st = await loadWithdrawalTotpStatus(token);
-      setTotpEnabled(st.enabled);
-      setTotpPending(st.setupPending);
-      if (!st.setupPending && !st.enabled) {
-        setSetupSecret("");
-        setSetupUrl("");
-      }
+      const [tpinSt, totpSt] = await Promise.all([
+        loadWithdrawalTpinStatus(token),
+        loadWithdrawalTotpStatus(token)
+      ]);
+      setPinSet(tpinSt.pinSet);
+      setTotpLegacy(totpSt.enabled && !tpinSt.pinSet);
     } catch {
-      setTotpEnabled(false);
-      setTotpPending(false);
+      setPinSet(false);
+      setTotpLegacy(false);
     }
   }, [token]);
 
@@ -54,38 +62,57 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
     void loadMyWithdrawals(token)
       .then((r) => setWithdrawals(r.withdrawals))
       .catch(() => undefined);
-    void refreshTotp();
-  }, [token, refreshTotp]);
+    void refreshSecurity();
+  }, [token, refreshSecurity]);
 
-  const handleBeginTotp = async () => {
+  const handleRefresh = useCallback(async () => {
+    setRefreshBusy(true);
     setMessage("");
-    setTotpBusy(true);
     try {
-      const out = await beginWithdrawalTotpSetup(token);
-      setSetupSecret(out.secret);
-      setSetupUrl(out.otpauthUrl);
-      await refreshTotp();
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "TPN setup failed");
+      await Promise.allSettled([
+        loadMyWithdrawals(token).then((r) => setWithdrawals(r.withdrawals)),
+        refreshSecurity()
+      ]);
+      onSuccess();
     } finally {
-      setTotpBusy(false);
+      setRefreshBusy(false);
+    }
+  }, [token, refreshSecurity, onSuccess]);
+
+  const canWithdraw = pinSet || totpLegacy;
+  const codeDigits = pinSet ? 4 : totpLegacy ? 6 : 0;
+
+  const handleSetPin = async () => {
+    setMessage("");
+    setPinBusy(true);
+    try {
+      await setWithdrawalTpinApi(token, newPin, confirmNewPin);
+      setNewPin("");
+      setConfirmNewPin("");
+      await refreshSecurity();
+      setMessage("Withdrawal TPIN saved. Use it every time you withdraw.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Could not save TPIN");
+    } finally {
+      setPinBusy(false);
     }
   };
 
-  const handleConfirmTotp = async () => {
+  const handleChangePin = async () => {
     setMessage("");
-    setTotpBusy(true);
+    setPinBusy(true);
     try {
-      await confirmWithdrawalTotpSetup(token, confirmCode);
-      setConfirmCode("");
-      setSetupSecret("");
-      setSetupUrl("");
-      await refreshTotp();
-      setMessage("Withdrawal TPN enabled. You can submit a withdrawal below.");
+      await changeWithdrawalTpinApi(token, currentPin, changePin, changeConfirm);
+      setCurrentPin("");
+      setChangePin("");
+      setChangeConfirm("");
+      setShowChange(false);
+      await refreshSecurity();
+      setMessage("Withdrawal TPIN updated.");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Confirm failed");
+      setMessage(e instanceof Error ? e.message : "Could not change TPIN");
     } finally {
-      setTotpBusy(false);
+      setPinBusy(false);
     }
   };
 
@@ -93,8 +120,8 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
     e.preventDefault();
     setMessage("");
 
-    if (!totpEnabled) {
-      setMessage("Complete withdrawal TPN setup above first.");
+    if (!canWithdraw) {
+      setMessage("Create your 4-digit withdrawal TPIN above first (or use legacy authenticator if already enabled).");
       return;
     }
 
@@ -111,26 +138,48 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
       return;
     }
     const trimmed = address.trim();
-    if (!trimmed || trimmed.length < 40 || !trimmed.startsWith("0x")) {
-      setMessage("Enter a valid BEP20 (0x...) address.");
+    if (!trimmed) {
+      setMessage("Enter your BEP20 USDT receive address (wallet starting with 0x…).");
       return;
     }
-    const tpn = tpnField.replace(/\s/g, "");
-    if (!/^\d{6}$/.test(tpn)) {
-      setMessage("Enter the 6-digit withdrawal TPN from your authenticator app.");
+    if (trimmed.includes("@")) {
+      setMessage(
+        "That looks like an email. Paste your on-chain wallet address (0x…, 42 characters) — not an email or phone number."
+      );
+      return;
+    }
+    if (!BEP20_ADDRESS_RE.test(trimmed)) {
+      setMessage(
+        "Enter a valid BEP20 address: exactly 42 characters — 0x followed by 40 hexadecimal digits (a–f, 0–9)."
+      );
+      return;
+    }
+    const code = codeField.replace(/\s/g, "");
+    const ok =
+      pinSet && /^\d{4}$/.test(code)
+        ? true
+        : totpLegacy && /^\d{6}$/.test(code)
+          ? true
+          : false;
+    if (!ok) {
+      setMessage(
+        pinSet
+          ? "Enter your 4-digit withdrawal TPIN."
+          : "Enter the 6-digit code from your authenticator app."
+      );
       return;
     }
 
     setBusy(true);
     try {
-      const res = await submitWithdrawalRequest(token, num, trimmed, tpn);
+      const res = await submitWithdrawalRequest(token, num, trimmed, code);
       const debited = res.inrDebited ?? inrNeeded;
       setMessage(
         `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`
       );
       setAmount("");
       setAddress("");
-      setTpnField("");
+      setCodeField("");
       onSuccess();
       const r = await loadMyWithdrawals(token);
       setWithdrawals(r.withdrawals);
@@ -147,77 +196,148 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
         <div className="funds-title-row">
           <BrandLogo size={44} />
           <h1>Withdraw USDT</h1>
+          <GlobalRefreshButton
+            className="global-refresh-fab--sm"
+            title="Refresh balances and withdrawal list"
+            disabled={refreshBusy}
+            onClick={() => void handleRefresh()}
+          />
         </div>
         <p className="funds-network">
           <span className="funds-badge">BEP20</span> You receive <strong>USDT</strong> on-chain; trading wallet is debited in{" "}
-          <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT)
+          <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT). Minimum withdrawal: <strong>{MIN_WITHDRAW_USDT} USDT</strong>{" "}
+          (~${MIN_WITHDRAW_USDT}).
         </p>
 
         <div className="funds-balance">
-          <span>Available (trading wallet)</span>
+          <span>Available (live wallet — not demo)</span>
           <strong>{formatInr(balance)}</strong>
         </div>
 
         <div className="withdrawal-tpn-panel">
-          <h2 className="withdrawal-tpn-title">Withdrawal TPN (authenticator)</h2>
-          <p className="muted withdrawal-tpn-hint">
-            Every withdrawal needs a fresh 6-digit code from an app such as <strong>Google Authenticator</strong>. Set this up once
-            below.
+          <h2 className="withdrawal-tpn-title">Withdrawal TPIN (4 digits)</h2>
+          <p className="withdrawal-tpn-hint">
+            Create a <strong className="withdrawal-tpn-em">4-digit PIN</strong> once. It is stored securely on the server (not
+            plain text). Every withdrawal requires this TPIN.
           </p>
-          {totpEnabled ? (
-            <p className="funds-badge withdrawal-tpn-active">TPN active — enter a new code for each withdrawal.</p>
-          ) : (
+
+          {pinSet ? (
             <>
-              <button type="button" className="secondary-button" disabled={totpBusy} onClick={() => void handleBeginTotp()}>
-                {totpBusy ? "…" : setupSecret || setupUrl ? "Regenerate setup link" : "Generate authenticator link"}
-              </button>
-              {totpPending && !setupSecret && !setupUrl ? (
-                <p className="muted withdrawal-tpn-resume">
-                  Setup was started before — tap <strong>Generate</strong> above to show the secret and link again.
-                </p>
-              ) : null}
-              {(setupSecret || setupUrl) && !totpEnabled ? (
+              <span className="withdrawal-tpn-active">TPIN active</span>
+              {showChange ? (
+                <button type="button" className="withdrawal-tpn-btn-cancel" onClick={() => setShowChange(false)}>
+                  Cancel change
+                </button>
+              ) : (
+                <button type="button" className="withdrawal-tpn-primary-btn" onClick={() => setShowChange(true)}>
+                  Change TPIN
+                </button>
+              )}
+              {showChange ? (
                 <div className="withdrawal-tpn-setup">
-                  <p className="muted">
-                    Add an account in your authenticator app using the <strong>secret</strong> or <strong>setup link</strong>, then
-                    enter the 6-digit code to confirm.
-                  </p>
-                  {setupUrl ? (
-                    <label className="withdrawal-tpn-url-label">
-                      Setup link (copy into app if it supports URL import)
-                      <input readOnly className="withdrawal-tpn-url-input" value={setupUrl} />
-                    </label>
-                  ) : null}
-                  {setupSecret ? (
-                    <label>
-                      Secret key (manual entry)
-                      <input readOnly value={setupSecret} className="withdrawal-tpn-secret-input" />
-                    </label>
-                  ) : null}
                   <label>
-                    6-digit code from app
+                    Current TPIN
                     <input
-                      type="text"
+                      type="password"
                       inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={8}
-                      placeholder="123456"
-                      value={confirmCode}
-                      onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      disabled={totpBusy}
+                      autoComplete="off"
+                      maxLength={4}
+                      placeholder="••••"
+                      value={currentPin}
+                      onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      disabled={pinBusy}
                     />
                   </label>
-                  <button type="button" disabled={totpBusy || confirmCode.length < 6} onClick={() => void handleConfirmTotp()}>
-                    Confirm &amp; enable TPN
+                  <label>
+                    New TPIN
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={4}
+                      placeholder="••••"
+                      value={changePin}
+                      onChange={(e) => setChangePin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      disabled={pinBusy}
+                    />
+                  </label>
+                  <label>
+                    Confirm new TPIN
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={4}
+                      placeholder="••••"
+                      value={changeConfirm}
+                      onChange={(e) => setChangeConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      disabled={pinBusy}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="withdrawal-tpn-primary-btn"
+                    disabled={
+                      pinBusy ||
+                      currentPin.length < 4 ||
+                      changePin.length < 4 ||
+                      changeConfirm.length < 4
+                    }
+                    onClick={() => void handleChangePin()}
+                  >
+                    Update TPIN
                   </button>
                 </div>
               ) : null}
             </>
+          ) : (
+            <div className="withdrawal-tpn-setup">
+              <label>
+                New TPIN (4 digits)
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={4}
+                  placeholder="••••"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  disabled={pinBusy}
+                />
+              </label>
+              <label>
+                Confirm TPIN
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  maxLength={4}
+                  placeholder="••••"
+                  value={confirmNewPin}
+                  onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  disabled={pinBusy}
+                />
+              </label>
+              <button
+                type="button"
+                className="withdrawal-tpn-primary-btn"
+                disabled={pinBusy || newPin.length < 4 || confirmNewPin.length < 4}
+                onClick={() => void handleSetPin()}
+              >
+                Save TPIN
+              </button>
+              {totpLegacy ? (
+                <p className="muted withdrawal-tpn-resume">
+                  You still have <strong>Google Authenticator</strong> enabled for withdrawals until you save a TPIN above.
+                  After you save a TPIN, only the 4-digit TPIN will be used.
+                </p>
+              ) : null}
+            </div>
           )}
         </div>
 
         <form className="funds-form" onSubmit={(e) => void handleSubmit(e)}>
-          <fieldset disabled={!totpEnabled || busy} className="withdrawal-form-fieldset">
+          <fieldset disabled={!canWithdraw || busy} className="withdrawal-form-fieldset">
             <legend className="sr-only">Withdrawal request</legend>
             <label>
               Amount to receive (USDT)
@@ -225,10 +345,10 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
                 type="number"
                 min={MIN_WITHDRAW_USDT}
                 step="0.01"
-                placeholder="20.00"
+                placeholder="10.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                disabled={busy || !totpEnabled}
+                disabled={busy || !canWithdraw}
               />
             </label>
             <p className="muted withdrawal-inr-line">
@@ -239,28 +359,34 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
               Your USDT address (BEP20)
               <input
                 type="text"
-                placeholder="0x..."
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder="0x followed by 40 hex characters"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                disabled={busy || !totpEnabled}
+                disabled={busy || !canWithdraw}
               />
             </label>
 
             <label>
-              Withdrawal TPN (6-digit code)
+              {pinSet ? "Withdrawal TPIN (4 digits)" : "Authenticator code (6 digits)"}
               <input
-                type="text"
+                type="password"
                 inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                placeholder="From authenticator"
-                value={tpnField}
-                onChange={(e) => setTpnField(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                disabled={busy || !totpEnabled}
+                autoComplete="off"
+                maxLength={codeDigits || 6}
+                placeholder={pinSet ? "••••" : "From app"}
+                value={codeField}
+                onChange={(e) =>
+                  setCodeField(e.target.value.replace(/\D/g, "").slice(0, codeDigits || 6))
+                }
+                disabled={busy || !canWithdraw}
               />
             </label>
 
-            <button type="submit" disabled={busy || !totpEnabled}>
+            <button type="submit" disabled={busy || !canWithdraw}>
               {busy ? "Submitting…" : "Submit withdrawal"}
             </button>
           </fieldset>
@@ -289,10 +415,11 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           <strong>Note</strong>
           <ul>
             <li>
-              Minimum: <strong>{MIN_WITHDRAW_USDT} USDT</strong> (≈ {formatInr(MIN_BALANCE_INR)} balance). Funds are reserved when you submit.
+              Minimum: <strong>{MIN_WITHDRAW_USDT} USDT</strong> (~${MIN_WITHDRAW_USDT}) — ≈ {formatInr(MIN_BALANCE_INR)} INR
+              from live wallet. Funds are reserved when you submit.
             </li>
             <li>Wrong BEP20 address can mean permanent loss — double-check.</li>
-            <li>Each withdrawal uses a new TPN code from your authenticator (time-based).</li>
+            <li>Do not share your TPIN. Support will never ask for it.</li>
           </ul>
         </div>
 
