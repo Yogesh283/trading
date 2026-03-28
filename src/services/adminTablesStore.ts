@@ -4,8 +4,9 @@
  */
 import { dbAll, dbGet, initAppDb, isMysqlMode } from "../db/appDb";
 import { logger } from "../utils/logger";
-import type { DepositRow } from "./depositStore";
-import type { WithdrawalRow } from "./withdrawalStore";
+import { formatAdminMobile } from "../utils/adminMobile";
+import { getDepositAdminRowById } from "./depositStore";
+import { getWithdrawalAdminRowById } from "./withdrawalStore";
 
 const TXN_CAP = 25_000;
 const TICKS_CAP = 8_000;
@@ -22,13 +23,22 @@ export async function listWalletsForAdmin(): Promise<Record<string, unknown>[]> 
     balance: number;
     demo_balance: number;
     updated_at: string;
-  }>("SELECT user_id, balance, demo_balance, updated_at FROM wallets ORDER BY updated_at DESC");
+    phone_country_code: string | null;
+    phone_local: string | null;
+  }>(
+    `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at,
+            u.phone_country_code, u.phone_local
+     FROM wallets w
+     LEFT JOIN users u ON u.id = w.user_id
+     ORDER BY w.updated_at DESC`
+  );
   return rows.map((r) => ({
     id: r.user_id,
     user_id: r.user_id,
     balance: Number(r.balance),
     demo_balance: Number(r.demo_balance),
-    updated_at: r.updated_at
+    updated_at: r.updated_at,
+    user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
   }));
 }
 
@@ -44,9 +54,14 @@ export async function listTransactionsForAdmin(): Promise<Record<string, unknown
       after_balance: number;
       reference_id: string | null;
       created_at: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
     }>(
-      `SELECT id, user_id, txn_type, amount, before_balance, after_balance, reference_id, created_at
-       FROM transactions ORDER BY created_at DESC LIMIT ?`,
+      `SELECT t.id, t.user_id, t.txn_type, t.amount, t.before_balance, t.after_balance, t.reference_id, t.created_at,
+              u.phone_country_code, u.phone_local
+       FROM transactions t
+       LEFT JOIN users u ON u.id = t.user_id
+       ORDER BY t.created_at DESC LIMIT ?`,
       [TXN_CAP]
     );
     return rows.map((r) => ({
@@ -57,7 +72,8 @@ export async function listTransactionsForAdmin(): Promise<Record<string, unknown
       before_balance: Number(r.before_balance),
       after_balance: Number(r.after_balance),
       reference_id: r.reference_id,
-      created_at: r.created_at
+      created_at: r.created_at,
+      user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
     }));
   } catch (err) {
     if (isMissingTableError(err)) {
@@ -77,8 +93,14 @@ export async function listUserInvestmentsForAdmin(): Promise<Record<string, unkn
       locked_until: string | null;
       last_yield_date: string | null;
       last_monthly_yield_ym: string | null;
+      phone_country_code: string | null;
+      phone_local: string | null;
     }>(
-      "SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments ORDER BY user_id"
+      `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
+              u.phone_country_code, u.phone_local
+       FROM user_investments ui
+       LEFT JOIN users u ON u.id = ui.user_id
+       ORDER BY ui.user_id`
     );
     return rows.map((r) => ({
       id: r.user_id,
@@ -86,7 +108,8 @@ export async function listUserInvestmentsForAdmin(): Promise<Record<string, unkn
       principal: Number(r.principal),
       locked_until: r.locked_until,
       last_yield_date: r.last_yield_date,
-      last_monthly_yield_ym: r.last_monthly_yield_ym
+      last_monthly_yield_ym: r.last_monthly_yield_ym,
+      user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
     }));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -122,12 +145,22 @@ export async function getAdminRaOne(
         locked_until: string | null;
         last_yield_date: string | null;
         last_monthly_yield_ym: string | null;
+        phone_country_code: string | null;
+        phone_local: string | null;
       } | undefined;
       try {
         row = await dbGet(
           mysql
-            ? `SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE user_id = ? OR ${trimUserId} LIMIT 1`
-            : `SELECT user_id, principal, locked_until, last_yield_date, last_monthly_yield_ym FROM user_investments WHERE user_id = ? OR ${trimUserId}`,
+            ? `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
+                      u.phone_country_code, u.phone_local
+               FROM user_investments ui
+               LEFT JOIN users u ON u.id = ui.user_id
+               WHERE ui.user_id = ? OR ${trimUserId.replace(/user_id/g, "ui.user_id")} LIMIT 1`
+            : `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
+                      u.phone_country_code, u.phone_local
+               FROM user_investments ui
+               LEFT JOIN users u ON u.id = ui.user_id
+               WHERE ui.user_id = ? OR ${trimUserId.replace(/user_id/g, "ui.user_id")}`,
           [id, id]
         );
       } catch (e) {
@@ -146,21 +179,31 @@ export async function getAdminRaOne(
         principal: Number(row.principal),
         locked_until: row.locked_until,
         last_yield_date: row.last_yield_date,
-        last_monthly_yield_ym: row.last_monthly_yield_ym
+        last_monthly_yield_ym: row.last_monthly_yield_ym,
+        user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
       };
     }
     case "wallets": {
+      const wTrim = trimUserId.replace(/user_id/g, "w.user_id");
       let row: {
         user_id: string | number;
         balance: number | string | null;
         demo_balance: number | string | null;
         updated_at: string;
+        phone_country_code: string | null;
+        phone_local: string | null;
       } | undefined;
       try {
         row = await dbGet(
           mysql
-            ? `SELECT user_id, balance, demo_balance, updated_at FROM wallets WHERE user_id = ? OR ${trimUserId} LIMIT 1`
-            : `SELECT user_id, balance, demo_balance, updated_at FROM wallets WHERE user_id = ? OR ${trimUserId}`,
+            ? `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at, u.phone_country_code, u.phone_local
+               FROM wallets w
+               LEFT JOIN users u ON u.id = w.user_id
+               WHERE w.user_id = ? OR ${wTrim} LIMIT 1`
+            : `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at, u.phone_country_code, u.phone_local
+               FROM wallets w
+               LEFT JOIN users u ON u.id = w.user_id
+               WHERE w.user_id = ? OR ${wTrim}`,
           [id, id]
         );
       } catch (e) {
@@ -178,13 +221,22 @@ export async function getAdminRaOne(
         user_id: uid,
         balance: Number(row.balance),
         demo_balance: Number(row.demo_balance),
-        updated_at: row.updated_at
+        updated_at: row.updated_at,
+        user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
       };
     }
     case "transactions": {
       const idSql = mysql
-        ? "SELECT id, user_id, txn_type, amount, before_balance, after_balance, reference_id, created_at FROM transactions WHERE id = ? OR TRIM(CAST(id AS CHAR)) = TRIM(?) LIMIT 1"
-        : "SELECT id, user_id, txn_type, amount, before_balance, after_balance, reference_id, created_at FROM transactions WHERE id = ? OR TRIM(CAST(id AS TEXT)) = TRIM(?)";
+        ? `SELECT t.id, t.user_id, t.txn_type, t.amount, t.before_balance, t.after_balance, t.reference_id, t.created_at,
+                  u.phone_country_code, u.phone_local
+           FROM transactions t
+           LEFT JOIN users u ON u.id = t.user_id
+           WHERE t.id = ? OR TRIM(CAST(t.id AS CHAR)) = TRIM(?) LIMIT 1`
+        : `SELECT t.id, t.user_id, t.txn_type, t.amount, t.before_balance, t.after_balance, t.reference_id, t.created_at,
+                  u.phone_country_code, u.phone_local
+           FROM transactions t
+           LEFT JOIN users u ON u.id = t.user_id
+           WHERE t.id = ? OR TRIM(CAST(t.id AS TEXT)) = TRIM(?)`;
       const row = await dbGet<{
         id: string;
         user_id: string;
@@ -194,6 +246,8 @@ export async function getAdminRaOne(
         after_balance: number | string | null;
         reference_id: string | null;
         created_at: string;
+        phone_country_code: string | null;
+        phone_local: string | null;
       }>(idSql, [id, id]);
       if (!row) {
         return null;
@@ -206,22 +260,15 @@ export async function getAdminRaOne(
         before_balance: Number(row.before_balance),
         after_balance: Number(row.after_balance),
         reference_id: row.reference_id,
-        created_at: row.created_at
+        created_at: row.created_at,
+        user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
       };
     }
     case "deposits": {
-      const row = await dbGet<DepositRow>(
-        mysql ? "SELECT * FROM deposits WHERE id = ? LIMIT 1" : "SELECT * FROM deposits WHERE id = ?",
-        [id]
-      );
-      return row ? ({ ...row } as Record<string, unknown>) : null;
+      return getDepositAdminRowById(id);
     }
     case "withdrawals": {
-      const row = await dbGet<WithdrawalRow>(
-        mysql ? "SELECT * FROM withdrawals WHERE id = ? LIMIT 1" : "SELECT * FROM withdrawals WHERE id = ?",
-        [id]
-      );
-      return row ? ({ ...row } as Record<string, unknown>) : null;
+      return getWithdrawalAdminRowById(id);
     }
     case "market_ticks": {
       const rows = await listMarketTicksForAdmin();
@@ -237,17 +284,21 @@ export async function getAdminRaOne(
         created_at: string;
         user_name: string | null;
         user_email: string | null;
+        user_phone_country_code: string | null;
+        user_phone_local: string | null;
       } | undefined;
       const mysql = isMysqlMode();
       try {
         const sql = mysql
           ? `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
-                    u.name AS user_name, u.email AS user_email
+                    u.name AS user_name, u.email AS user_email,
+                    u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
              FROM support_tickets t
              LEFT JOIN users u ON u.id = t.user_id
              WHERE t.id = ? LIMIT 1`
           : `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
-                    u.name AS user_name, u.email AS user_email
+                    u.name AS user_name, u.email AS user_email,
+                    u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
              FROM support_tickets t
              LEFT JOIN users u ON u.id = t.user_id
              WHERE t.id = ?`;
@@ -266,6 +317,7 @@ export async function getAdminRaOne(
         user_id: row.user_id,
         user_name: row.user_name ?? "—",
         user_email: row.user_email ?? "—",
+        user_mobile: formatAdminMobile(row.user_phone_country_code, row.user_phone_local),
         subject: row.subject,
         body: row.body,
         status: row.status,
@@ -291,9 +343,12 @@ export async function listSupportTicketsForAdmin(): Promise<Record<string, unkno
       created_at: string;
       user_name: string | null;
       user_email: string | null;
+      user_phone_country_code: string | null;
+      user_phone_local: string | null;
     }>(
       `SELECT t.id, t.user_id, t.subject, t.body, t.status, t.created_at,
-              u.name AS user_name, u.email AS user_email
+              u.name AS user_name, u.email AS user_email,
+              u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
        FROM support_tickets t
        LEFT JOIN users u ON u.id = t.user_id
        ORDER BY t.created_at DESC
@@ -305,6 +360,7 @@ export async function listSupportTicketsForAdmin(): Promise<Record<string, unkno
       user_id: r.user_id,
       user_name: r.user_name ?? "—",
       user_email: r.user_email ?? "—",
+      user_mobile: formatAdminMobile(r.user_phone_country_code, r.user_phone_local),
       subject: r.subject,
       body: r.body,
       status: r.status,

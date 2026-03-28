@@ -1016,6 +1016,45 @@ function parseReactAdminListQuery(q: express.Request["query"]): {
   return { start, endExclusive, sortField, order };
 }
 
+/** React-Admin sends `filter` as JSON in query string; apply before sort + slice. */
+function parseAdminListFilter(q: express.Request["query"]): Record<string, unknown> {
+  const raw = q.filter;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return {};
+  }
+  try {
+    const obj = JSON.parse(raw) as unknown;
+    return typeof obj === "object" && obj !== null && !Array.isArray(obj) ? (obj as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function applyAdminListRowFilter(
+  resource: string,
+  rows: Record<string, unknown>[],
+  filter: Record<string, unknown>
+): Record<string, unknown>[] {
+  if (Object.keys(filter).length === 0) {
+    return rows;
+  }
+  if (resource === "deposits" && typeof filter.status === "string" && filter.status.length > 0) {
+    return rows.filter((r) => String(r.status ?? "") === filter.status);
+  }
+  if (resource === "withdrawals") {
+    if (filter.status_pending_processing === true) {
+      return rows.filter((r) => {
+        const s = String(r.status ?? "");
+        return s === "pending" || s === "processing";
+      });
+    }
+    if (typeof filter.status === "string" && filter.status.length > 0) {
+      return rows.filter((r) => String(r.status ?? "") === filter.status);
+    }
+  }
+  return rows;
+}
+
 function adminSafePathId(raw: unknown): string {
   const s = String(raw ?? "").trim();
   if (!s) {
@@ -1067,6 +1106,7 @@ async function handleAdminReactAdminList(
   }
 
   const { start, endExclusive, sortField, order } = parseReactAdminListQuery(req.query);
+  const listFilter = parseAdminListFilter(req.query);
 
   let rows: Record<string, unknown>[] = [];
   if (resource === "deposits") {
@@ -1086,6 +1126,8 @@ async function handleAdminReactAdminList(
   } else {
     rows = await listMarketTicksForAdmin();
   }
+
+  rows = applyAdminListRowFilter(resource, rows, listFilter);
 
   const mult = order === "ASC" ? 1 : -1;
   rows.sort((a, b) => {

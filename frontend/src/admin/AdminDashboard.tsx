@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
 import { Title } from "react-admin";
+import { useNavigate } from "react-router-dom";
 import { getAdminApiUrl } from "../backendOrigin";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
@@ -37,14 +38,47 @@ type Stats = {
 function StatCard({
   title,
   value,
-  subtitle
+  subtitle,
+  onNavigate
 }: {
   title: string;
   value: string;
   subtitle?: string;
+  /** Opens the related admin list when set */
+  onNavigate?: () => void;
 }) {
+  const clickable = typeof onNavigate === "function";
   return (
-    <Card variant="outlined" sx={{ height: "100%", bgcolor: "background.paper" }}>
+    <Card
+      variant="outlined"
+      onClick={clickable ? onNavigate : undefined}
+      sx={{
+        height: "100%",
+        bgcolor: "background.paper",
+        cursor: clickable ? "pointer" : "default",
+        transition: "box-shadow 0.2s, border-color 0.2s",
+        ...(clickable
+          ? {
+              "&:hover": {
+                borderColor: "primary.main",
+                boxShadow: 2
+              }
+            }
+          : {})
+      }}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onNavigate?.();
+              }
+            }
+          : undefined
+      }
+    >
       <CardContent>
         <Typography color="text.secondary" variant="body2" gutterBottom>
           {title}
@@ -63,12 +97,25 @@ function StatCard({
 }
 
 export function AdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [blockUserId, setBlockUserId] = useState("");
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockMsg, setBlockMsg] = useState<string | null>(null);
+
+  const goList = useCallback(
+    (resource: string, filter?: Record<string, unknown>) => {
+      const path = `/${resource}`;
+      const q =
+        filter && Object.keys(filter).length > 0
+          ? `?filter=${encodeURIComponent(JSON.stringify(filter))}`
+          : "";
+      navigate(`${path}${q}`);
+    },
+    [navigate]
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -164,13 +211,18 @@ export function AdminDashboard() {
         <>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <StatCard title="Registered users" value={String(stats.usersCount)} />
+            <StatCard
+              title="Registered users"
+              value={String(stats.usersCount)}
+              onNavigate={() => goList("users")}
+            />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Logins today (UTC)"
               value={String(stats.usersLoggedInTodayUtc ?? 0)}
               subtitle={`Window: ${stats.usersLoggedInTodayUtcDate ?? "—"} · successful app logins only`}
+              onNavigate={() => goList("user_insights")}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -182,12 +234,14 @@ export function AdminDashboard() {
                   ? `~${stats.pendingDepositReviewUsdt.toFixed(2)} USDT pending`
                   : undefined
               }
+              onNavigate={() => goList("deposits", { status: "pending_review" })}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Withdrawals (pending / processing)"
               value={String(stats.pendingWithdrawalsCount)}
+              onNavigate={() => goList("withdrawals", { status_pending_processing: true })}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -195,6 +249,7 @@ export function AdminDashboard() {
               title="Total live wallet (INR)"
               value={`₹${stats.totalLiveWalletInr.toFixed(2)}`}
               subtitle="Sum of all users’ live balances"
+              onNavigate={() => goList("wallets")}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -202,6 +257,7 @@ export function AdminDashboard() {
               title="Total demo wallet (INR)"
               value={`₹${stats.totalDemoWalletInr.toFixed(2)}`}
               subtitle="Sum of demo balances"
+              onNavigate={() => goList("wallets")}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -209,6 +265,7 @@ export function AdminDashboard() {
               title="Active investments"
               value={String(stats.investorsWithPrincipal)}
               subtitle={`Principal total ₹${stats.totalInvestmentPrincipalInr.toFixed(2)}`}
+              onNavigate={() => goList("user_investments")}
             />
           </Grid>
         </Grid>

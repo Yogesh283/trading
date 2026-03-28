@@ -13,6 +13,7 @@ import { validateInviterReferralCode, allocateUniqueSelfReferralCode } from "./r
 import { getReferralLevelConfigPayload } from "./referralLevelConfigService";
 import { listInvestmentRoiLevelRows } from "./investmentRoiLevelService";
 import { LEVEL_INCOME_DEPTH } from "../config/referral";
+import { formatAdminMobile } from "../utils/adminMobile";
 
 /** Compare admin URL id vs DB id (spaces, BOM, BigInt vs string, leading zeros on digits). */
 function normalizeAdminIdToken(v: unknown): string {
@@ -728,6 +729,8 @@ export type AdminUserListRow = AdminUserRow & {
   /** Sum of direct referrals’ credited deposits (USDT). */
   direct_team_deposits_usdt_total: number;
   withdrawal_totp_enabled: boolean;
+  /** Country code + local digits for admin tables. */
+  user_mobile: string;
 };
 
 export type AdminUserDetailRow = AdminUserListRow;
@@ -1182,7 +1185,8 @@ function mapRawAdminUserRow(
     total_team_count: countTotalDownline(myId, childrenByParentId),
     direct_team_live_balance_total,
     direct_team_deposits_usdt_total,
-    withdrawal_totp_enabled: Number(row.withdrawal_totp_enabled ?? 0) === 1
+    withdrawal_totp_enabled: Number(row.withdrawal_totp_enabled ?? 0) === 1,
+    user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
   };
 }
 

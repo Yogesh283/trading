@@ -67,6 +67,7 @@ export function DepositList() {
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <DateField source="created_at" showTime />
         <TextField source="user_email" label="Email" />
         <NumberField source="amount" />
@@ -96,6 +97,7 @@ export function WithdrawalList() {
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <DateField source="created_at" showTime />
         <TextField source="user_email" label="Email" />
         <NumberField source="amount" />
@@ -113,8 +115,7 @@ export function UserList() {
         <EditButton />
         <TextField source="id" />
         <TextField source="name" />
-        <TextField source="phone_country_code" label="Phone CC" emptyText="—" />
-        <TextField source="phone_local" label="Phone" emptyText="—" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <TextField source="email" />
         <TextField source="inviter_name" label="Upline / inviter" emptyText="—" />
         <TextField source="inviter_email" label="Inviter email" emptyText="—" />
@@ -153,6 +154,7 @@ export function UserEdit() {
         <TextInput source="name" fullWidth required />
         <TextInput source="phone_country_code" label="Phone country code" disabled fullWidth />
         <TextInput source="phone_local" label="Phone (national digits)" disabled fullWidth />
+        <TextInput source="user_mobile" label="Mobile (read-only)" disabled fullWidth />
         <TextInput source="email" type="email" fullWidth required />
         <TextInput source="created_at" label="Created at" disabled fullWidth />
         <SelectInput
@@ -206,6 +208,7 @@ export function WalletList() {
       <Datagrid rowClick="edit" bulkActionButtons={false}>
         <EditButton />
         <TextField source="user_id" label="User id" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <NumberField source="balance" label="Live USDT" options={{ maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
         <DateField source="updated_at" label="Updated" showTime />
@@ -221,6 +224,7 @@ export function WalletEdit() {
       <SimpleForm>
         <TextInput source="id" label="Record id (= user id)" disabled fullWidth />
         <TextInput source="user_id" label="User id" disabled fullWidth />
+        <TextInput source="user_mobile" label="Mobile (read-only)" disabled fullWidth />
         <TextInput source="updated_at" label="Last updated (read-only)" disabled fullWidth />
         <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
         <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
@@ -235,6 +239,7 @@ export function TransactionList() {
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <TextField source="txn_type" label="Type" />
         <NumberField source="amount" options={{ maximumFractionDigits: 8 }} />
         <NumberField source="before_balance" label="Before" options={{ maximumFractionDigits: 8 }} />
@@ -251,6 +256,7 @@ export function UserInvestmentList() {
     <List perPage={25} sort={{ field: "user_id", order: "ASC" }}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="user_id" label="User id" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <NumberField source="principal" options={{ maximumFractionDigits: 2 }} />
         <TextField source="locked_until" label="Locked until" emptyText="—" />
         <TextField source="last_yield_date" label="Last yield" emptyText="—" />
@@ -282,6 +288,7 @@ export function SupportTicketList() {
         <TextField source="user_id" label="User id" />
         <TextField source="user_name" label="Name" emptyText="—" />
         <TextField source="user_email" label="Email" emptyText="—" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <TextField source="subject" />
         <TextField source="status" />
         <DateField source="created_at" label="Created" showTime />
@@ -298,6 +305,7 @@ export function SupportTicketShow() {
         <TextField source="user_id" />
         <TextField source="user_name" label="User name" emptyText="—" />
         <TextField source="user_email" label="User email" emptyText="—" />
+        <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <TextField source="status" />
         <TextField source="subject" />
         <FunctionField

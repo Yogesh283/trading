@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { dbAll, dbGet, dbRun, initAppDb } from "../db/appDb";
+import { dbAll, dbGet, dbRun, initAppDb, isMysqlMode } from "../db/appDb";
+import { formatAdminMobile } from "../utils/adminMobile";
 
 export type DepositStatus = "pending_wallet" | "pending_review" | "tx_sent" | "credited";
 
@@ -131,9 +132,25 @@ export async function listDepositsForUser(userId: string): Promise<DepositRow[]>
   );
 }
 
-export async function listAllDeposits(): Promise<DepositRow[]> {
+export async function listAllDeposits(): Promise<Record<string, unknown>[]> {
   await ensureDepositsReady();
-  return dbAll<DepositRow>("SELECT * FROM deposits ORDER BY created_at DESC");
+  const rows = await dbAll<
+    DepositRow & { user_phone_country_code: string | null; user_phone_local: string | null }
+  >(
+    `SELECT d.*, u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
+     FROM deposits d
+     LEFT JOIN users u ON u.id = d.user_id
+     ORDER BY d.created_at DESC`
+  );
+  return rows.map((r) => {
+    const { user_phone_country_code, user_phone_local, ...rest } = r;
+    return {
+      ...rest,
+      user_phone_country_code,
+      user_phone_local,
+      user_mobile: formatAdminMobile(user_phone_country_code, user_phone_local)
+    };
+  });
 }
 
 export async function markDepositCredited(depositId: string) {
@@ -148,6 +165,31 @@ export async function getDepositById(id: string): Promise<DepositRow | null> {
   await ensureDepositsReady();
   const row = await dbGet<DepositRow>("SELECT * FROM deposits WHERE id = ?", [id]);
   return row ?? null;
+}
+
+/** Admin getOne — includes user mobile from `users`. */
+export async function getDepositAdminRowById(id: string): Promise<Record<string, unknown> | null> {
+  await ensureDepositsReady();
+  const lim = isMysqlMode() ? " LIMIT 1" : "";
+  const row = await dbGet<
+    DepositRow & { user_phone_country_code: string | null; user_phone_local: string | null }
+  >(
+    `SELECT d.*, u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
+     FROM deposits d
+     LEFT JOIN users u ON u.id = d.user_id
+     WHERE d.id = ?${lim}`,
+    [id]
+  );
+  if (!row) {
+    return null;
+  }
+  const { user_phone_country_code, user_phone_local, ...rest } = row;
+  return {
+    ...rest,
+    user_phone_country_code,
+    user_phone_local,
+    user_mobile: formatAdminMobile(user_phone_country_code, user_phone_local)
+  };
 }
 
 /** Set `credited` only if still `pending_review` (after wallet ledger applied). */

@@ -1140,21 +1140,26 @@ export default function App() {
   };
 
   /**
-   * Quick multiply the **entered** amount (not % of wallet): e.g. amount 5 → 2x = 10, 3x = 15.
-   * Capped by available balance when loaded.
+   * Multiply current **amount field** by 2 / 3 / 5 / 10 (e.g. 1 → 5x → 5; 100 → 2x → 200).
+   * Capped by wallet balance when known.
    */
-  const applyMobileStakeMultiplier = (mult: number) => {
-    const base = Math.max(1, Math.floor(Number(quantity) || 0));
-    const raw = base * mult;
-    const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
-    if (bal != null && Number.isFinite(bal) && bal > 0) {
-      const cap = Math.max(1, Math.floor(bal));
-      setQuantity(String(Math.min(Math.max(1, raw), cap)));
-    } else {
-      setQuantity(String(Math.max(1, raw)));
-    }
-    setMessage("");
-  };
+  const applyStakeMultiplier = useCallback(
+    (mult: number) => {
+      const parsed = Number(String(quantity).trim());
+      const base =
+        Number.isFinite(parsed) && parsed >= 1 ? Math.max(1, Math.floor(parsed)) : 1;
+      const raw = base * mult;
+      const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
+      if (bal != null && Number.isFinite(bal) && bal > 0) {
+        const cap = Math.max(1, Math.floor(bal));
+        setQuantity(String(Math.min(Math.max(1, raw), cap)));
+      } else {
+        setQuantity(String(Math.max(1, raw)));
+      }
+      setMessage("");
+    },
+    [quantity, accountWallet, dualBalances.demo, dualBalances.live]
+  );
 
   const handleAuth = async (event: FormEvent) => {
     event.preventDefault();
@@ -2082,7 +2087,7 @@ export default function App() {
                   key={mult}
                   type="button"
                   className="mobile-stake-pct-btn"
-                  onClick={() => applyMobileStakeMultiplier(mult)}
+                  onClick={() => applyStakeMultiplier(mult)}
                 >
                   {mult}x
                 </button>
@@ -2645,6 +2650,21 @@ export default function App() {
                 </span>
               </div>
             </label>
+            <div className="desktop-demo-block desktop-demo-mult-block">
+              <span className="desktop-demo-label">× amount</span>
+              <div className="desktop-stake-mult-row" role="group" aria-label="Multiply amount by 2, 3, 5, or 10">
+                {([2, 3, 5, 10] as const).map((mult) => (
+                  <button
+                    key={mult}
+                    type="button"
+                    className="desktop-stake-mult-btn"
+                    onClick={() => applyStakeMultiplier(mult)}
+                  >
+                    {mult}x
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="desktop-demo-block desktop-demo-bs-block">
               <span className="desktop-demo-label">Direction</span>
               <div className="desktop-demo-bs-row">

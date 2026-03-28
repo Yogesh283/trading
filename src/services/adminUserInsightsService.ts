@@ -1,7 +1,8 @@
 import { dbAll, dbGet, initAppDb, isMysqlMode } from "../db/appDb";
+import { formatAdminMobile } from "../utils/adminMobile";
 import { getUserForAdminById, type AdminUserDetailRow } from "./authService";
 
-export type UserSearchHit = { id: string; name: string; email: string };
+export type UserSearchHit = { id: string; name: string; email: string; user_mobile: string };
 
 export async function searchUsersForAdmin(query: string): Promise<UserSearchHit[]> {
   const q = String(query ?? "").trim();
@@ -11,15 +12,27 @@ export async function searchUsersForAdmin(query: string): Promise<UserSearchHit[
   await initAppDb();
   const like = `%${q.toLowerCase()}%`;
   const sql = isMysqlMode()
-    ? `SELECT id, name, email FROM users
+    ? `SELECT id, name, email, phone_country_code, phone_local FROM users
        WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR LOWER(CAST(id AS CHAR)) LIKE ?
        ORDER BY created_at DESC
        LIMIT 25`
-    : `SELECT id, name, email FROM users
+    : `SELECT id, name, email, phone_country_code, phone_local FROM users
        WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR LOWER(CAST(id AS TEXT)) LIKE ?
        ORDER BY created_at DESC
        LIMIT 25`;
-  return dbAll<UserSearchHit>(sql, [like, like, like]);
+  const rows = await dbAll<{
+    id: string;
+    name: string;
+    email: string;
+    phone_country_code: string | null;
+    phone_local: string | null;
+  }>(sql, [like, like, like]);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
+  }));
 }
 
 export interface TxnTypeAggregate {

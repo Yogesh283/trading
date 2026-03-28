@@ -3325,6 +3325,36 @@ button.desktop-demo-cta:disabled,
   padding-left: 1px;
 }
 
+.desktop-demo-mult-block {
+  min-width: 0;
+}
+
+.desktop-stake-mult-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 220px;
+}
+
+.desktop-stake-mult-btn {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(36, 38, 45, 0.88);
+  color: #c8cdd5;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.desktop-stake-mult-btn:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #e8eaed;
+}
+
 .desktop-demo-pair-btn {
   display: inline-flex;
   align-items: center;

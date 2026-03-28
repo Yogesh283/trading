@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { dbAll, dbGet, dbRun, initAppDb } from "../db/appDb";
+import { dbAll, dbGet, dbRun, initAppDb, isMysqlMode } from "../db/appDb";
+import { formatAdminMobile } from "../utils/adminMobile";
 
 export type WithdrawalStatus = "pending" | "processing" | "completed" | "rejected";
 
@@ -47,7 +48,48 @@ export async function listWithdrawalsForUser(userId: string): Promise<Withdrawal
   );
 }
 
-export async function listAllWithdrawals(): Promise<WithdrawalRow[]> {
+export async function listAllWithdrawals(): Promise<Record<string, unknown>[]> {
   await ensureWithdrawalsReady();
-  return dbAll<WithdrawalRow>("SELECT * FROM withdrawals ORDER BY created_at DESC");
+  const rows = await dbAll<
+    WithdrawalRow & { user_phone_country_code: string | null; user_phone_local: string | null }
+  >(
+    `SELECT w.*, u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
+     FROM withdrawals w
+     LEFT JOIN users u ON u.id = w.user_id
+     ORDER BY w.created_at DESC`
+  );
+  return rows.map((r) => {
+    const { user_phone_country_code, user_phone_local, ...rest } = r;
+    return {
+      ...rest,
+      user_phone_country_code,
+      user_phone_local,
+      user_mobile: formatAdminMobile(user_phone_country_code, user_phone_local)
+    };
+  });
+}
+
+/** Admin getOne — includes user mobile from `users`. */
+export async function getWithdrawalAdminRowById(id: string): Promise<Record<string, unknown> | null> {
+  await ensureWithdrawalsReady();
+  const lim = isMysqlMode() ? " LIMIT 1" : "";
+  const row = await dbGet<
+    WithdrawalRow & { user_phone_country_code: string | null; user_phone_local: string | null }
+  >(
+    `SELECT w.*, u.phone_country_code AS user_phone_country_code, u.phone_local AS user_phone_local
+     FROM withdrawals w
+     LEFT JOIN users u ON u.id = w.user_id
+     WHERE w.id = ?${lim}`,
+    [id]
+  );
+  if (!row) {
+    return null;
+  }
+  const { user_phone_country_code, user_phone_local, ...rest } = row;
+  return {
+    ...rest,
+    user_phone_country_code,
+    user_phone_local,
+    user_mobile: formatAdminMobile(user_phone_country_code, user_phone_local)
+  };
 }

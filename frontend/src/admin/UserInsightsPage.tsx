@@ -19,13 +19,14 @@ function formatInr(n: number) {
   return `₹${Number(n).toFixed(2)}`;
 }
 
-type SearchMatch = { id: string; name: string; email: string };
+type SearchMatch = { id: string; name: string; email: string; user_mobile: string };
 
 type InsightsPayload = {
   user: {
     id: string;
     name: string;
     email: string;
+    user_mobile: string;
     created_at: string;
     role: string;
     self_referral_code: string | null;
@@ -178,7 +179,7 @@ export function UserInsightsPage() {
                   sx={{ justifyContent: "flex-start", textTransform: "none" }}
                   onClick={() => void loadById(m.id)}
                 >
-                  {m.name} · {m.email} · <code>{m.id}</code>
+                  {m.name} · {m.user_mobile} · {m.email} · <code>{m.id}</code>
                 </Button>
               ))}
             </Box>
@@ -205,6 +206,10 @@ export function UserInsightsPage() {
                 <TableRow>
                   <TableCell>Email</TableCell>
                   <TableCell>{data.user.email}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Mobile</TableCell>
+                  <TableCell>{data.user.user_mobile}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>Role</TableCell>
