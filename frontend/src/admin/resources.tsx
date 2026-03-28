@@ -1,5 +1,5 @@
-import { Box, Button } from "@mui/material";
-import { useState } from "react";
+import { Box, Button, FormControl, InputLabel, MenuItem, Select } from "@mui/material";
+import { useEffect, useState } from "react";
 import {
   BooleanField,
   BooleanInput,
@@ -21,7 +21,7 @@ import {
   useNotify,
   useRefresh
 } from "react-admin";
-import { adminApproveDeposit, adminApproveWithdrawal, adminRejectWithdrawal } from "../api";
+import { adminApproveDeposit, adminSetWithdrawalStatus, type AdminWithdrawalStatus } from "../api";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
 function DepositApproveButton({ record }: { record: { id: string; status: string } }) {
@@ -92,73 +92,104 @@ export function DepositList() {
   );
 }
 
-function WithdrawalApproveRejectButtons({
-  record
-}: {
-  record: { id: string; status: string };
-}) {
-  const refresh = useRefresh();
+function WithdrawalToAddressCopy({ address }: { address?: string | null }) {
   const notify = useNotify();
-  const [busy, setBusy] = useState(false);
-  const s = String(record.status ?? "");
-  if (s !== "pending" && s !== "processing") {
+  const a = String(address ?? "").trim();
+  if (!a) {
     return <span>—</span>;
   }
   return (
-    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-      <Button
-        size="small"
-        variant="contained"
-        color="success"
-        disabled={busy}
-        onClick={() => {
-          const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
-          if (!t) {
-            notify("Admin session missing — log in again", { type: "warning" });
-            return;
-          }
-          setBusy(true);
-          void (async () => {
-            try {
-              await adminApproveWithdrawal(t, record.id);
-              notify("Marked completed (payout sent off-app)", { type: "success" });
-              refresh();
-            } catch (e) {
-              notify(e instanceof Error ? e.message : "Approve failed", { type: "error" });
-            } finally {
-              setBusy(false);
-            }
-          })();
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5, maxWidth: 320 }}>
+      <span
+        style={{
+          fontFamily: "ui-monospace, monospace",
+          fontSize: 12,
+          wordBreak: "break-all",
+          lineHeight: 1.35
         }}
       >
-        Approve
-      </Button>
+        {a}
+      </span>
       <Button
         size="small"
         variant="outlined"
-        color="error"
-        disabled={busy}
         onClick={() => {
-          const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
-          if (!t) {
-            notify("Admin session missing — log in again", { type: "warning" });
-            return;
-          }
-          setBusy(true);
-          void (async () => {
-            try {
-              await adminRejectWithdrawal(t, record.id);
-              notify("Rejected — INR refunded to wallet", { type: "success" });
-              refresh();
-            } catch (e) {
-              notify(e instanceof Error ? e.message : "Reject failed", { type: "error" });
-            } finally {
-              setBusy(false);
-            }
-          })();
+          void navigator.clipboard.writeText(a).then(
+            () => notify("Wallet address copied", { type: "success" }),
+            () => notify("Copy failed", { type: "error" })
+          );
         }}
       >
-        Reject
+        Copy
+      </Button>
+    </Box>
+  );
+}
+
+function WithdrawalStatusUpdate({ record }: { record: { id: string; status: string } }) {
+  const refresh = useRefresh();
+  const notify = useNotify();
+  const [busy, setBusy] = useState(false);
+  const [sel, setSel] = useState(String(record.status ?? ""));
+  useEffect(() => {
+    setSel(String(record.status ?? ""));
+  }, [record.id, record.status]);
+
+  const s = String(record.status ?? "");
+  if (s === "completed" || s === "rejected") {
+    return <span>{s}</span>;
+  }
+
+  const apply = () => {
+    const t = localStorage.getItem(ADMIN_TOKEN_LS_KEY);
+    if (!t) {
+      notify("Admin session missing — log in again", { type: "warning" });
+      return;
+    }
+    const next = sel as AdminWithdrawalStatus;
+    if (next === s) {
+      return;
+    }
+    setBusy(true);
+    void (async () => {
+      try {
+        await adminSetWithdrawalStatus(t, record.id, next);
+        if (next === "rejected") {
+          notify("Rejected — INR refunded to wallet", { type: "success" });
+        } else if (next === "completed") {
+          notify("Marked completed (payout off-app)", { type: "success" });
+        } else {
+          notify("Status updated", { type: "success" });
+        }
+        refresh();
+      } catch (e) {
+        notify(e instanceof Error ? e.message : "Update failed", { type: "error" });
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const labelId = `wdr-st-${record.id}`;
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75, minWidth: 168 }}>
+      <FormControl size="small" fullWidth>
+        <InputLabel id={labelId}>Status</InputLabel>
+        <Select
+          labelId={labelId}
+          label="Status"
+          value={sel}
+          onChange={(e) => setSel(e.target.value)}
+        >
+          <MenuItem value="pending">pending</MenuItem>
+          <MenuItem value="processing">processing</MenuItem>
+          <MenuItem value="completed">completed</MenuItem>
+          <MenuItem value="rejected">rejected</MenuItem>
+        </Select>
+      </FormControl>
+      <Button size="small" variant="contained" disabled={busy || sel === s} onClick={apply}>
+        Apply
       </Button>
     </Box>
   );
@@ -174,9 +205,8 @@ export function WithdrawalList() {
         <DateField source="created_at" showTime />
         <TextField source="user_email" label="Email" />
         <NumberField source="amount" />
-        <TextField source="to_address" label="To" />
-        <TextField source="status" />
-        <FunctionField label="Action" render={(r) => <WithdrawalApproveRejectButtons record={r} />} />
+        <FunctionField label="Wallet address" render={(r: { to_address?: string }) => <WithdrawalToAddressCopy address={r.to_address} />} />
+        <FunctionField label="Status" render={(r) => <WithdrawalStatusUpdate record={r} />} />
       </Datagrid>
     </List>
   );

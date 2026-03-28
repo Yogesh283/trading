@@ -745,6 +745,35 @@ export async function adminRejectWithdrawal(adminToken: string, withdrawalId: st
   return j as { ok: boolean; withdrawalId: string; userId?: string; idempotent?: boolean; refundedInr?: number };
 }
 
+export type AdminWithdrawalStatus = "pending" | "processing" | "completed" | "rejected";
+
+export async function adminSetWithdrawalStatus(
+  adminToken: string,
+  withdrawalId: string,
+  status: AdminWithdrawalStatus
+) {
+  const response = await fetch(`${apiBase()}/api/admin/withdrawals/set-status`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({ withdrawalId, status })
+  });
+  const j = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error((j as { message?: string }).message ?? "Status update failed");
+  }
+  return j as {
+    ok: boolean;
+    withdrawalId: string;
+    status?: AdminWithdrawalStatus;
+    userId?: string;
+    idempotent?: boolean;
+    refundedInr?: number;
+  };
+}
+
 export async function loadMyDeposits(token: string) {
   const response = await fetch(`${apiBase()}/api/deposits/my`, {
     headers: { ...requestHeaders(token) }

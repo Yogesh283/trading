@@ -50,7 +50,7 @@ import {
   Trade,
   type WalletLedgerRow
 } from "./api";
-import { isXauUsdSymbol, shouldShowXauMarketLock } from "./xauChartLock";
+import { isXauIstWeeklyLockWindow, isXauUsdSymbol, shouldShowXauMarketLock } from "./xauChartLock";
 import { getBackendWsUrl } from "./backendOrigin";
 import { clearCachesAfterRegistration } from "./clearRegistrationCache";
 import { shouldOpenDepositScreenFromUrl } from "./depositStorage";
@@ -284,6 +284,8 @@ export default function App() {
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [mainNavOpen, setMainNavOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
+  /** XAU/USD: match chart — no new trades Sat–Sun IST. */
+  const xauWeekendOrdersBlocked = isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow();
   const [mobileSide, setMobileSide] = useState<"buy" | "sell">("buy");
   const [mobileMultiplier] = useState(1); /* multiplier UI hidden — stake = amount */
   const [walletActivityOpen, setWalletActivityOpen] = useState(false);
@@ -1070,6 +1072,10 @@ export default function App() {
       setMessage("Enter a valid amount.");
       return;
     }
+    if (xauWeekendOrdersBlocked) {
+      setMessage("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.");
+      return;
+    }
     try {
       const { trade } = await createDemoOrder(
         {
@@ -1102,6 +1108,10 @@ export default function App() {
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
       setMessage("Enter a valid amount.");
+      return;
+    }
+    if (xauWeekendOrdersBlocked) {
+      setMessage("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.");
       return;
     }
     try {
@@ -2104,6 +2114,12 @@ export default function App() {
                 className={`mobile-trade-dir mobile-trade-dir--down${
                   binaryCreatedFlash === "down" ? " binary-created-flash" : ""
                 }`}
+                disabled={xauWeekendOrdersBlocked}
+                title={
+                  xauWeekendOrdersBlocked
+                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    : undefined
+                }
                 onClick={() => placeMobileBinary("down")}
               >
                 <span className="mobile-trade-dir-label">
@@ -2138,6 +2154,12 @@ export default function App() {
                 className={`mobile-trade-dir mobile-trade-dir--up${
                   binaryCreatedFlash === "up" ? " binary-created-flash" : ""
                 }`}
+                disabled={xauWeekendOrdersBlocked}
+                title={
+                  xauWeekendOrdersBlocked
+                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    : undefined
+                }
                 onClick={() => placeMobileBinary("up")}
               >
                 <span className="mobile-trade-dir-label">
@@ -2467,6 +2489,12 @@ export default function App() {
                 <button
                   type="button"
                   className={`btn-buy-up${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
+                  disabled={xauWeekendOrdersBlocked}
+                  title={
+                    xauWeekendOrdersBlocked
+                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                      : undefined
+                  }
                   onClick={() => void handleBinaryOrder("up")}
                 >
                   {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
@@ -2474,6 +2502,12 @@ export default function App() {
                 <button
                   type="button"
                   className={`btn-buy-down${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
+                  disabled={xauWeekendOrdersBlocked}
+                  title={
+                    xauWeekendOrdersBlocked
+                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                      : undefined
+                  }
                   onClick={() => void handleBinaryOrder("down")}
                 >
                   {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
@@ -2675,6 +2709,12 @@ export default function App() {
                 <button
                   type="button"
                   className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
+                  disabled={xauWeekendOrdersBlocked}
+                  title={
+                    xauWeekendOrdersBlocked
+                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                      : undefined
+                  }
                   onClick={() => setMobileSide("buy")}
                 >
                   {binaryCreatedFlash === "up" ? "Up · Created" : "Up"}
@@ -2682,6 +2722,12 @@ export default function App() {
                 <button
                   type="button"
                   className={`desktop-demo-bs-btn sell ${mobileSide === "sell" ? "on" : ""}${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
+                  disabled={xauWeekendOrdersBlocked}
+                  title={
+                    xauWeekendOrdersBlocked
+                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                      : undefined
+                  }
                   onClick={() => setMobileSide("sell")}
                 >
                   {binaryCreatedFlash === "down" ? "Down · Created" : "Down"}
@@ -2695,6 +2741,12 @@ export default function App() {
                   ? " desktop-demo-cta--created binary-created-flash"
                   : ""
               }`}
+              disabled={xauWeekendOrdersBlocked}
+              title={
+                xauWeekendOrdersBlocked
+                  ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                  : undefined
+              }
               onClick={() => {
                 const base = Number(quantity);
                 if (!Number.isFinite(base) || base <= 0) {

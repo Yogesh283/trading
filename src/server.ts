@@ -66,6 +66,7 @@ import { TradeSide } from "./services/demoAccount";
 import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
+import { isXauUsdSymbol, isXauIstWeeklyLockWindow } from "./utils/xauIstWeekend";
 import { warnDbOrThrottle } from "./utils/dbTransientErrorThrottle";
 import { distributeBinaryBetLevelIncome } from "./services/referralService";
 import {
@@ -1139,6 +1140,124 @@ app.post("/api/admin/withdrawals/reject", (req, res) => {
   });
 });
 
+/** Set withdrawal status: `pending` | `processing` | `completed` | `rejected` (ledger rules for completed/rejected). */
+app.post("/api/admin/withdrawals/set-status", (req, res) => {
+  void (async () => {
+    try {
+      await requireAdminSession(req.headers.authorization);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : "";
+      if (m === "Forbidden") {
+        return res.status(403).json({ message: "Admin role required" });
+      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const withdrawalId = String(req.body?.withdrawalId ?? "").trim();
+    const rawStatus = String(req.body?.status ?? "").trim().toLowerCase();
+    if (!withdrawalId) {
+      return res.status(400).json({ message: "withdrawalId required" });
+    }
+    const allowed = new Set(["pending", "processing", "completed", "rejected"]);
+    if (!allowed.has(rawStatus)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    const target = rawStatus as "pending" | "processing" | "completed" | "rejected";
+
+    const row = await getWithdrawalById(withdrawalId);
+    if (!row) {
+      return res.status(404).json({ message: "Withdrawal not found" });
+    }
+    if (row.status === target) {
+      await hydrateLiveAccountFromWallet(row.user_id);
+      return res.json({ ok: true, withdrawalId, status: target, idempotent: true });
+    }
+
+    if (row.status === "completed" || row.status === "rejected") {
+      return res.status(400).json({ message: "Cannot change a finalized withdrawal" });
+    }
+
+    if (target === "completed") {
+      const now = new Date().toISOString();
+      const upd = await dbRun(
+        `UPDATE withdrawals SET status = 'completed', updated_at = ? WHERE id = ? AND status IN ('pending', 'processing')`,
+        [now, withdrawalId]
+      );
+      if (upd.affectedRows === 0) {
+        return res.status(400).json({ message: "Update failed" });
+      }
+      await hydrateLiveAccountFromWallet(row.user_id);
+      return res.json({ ok: true, withdrawalId, userId: row.user_id, status: "completed" });
+    }
+
+    if (target === "rejected") {
+      const now = new Date().toISOString();
+      const upd = await dbRun(
+        `UPDATE withdrawals SET status = 'rejected', updated_at = ? WHERE id = ? AND status IN ('pending', 'processing')`,
+        [now, withdrawalId]
+      );
+      if (upd.affectedRows === 0) {
+        return res.status(400).json({ message: "Update failed" });
+      }
+      const refundInr = inrDebitForUsdtWithdraw(row.amount);
+      try {
+        await applyLedger(row.user_id, refundInr, "withdrawal_rejected_refund", withdrawalId);
+      } catch (err) {
+        const now2 = new Date().toISOString();
+        await dbRun(
+          `UPDATE withdrawals SET status = 'pending', updated_at = ? WHERE id = ? AND status = 'rejected'`,
+          [now2, withdrawalId]
+        ).catch(() => {});
+        const msg = err instanceof Error ? err.message : "Refund failed";
+        logger.error({ err, withdrawalId }, "withdrawal set-status reject: refund failed");
+        return res.status(500).json({ message: msg });
+      }
+      await hydrateLiveAccountFromWallet(row.user_id);
+      return res.json({
+        ok: true,
+        withdrawalId,
+        userId: row.user_id,
+        status: "rejected",
+        refundedInr: refundInr
+      });
+    }
+
+    if (target === "processing" && row.status === "pending") {
+      const now = new Date().toISOString();
+      const upd = await dbRun(
+        `UPDATE withdrawals SET status = 'processing', updated_at = ? WHERE id = ? AND status = 'pending'`,
+        [now, withdrawalId]
+      );
+      if (upd.affectedRows === 0) {
+        return res.status(400).json({ message: "Update failed" });
+      }
+      return res.json({ ok: true, withdrawalId, status: "processing" });
+    }
+
+    if (target === "pending" && row.status === "processing") {
+      const now = new Date().toISOString();
+      const upd = await dbRun(
+        `UPDATE withdrawals SET status = 'pending', updated_at = ? WHERE id = ? AND status = 'processing'`,
+        [now, withdrawalId]
+      );
+      if (upd.affectedRows === 0) {
+        return res.status(400).json({ message: "Update failed" });
+      }
+      return res.json({ ok: true, withdrawalId, status: "pending" });
+    }
+
+    return res.status(400).json({
+      message: `Cannot set status to ${target} from ${row.status}`
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "withdrawal admin set-status");
+    res.status(500).json({ message });
+  });
+});
+
 /**
  * ra-data-simple-rest v5 sends `sort` / `range` as JSON in query string.
  * Older dialect used `_start`, `_end`, `_sort`, `_order`.
@@ -1928,6 +2047,11 @@ app.post("/api/demo/orders", (req, res) => {
     if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
       return res.status(400).json({ message: "Unsupported symbol" });
     }
+    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+      return res.status(400).json({
+        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+      });
+    }
 
     const isBinary = direction === "up" || direction === "down";
     if (isBinary) {
@@ -2023,6 +2147,11 @@ app.post("/api/orders", (req, res) => {
     }
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+      return res.status(400).json({
+        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+      });
     }
 
     const tick = forexFeed.getTick(symbol);
