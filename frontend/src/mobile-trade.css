@@ -655,7 +655,22 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .mobile-chart-topbar--trading .mobile-asset-pill-icon {
-  font-size: 16px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f8fafc;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-font-smoothing: antialiased;
 }
 
 .mobile-chart-topbar--trading .mobile-asset-pill .mobile-chevron {

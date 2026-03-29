@@ -2241,6 +2241,28 @@ select {
   overflow: visible;
 }
 
+/* When the user pans left to history, jump back to the forming / live candle. */
+.chart-lw-live-jump {
+  position: absolute;
+  z-index: 8;
+  top: 8px;
+  right: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #e8ecf0;
+  background: rgba(36, 40, 48, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.chart-lw-live-jump:hover {
+  background: rgba(48, 52, 62, 0.96);
+}
+
 /* XAU/USD: padlock when feed is stale or weekend Sat–Sun IST (see xauChartLock.ts). */
 .chart-xau-lock {
   position: absolute;

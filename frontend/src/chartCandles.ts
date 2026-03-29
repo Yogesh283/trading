@@ -284,6 +284,32 @@ export function mergeDbClosedWithLiveCandles(
 }
 
 /** When there are no ticks yet, extend stored closed bars with flat placeholders up to the current bucket. */
+/**
+ * Apply the latest order-book / WebSocket price to the **current** (forming) bucket so the last candle
+ * always moves with live quotes even if tick history is sparse or the bar was seeded from DB + flat extend.
+ */
+export function overlayLivePriceOnFormingCandle(
+  candles: CandlePoint[],
+  livePrice: number | null | undefined,
+  timeframeSec: number,
+  nowMs: number
+): CandlePoint[] {
+  if (candles.length === 0 || livePrice == null || !Number.isFinite(livePrice) || livePrice <= 0) {
+    return candles;
+  }
+  const tfMs = timeframeSec * 1000;
+  const nowBucket = Math.floor(nowMs / tfMs) * tfMs;
+  const last = candles[candles.length - 1]!;
+  if (Number(last.timestamp) !== nowBucket) {
+    return candles;
+  }
+  const close = livePrice;
+  const high = Math.max(last.high, close);
+  const low = Math.min(last.low, close);
+  const nextLast: CandlePoint = { ...last, close, high, low };
+  return [...candles.slice(0, -1), clampChartCandleBar(nextLast, timeframeSec)];
+}
+
 export function extendClosedCandlesToNow(closed: CandlePoint[], timeframeSec: number, nowMs: number): CandlePoint[] {
   if (closed.length === 0) {
     return [];

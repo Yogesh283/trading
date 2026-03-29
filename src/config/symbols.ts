@@ -1,4 +1,4 @@
-/** Forex + gold — `base` seeds chart/sim only; fiat from ECB, gold from Pyth Hermes when live feed runs. */
+/** Forex + gold — `base` seeds sim backfill only; live fiat uses Yahoo `*=X` spot (+ Frankfurter fallback), gold from Yahoo/Pyth. */
 export const FOREX_PAIRS = [
   /** When live spot fails briefly, sim stays near real gold (not ~4400). */
   { symbol: "XAUUSD", name: "Gold / US Dollar", base: 4550 },

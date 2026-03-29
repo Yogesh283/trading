@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#000000</color>
+    <!-- Matches typical logo.png padding so adaptive mask (circle/squircle) looks full — not a square on black. -->
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

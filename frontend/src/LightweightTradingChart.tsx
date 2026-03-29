@@ -509,6 +509,17 @@ export function LightweightTradingChart({
     }
   }, []);
 
+  const jumpToLive = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) {
+      return;
+    }
+    chart.timeScale().scrollToRealTime();
+    requestAnimationFrame(() => {
+      syncLivePriceChrome();
+    });
+  }, [syncLivePriceChrome]);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) {
@@ -536,8 +547,9 @@ export function LightweightTradingChart({
         timeVisible: true,
         secondsVisible: timeframeSec < 60,
         /** Kept in sync with logical `to` when we extend past last bar on mobile. */
-        rightOffset: isMobileChart ? MOBILE_CHART_RIGHT_GAP_BARS : 8
-        /** Default `shiftVisibleRangeOnNewBar` (true): shifts only when the last bar is still visible, so live/new candles stay in view without breaking pan-left history. */
+        rightOffset: isMobileChart ? MOBILE_CHART_RIGHT_GAP_BARS : 8,
+        /** Only shifts when the last bar is still visible — keeps the forming candle in view without snapping pan when viewing history. */
+        shiftVisibleRangeOnNewBar: true
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -875,18 +887,19 @@ export function LightweightTradingChart({
     chartResetKey,
     graphType,
     height,
-    tickDirection,
     timeframeSec,
     tradeMarkers,
     tradeEntryLines,
     syncLivePriceChrome,
     zoomIndex,
     isMobileChart,
-    xauLocked,
-    lastChartActivityMs
+    xauLocked
   ]);
 
-  /** XAU: dim candles/line/area + last-price line when weekend/stale lock toggles (even if OHLC unchanged). */
+  /**
+   * Tick direction + XAU lock: series / last-price line when OHLC is unchanged (main candle effect does not re-run).
+   * Non-XAU line/area colors also live here so `tickDirection` can stay off the heavy candle effect deps (preserves pan-left history).
+   */
   useEffect(() => {
     const s = seriesRef.current;
     if (!s || candles.length === 0) {
@@ -897,20 +910,39 @@ export function LightweightTradingChart({
       return;
     }
     const lastPt = cd[cd.length - 1]!;
+    const lineCol = priceLineColorForTick(tickDirection);
     applyXauSeriesVisualLock(s, graphType, xauLocked, tickDirection, assetTag);
-    if (!isXauUsdSymbol(assetTag)) {
-      return;
+    if (isXauUsdSymbol(assetTag)) {
+      if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
+        priceLineRef.current.applyOptions({
+          price: lastPt.close,
+          color: xauLocked ? XAU_PRICE_LINE_OFF : graphType === "candles" ? PRO_LAST_PRICE : lineCol,
+          lineWidth: 1,
+          lineStyle: graphType === "candles" ? 0 : 2,
+          axisLabelVisible: false
+        });
+      }
+    } else {
+      if (graphType === "line") {
+        (s as ISeriesApi<"Line">).applyOptions({ color: lineCol });
+      } else if (graphType === "area") {
+        (s as ISeriesApi<"Area">).applyOptions({
+          lineColor: lineCol,
+          topColor: areaSeriesFillTop(tickDirection)
+        });
+      }
+      if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
+        priceLineRef.current.applyOptions({
+          price: lastPt.close,
+          color: graphType === "candles" ? PRO_LAST_PRICE : lineCol,
+          lineWidth: 1,
+          lineStyle: graphType === "candles" ? 0 : 2,
+          axisLabelVisible: false
+        });
+      }
     }
-    if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
-      priceLineRef.current.applyOptions({
-        price: lastPt.close,
-        color: xauLocked ? XAU_PRICE_LINE_OFF : graphType === "candles" ? PRO_LAST_PRICE : priceLineColorForTick(tickDirection),
-        lineWidth: 1,
-        lineStyle: graphType === "candles" ? 0 : 2,
-        axisLabelVisible: false
-      });
-    }
-  }, [xauLocked, graphType, tickDirection, assetTag, candles]);
+    syncLivePriceChrome();
+  }, [xauLocked, graphType, tickDirection, assetTag, candles, syncLivePriceChrome]);
 
   const tailKey =
     candles.length > 0
@@ -960,6 +992,17 @@ export function LightweightTradingChart({
     <div className="chart-lw-outer">
       <div className="chart-lw-stack" style={{ position: "relative", width: "100%", height }}>
         <div ref={containerRef} className="chart-lw-host" style={{ width: "100%", height }} />
+        {!showLiveRightUi && candles.length > 0 ? (
+          <button
+            type="button"
+            className="chart-lw-live-jump"
+            aria-label="Jump to live candle"
+            title="Back to live (current) candle"
+            onClick={jumpToLive}
+          >
+            Live
+          </button>
+        ) : null}
         {lockOverlay != null && showLiveRightUi ? (
           <div
             className="chart-xau-lock"

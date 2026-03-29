@@ -20,20 +20,37 @@ for (const [from, to] of map) {
 }
 console.log("Synced brand images → frontend/public/brand/");
 
-/** APK launcher: same logo into Capacitor Android res (if folder exists). */
-const logoSrc = path.join(outDir, "logo.png");
+/** APK adaptive-icon foreground: prefer dedicated apk.jpeg, else logo.png → drawable/ic_brand_logo.* */
 const androidRes = path.join(repoRoot, "mobile-apk", "android", "app", "src", "main", "res");
-if (fs.existsSync(logoSrc) && fs.existsSync(androidRes)) {
-  fs.copyFileSync(logoSrc, path.join(androidRes, "drawable", "ic_brand_logo.png"));
+const drawableDir = path.join(androidRes, "drawable");
+const launcherSrcCandidates = [
+  path.join(outDir, "apk.jpeg"),
+  path.join(outDir, "apk.jpg"),
+  path.join(outDir, "logo.png")
+];
+const launcherSrc = launcherSrcCandidates.find((p) => fs.existsSync(p));
+if (launcherSrc && fs.existsSync(androidRes)) {
+  fs.mkdirSync(drawableDir, { recursive: true });
+  for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+    const stale = path.join(drawableDir, `ic_brand_logo.${ext}`);
+    if (fs.existsSync(stale)) {
+      fs.unlinkSync(stale);
+    }
+  }
+  const ext = path.extname(launcherSrc).replace(/^\./, "").toLowerCase();
+  const outExt = ext === "jpeg" ? "jpg" : ext;
+  fs.copyFileSync(launcherSrc, path.join(drawableDir, `ic_brand_logo.${outExt}`));
   for (const dir of fs.readdirSync(androidRes)) {
-    if (!dir.startsWith("mipmap-")) continue;
+    if (!dir.startsWith("mipmap-")) {
+      continue;
+    }
     const mipmapDir = path.join(androidRes, dir);
     for (const name of ["ic_launcher.png", "ic_launcher_round.png"]) {
       const dest = path.join(mipmapDir, name);
       if (fs.existsSync(dest)) {
-        fs.copyFileSync(logoSrc, dest);
+        fs.copyFileSync(launcherSrc, dest);
       }
     }
   }
-  console.log("Synced logo.png → mobile-apk Android mipmaps + drawable/ic_brand_logo.png");
+  console.log(`Synced ${path.basename(launcherSrc)} → mobile-apk drawable/ic_brand_logo.${outExt} (+ mipmaps if present)`);
 }

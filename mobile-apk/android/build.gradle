@@ -24,6 +24,19 @@ allprojects {
     }
 }
 
+/** Match Temurin 17 when JAVA_HOME is JDK 17 — Capacitor defaults to Java 21, which fails with "invalid source release: 21". */
+subprojects { sub ->
+    sub.afterEvaluate {
+        def android = sub.extensions.findByName("android")
+        if (android != null) {
+            android.compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

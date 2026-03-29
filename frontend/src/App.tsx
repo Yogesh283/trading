@@ -17,6 +17,7 @@ import {
   extendClosedCandlesToNow,
   fillCandleTimeGaps,
   mergeDbClosedWithLiveCandles,
+  overlayLivePriceOnFormingCandle,
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
@@ -985,7 +986,7 @@ export default function App() {
     }
   }, [sessionToken, accountWallet]);
 
-  /** While any binary is open, sync trades + balance over HTTP — settlement is server-side only. */
+  /** While any binary is open, sync trades + balance every 1s (server settles on the same cadence). */
   useEffect(() => {
     if (!sessionToken || openBinaryPollKey === "") {
       return;
@@ -994,7 +995,7 @@ export default function App() {
       void refreshRef.current(undefined, { skipMarketTicks: true }).catch(() => undefined);
     };
     sync();
-    const id = window.setInterval(sync, 1500);
+    const id = window.setInterval(sync, 1000);
     return () => window.clearInterval(id);
   }, [sessionToken, openBinaryPollKey, accountWallet]);
 
@@ -2005,6 +2006,7 @@ export default function App() {
               isMobileChart
               tickDirection={spotTickMove}
               expectBackendCandles
+              livePrice={selectedTick?.price ?? null}
             />
           </section>
 
@@ -2451,6 +2453,7 @@ export default function App() {
             onGraphTypeChange={setChartGraphType}
             tickDirection={spotTickMove}
             expectBackendCandles
+            livePrice={selectedTick?.price ?? null}
           />
         </section>
 
@@ -3513,7 +3516,8 @@ function LiveChart({
   hideSideToolbar = false,
   isMobileChart = false,
   tickDirection = null,
-  expectBackendCandles = false
+  expectBackendCandles = false,
+  livePrice = null
 }: {
   points: MarketTick[];
   /** Closed OHLC from `/api/markets/candles` (DB); live leg from WebSocket `live_price` ticks. */
@@ -3530,6 +3534,8 @@ function LiveChart({
   tickDirection?: "up" | "down" | null;
   /** After login, show DB-oriented loading text until `chart_candles` merge appears. */
   expectBackendCandles?: boolean;
+  /** Latest quote so the forming candle updates even when tick history is sparse. */
+  livePrice?: number | null;
 }) {
   const [, setTick] = useState(0);
   const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -3706,7 +3712,18 @@ function LiveChart({
     allCandles = liveCandles;
   }
 
+  if (closedCandlesFromDb.length > 0 && liveCandles.length === 0 && allCandles.length > 0) {
+    allCandles = extendClosedCandlesToNow(allCandles, timeframeSec, candleWallNow);
+  }
+
   allCandles = fillCandleTimeGaps(allCandles, timeframeSec);
+
+  allCandles = overlayLivePriceOnFormingCandle(
+    allCandles,
+    livePrice,
+    timeframeSec,
+    candleWallNow
+  );
 
   const lastChartActivityMs = useMemo(() => {
     const lp =
@@ -3716,13 +3733,20 @@ function LiveChart({
   }, [pointsForCandles, allCandles]);
 
   if (allCandles.length === 0) {
-    return (
-      <p className="muted">
-        {expectBackendCandles
-          ? "Loading saved candles from server…"
-          : "Waiting for live price data…"}
-      </p>
-    );
+    const lp = livePrice;
+    if (lp != null && Number.isFinite(lp) && lp > 0) {
+      const tfMs = timeframeSec * 1000;
+      const nb = Math.floor(candleWallNow / tfMs) * tfMs;
+      allCandles = [{ timestamp: nb, open: lp, high: lp, low: lp, close: lp }];
+    } else {
+      return (
+        <p className="muted">
+          {expectBackendCandles
+            ? "Loading saved candles from server…"
+            : "Waiting for live price data…"}
+        </p>
+      );
+    }
   }
 
   /** All TFs: clamp absurd H/L from mixed ticks/DB so candles look like real OHLC (not barcode). */

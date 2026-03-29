@@ -39,9 +39,98 @@ function splitPair(symbol: string): [string, string] {
   return [s.slice(0, 3), s.slice(3, 6)];
 }
 
+const YAHOO_CHART_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+type YahooChartJson = {
+  chart?: {
+    result?: Array<{
+      meta?: { regularMarketPrice?: number; chartPreviousClose?: number };
+      indicators?: { quote?: Array<{ close?: Array<number | null> }> };
+    }>;
+  };
+};
+
+/** Last tradable close from Yahoo chart JSON (same shape as gold `XAUUSD=X`). */
+function parseYahooChartLastPrice(j: YahooChartJson): number | null {
+  const result = j.chart?.result?.[0];
+  const meta = result?.meta;
+  const fromMeta = meta?.regularMarketPrice ?? meta?.chartPreviousClose;
+  if (typeof fromMeta === "number" && Number.isFinite(fromMeta) && fromMeta > 0) {
+    return fromMeta;
+  }
+  const closes = result?.indicators?.quote?.[0]?.close;
+  if (Array.isArray(closes)) {
+    for (let i = closes.length - 1; i >= 0; i--) {
+      const c = closes[i];
+      if (typeof c === "number" && Number.isFinite(c) && c > 0) {
+        return c;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Retail / TV-style spot for a 6-char pair (`EURUSD` → `EURUSD=X`). No key.
+ * Prefer this over ECB reference for charts that should track “live” market.
+ */
+export async function fetchYahooFxSpot(symbol: string): Promise<number | null> {
+  const sym = symbol.trim().toUpperCase();
+  if (sym === "XAUUSD" || sym.length !== 6) {
+    return null;
+  }
+  try {
+    const chartSym = `${sym}=X`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(chartSym)}?range=1d&interval=1m`;
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 12_000);
+    const res = await fetch(url, {
+      headers: { "User-Agent": YAHOO_CHART_UA, Accept: "application/json" },
+      signal: ac.signal
+    }).finally(() => clearTimeout(to));
+    if (!res.ok) {
+      return null;
+    }
+    const j = (await res.json()) as YahooChartJson;
+    const p = parseYahooChartLastPrice(j);
+    if (p == null || !Number.isFinite(p)) {
+      return null;
+    }
+    return p;
+  } catch (e) {
+    logger.warn({ e, sym }, "Yahoo FX spot fetch failed");
+  }
+  return null;
+}
+
+/** Frankfurter matrix, then overlay Yahoo spot per pair when Yahoo returns a quote (live/retail-style). */
+export async function fetchRetailSpotFxMatrix(): Promise<Map<string, number>> {
+  const m = await fetchFrankfurterUsdMatrix();
+  const syms = FOREX_SYMBOLS.filter((s) => s !== "XAUUSD");
+  const patches = await Promise.all(
+    syms.map(async (sym) => {
+      const spot = await fetchYahooFxSpot(sym);
+      return spot != null && Number.isFinite(spot) && spot > 0 ? ([sym, spot] as const) : null;
+    })
+  );
+  let yahooCount = 0;
+  for (const patch of patches) {
+    if (patch) {
+      m.set(patch[0], patch[1]);
+      yahooCount++;
+    }
+  }
+  if (yahooCount > 0) {
+    logger.info({ yahooCount, totalPairs: syms.length }, "FX: Yahoo spot overlay applied");
+  }
+  return m;
+}
+
 /**
  * ECB-based FX via Frankfurter (free, no key). `rates[X]` = how much of X you get for 1 USD.
  * Derives all configured pairs from USD legs (plus optional gold spot).
+ * For live-like charts prefer `fetchRetailSpotFxMatrix()` which overlays Yahoo.
  */
 export async function fetchFrankfurterUsdMatrix(): Promise<Map<string, number>> {
   const res = await fetch("https://api.frankfurter.app/latest?from=USD", {
@@ -116,40 +205,15 @@ export async function fetchGoldUsdYahoo(): Promise<number | null> {
     const url =
       "https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X?range=1d&interval=5m";
     const res = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        Accept: "application/json"
-      }
+      headers: { "User-Agent": YAHOO_CHART_UA, Accept: "application/json" }
     });
     if (!res.ok) {
       return null;
     }
-    const j = (await res.json()) as {
-      chart?: {
-        result?: Array<{
-          meta?: {
-            regularMarketPrice?: number;
-            chartPreviousClose?: number;
-          };
-          indicators?: { quote?: Array<{ close?: Array<number | null> }> };
-        }>;
-      };
-    };
-    const result = j.chart?.result?.[0];
-    const meta = result?.meta;
-    const fromMeta = meta?.regularMarketPrice ?? meta?.chartPreviousClose;
-    if (typeof fromMeta === "number" && Number.isFinite(fromMeta) && fromMeta > 100) {
-      return fromMeta;
-    }
-    const closes = result?.indicators?.quote?.[0]?.close;
-    if (Array.isArray(closes)) {
-      for (let i = closes.length - 1; i >= 0; i--) {
-        const c = closes[i];
-        if (typeof c === "number" && Number.isFinite(c) && c > 100) {
-          return c;
-        }
-      }
+    const j = (await res.json()) as YahooChartJson;
+    const p = parseYahooChartLastPrice(j);
+    if (p != null && p > 100) {
+      return p;
     }
   } catch (e) {
     logger.warn({ e }, "Gold Yahoo fetch failed");

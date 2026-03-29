@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import { env } from "../config/env";
 import { FOREX_PAIRS, FOREX_SYMBOLS } from "../config/symbols";
 import {
-  fetchFrankfurterUsdMatrix,
   fetchGoldUsdSpot,
+  fetchRetailSpotFxMatrix,
   fetchTraderMadeLive
 } from "./forexExternalRates";
 import { logger } from "../utils/logger";
@@ -73,15 +73,15 @@ export class ForexFeed extends EventEmitter {
     } else {
       void this.bootstrapExternal(
         async () => {
-          const m = await fetchFrankfurterUsdMatrix();
+          const m = await fetchRetailSpotFxMatrix();
           const gold = await fetchGoldUsdSpot();
           if (gold != null) {
             m.set("XAUUSD", gold);
           }
           return m;
         },
-        90_000,
-        "frankfurter",
+        60_000,
+        "yahoo-frankfurter",
         STREAM_PULSE_MS
       );
     }
