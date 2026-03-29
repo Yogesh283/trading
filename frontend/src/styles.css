@@ -3753,6 +3753,17 @@ button.desktop-demo-cta:disabled,
   border-radius: 12px;
 }
 
+/* Trading dashboard — Trade History grid: +2px vs root for readability */
+#app-trade-history .table-head,
+#app-trade-history .table-row {
+  font-size: calc(1rem + 2px);
+}
+
+#app-trade-history .table-close-price,
+#app-trade-history .table-cut-in {
+  font-size: 17px;
+}
+
 @media (max-width: 900px) {
   .auth-shell {
     grid-template-columns: 1fr;
@@ -3877,6 +3888,16 @@ button.desktop-demo-cta:disabled,
   color: #ff9a9a;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.wallet-tx-muted {
+  color: #8da2c0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-tx-hint-sep {
+  opacity: 0.7;
 }
 
 .wallet-tx-row-sub {

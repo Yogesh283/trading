@@ -2369,7 +2369,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-history-compact {
-  font-size: 14px;
+  font-size: 18px;
   max-height: min(52vh, 360px);
   overflow-y: auto;
 }
@@ -2381,19 +2381,20 @@ html.cap-native .mobile-dock-apk-row {
   padding: 0 2px;
 }
 
+/* One line per row: nowrap + min width — swipe horizontally on narrow phones */
 .mobile-hist-table {
-  width: 100%;
-  min-width: 320px;
+  width: max(100%, 720px);
+  min-width: 720px;
   border-collapse: collapse;
-  table-layout: fixed;
-  font-size: 12px;
+  table-layout: auto;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   color: #e5edf7;
 }
 
 .mobile-hist-table thead th {
-  padding: 6px 4px 8px;
-  font-size: 11px;
+  padding: 6px 8px 8px;
+  font-size: 15px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2403,32 +2404,16 @@ html.cap-native .mobile-dock-apk-row {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.mobile-hist-table thead th:nth-child(1) {
-  width: 18%;
-}
-
-.mobile-hist-table thead th:nth-child(2) {
-  width: 14%;
-}
-
-.mobile-hist-table thead th:nth-child(3) {
-  width: 14%;
-}
-
-.mobile-hist-table thead th:nth-child(4),
-.mobile-hist-table thead th:nth-child(5) {
-  width: 18%;
-}
-
 .mobile-hist-table thead th:nth-child(6) {
-  width: 18%;
   text-align: right;
 }
 
 .mobile-hist-table tbody td {
-  padding: 6px 4px;
+  padding: 8px 8px;
   vertical-align: middle;
-  word-break: break-word;
+  white-space: nowrap;
+  word-break: normal;
+  overflow: visible;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -2437,7 +2422,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-hist-tr-main td {
-  padding-top: 8px;
+  vertical-align: middle;
 }
 
 .mobile-hist-table .dir-up {
@@ -2451,7 +2436,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-hist-close {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: #dbe4f0;
 }
@@ -2459,7 +2444,7 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-hist-meta {
   margin: 0;
   padding: 4px 4px 8px !important;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.35;
   color: rgba(184, 197, 217, 0.88);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -2467,7 +2452,7 @@ html.cap-native .mobile-dock-apk-row {
 
 .mobile-hist-meta--settled {
   color: #d7e2f0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
 }
 

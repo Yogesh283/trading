@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Foreground: public/brand/apk.jpeg → ic_apk_launcher_icon.jpeg (adaptive icon safe zone centered). -->
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:gravity="center"
-    android:src="@drawable/ic_apk_launcher_icon" />
+<!--
+  Adaptive foreground: full logo inside ~72dp safe zone (inset on 108dp canvas).
+  Use PNG (ic_apk_launcher_icon.png) — JPEG often renders cropped/wrong on some launchers.
+  Source art: frontend/public/brand/apk.jpeg
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_apk_launcher_icon"
+    android:insetLeft="10dp"
+    android:insetTop="10dp"
+    android:insetRight="10dp"
+    android:insetBottom="10dp" />

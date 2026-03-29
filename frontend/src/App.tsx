@@ -1,5 +1,4 @@
 import {
-  Fragment,
   type Dispatch,
   type SetStateAction,
   FormEvent,
@@ -215,6 +214,48 @@ function countdownToExpiry(expiryAt: number | undefined): string {
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+/**
+ * Binary settle: `pnl` from API is profit-only on win (e.g. 0.8× stake with 1.8× payout), full −stake on loss.
+ * Show user-facing total: win → profit + stake (full payout); loss → pnl (already −stake).
+ */
+function formatBinarySettledAmountDisplay(trade: Trade, fmt: (n: number) => string): string {
+  if (trade.status !== "closed" || trade.pnl == null) return "—";
+  const isBinary = trade.direction === "up" || trade.direction === "down";
+  if (!isBinary) {
+    const p = trade.pnl;
+    return p >= 0 ? `+${fmt(p)}` : fmt(p);
+  }
+  const q = Number(trade.quantity);
+  const p = trade.pnl;
+  if (!Number.isFinite(q)) {
+    return p >= 0 ? `+${fmt(p)}` : fmt(p);
+  }
+  if (p >= 0) {
+    return `+${fmt(Number((p + q).toFixed(2)))}`;
+  }
+  return fmt(p);
+}
+
+/** Live ledger: binary win line is already full payout; loss line is ₹ 0 (stake debited at open). */
+function walletLedgerAmountPrimary(tx: WalletLedgerRow): string {
+  if (tx.txn_type === "binary_settle_loss") {
+    return "—";
+  }
+  const a = Number(tx.amount);
+  if (a >= 0) return `+${formatInr(a)}`;
+  return formatInr(a);
+}
+
+function walletLedgerAmountHint(tx: WalletLedgerRow): string | null {
+  if (tx.txn_type === "binary_settle_win") {
+    return "Total credited (trading amount + profit)";
+  }
+  if (tx.txn_type === "binary_settle_loss") {
+    return "Loss — amount was debited when the order opened";
+  }
+  return null;
 }
 
 function formatTradeCloseCell(trade: Trade): string {
@@ -1040,12 +1081,19 @@ export default function App() {
       let text: string;
       if (settledWithPnl.length === 1) {
         const t = settledWithPnl[0]!;
-        text = `${formatForexPair(t.symbol)} · Timeout · ${t.pnl >= 0 ? "Win" : "Loss"} ${
-          t.pnl >= 0 ? "+" : ""
-        }${formatInr(t.pnl)}`;
+        text = `${formatForexPair(t.symbol)} · Timeout · ${t.pnl >= 0 ? "Win" : "Loss"} · ${formatBinarySettledAmountDisplay(
+          t,
+          formatInr
+        )}`;
       } else {
-        const total = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
-        text = `${settledWithPnl.length} trades · Timeout · total ${total >= 0 ? "+" : ""}${formatInr(total)}`;
+        const netDisplay = settledWithPnl.reduce((s, tr) => {
+          const q = Number(tr.quantity);
+          if (tr.pnl >= 0 && Number.isFinite(q)) return s + tr.pnl + q;
+          return s + tr.pnl;
+        }, 0);
+        text = `${settledWithPnl.length} trades · Timeout · net ${netDisplay >= 0 ? "+" : ""}${formatInr(
+          Number(netDisplay.toFixed(2))
+        )}`;
       }
       const totalPnl = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
       setBinarySettlePopup({ text, pnl: totalPnl, account: accountWallet });
@@ -2223,94 +2271,71 @@ export default function App() {
                       {trades.slice(0, 20).map((trade) => {
                         const dir = formatTradeDirectionLabel(trade.direction, trade.side);
                         const isBinary = trade.direction === "up" || trade.direction === "down";
+                        const closeDetailTitle =
+                          isBinary && trade.status === "closed" && trade.closePrice != null
+                            ? `Close ${formatFxPrice(trade.symbol, trade.closePrice)} · Entry ${formatFxPrice(
+                                trade.symbol,
+                                trade.entryPrice
+                              )}${trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}`
+                            : isBinary && trade.status === "open"
+                              ? `${trade.direction === "up" ? "Up" : "Down"} @ ${formatFxPrice(
+                                  trade.symbol,
+                                  trade.entryPrice
+                                )}${trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}`
+                              : trade.status === "closed" && typeof trade.closePrice === "number"
+                                ? `Settlement: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                : undefined;
                         return (
-                          <Fragment key={trade.id}>
-                            <tr className="mobile-hist-tr-main">
-                              <td title={trade.symbol}>{formatForexPair(trade.symbol)}</td>
-                              <td
-                                className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
-                                title={isBinary ? `Direction: ${dir}` : undefined}
-                              >
-                                {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
-                              </td>
-                              <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
-                              <td title="Price when order was placed (execution / entry)">
-                                {formatFxPrice(trade.symbol, trade.entryPrice)}
-                              </td>
-                              <td
-                                className="mobile-hist-close"
-                                title={
-                                  trade.status === "closed"
-                                    ? typeof trade.closePrice === "number"
-                                      ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                                      : "Close price not recorded"
-                                    : "Shows close price after trade settles"
-                                }
-                              >
-                                {formatTradeCloseCell(trade)}
-                              </td>
-                              <td
-                                className={
-                                  typeof trade.pnl === "number"
-                                    ? trade.pnl >= 0
-                                      ? "pnl-win"
-                                      : "pnl-loss"
-                                    : ""
-                                }
-                                title={
-                                  trade.status === "closed" && trade.closePrice != null
+                          <tr key={trade.id} className="mobile-hist-tr-main">
+                            <td title={trade.symbol}>{formatForexPair(trade.symbol)}</td>
+                            <td
+                              className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
+                              title={isBinary ? `Direction: ${dir}` : undefined}
+                            >
+                              {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
+                            </td>
+                            <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
+                            <td title="Price when order was placed (execution / entry)">
+                              {formatFxPrice(trade.symbol, trade.entryPrice)}
+                            </td>
+                            <td
+                              className="mobile-hist-close"
+                              title={
+                                closeDetailTitle ??
+                                (trade.status === "closed"
+                                  ? typeof trade.closePrice === "number"
+                                    ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                    : "Close price not recorded"
+                                  : "Shows close price after trade settles")
+                              }
+                            >
+                              {formatTradeCloseCell(trade)}
+                            </td>
+                            <td
+                              className={
+                                typeof trade.pnl === "number"
+                                  ? trade.pnl >= 0
+                                    ? "pnl-win"
+                                    : "pnl-loss"
+                                  : ""
+                              }
+                              title={
+                                isBinary && trade.status === "closed" && trade.pnl != null
+                                  ? trade.pnl >= 0
+                                    ? "Total credited (profit + trading amount)"
+                                    : "Trading amount lost"
+                                  : trade.status === "closed" && trade.closePrice != null
                                     ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
                                     : undefined
-                                }
-                              >
-                                {trade.status === "closed" && trade.pnl != null
-                                  ? trade.pnl >= 0
-                                    ? `+${fmtWallet(trade.pnl)}`
-                                    : fmtWallet(trade.pnl)
-                                  : trade.status === "open"
-                                    ? "Open"
-                                    : trade.status}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td
-                                colSpan={6}
-                                className={
-                                  trade.status === "closed" && isBinary && trade.closePrice != null
-                                    ? "mobile-hist-meta mobile-hist-meta--settled"
-                                    : "mobile-hist-meta muted"
-                                }
-                              >
-                                {isBinary ? (
-                                  trade.status === "open" ? (
-                                    <>
-                                      <strong>{trade.direction === "up" ? "Up" : "Down"}</strong> @{" "}
-                                      {formatFxPrice(trade.symbol, trade.entryPrice)}
-                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
-                                    </>
-                                  ) : trade.closePrice != null ? (
-                                    <>
-                                      <strong>Close</strong> {formatFxPrice(trade.symbol, trade.closePrice)} ·{" "}
-                                      <strong>Entry</strong> {formatFxPrice(trade.symbol, trade.entryPrice)}
-                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s candle` : ""}
-                                    </>
-                                  ) : (
-                                    <>
-                                      Settled · entry {formatFxPrice(trade.symbol, trade.entryPrice)}
-                                      {trade.timeframeSeconds != null ? ` · ${trade.timeframeSeconds}s` : ""}
-                                    </>
-                                  )
-                                ) : (
-                                  <>
-                                    Open @ {formatFxPrice(trade.symbol, trade.entryPrice)}
-                                    {trade.status === "closed" && trade.closePrice != null
-                                      ? ` → closed @ ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                                      : null}
-                                  </>
-                                )}
-                              </td>
-                            </tr>
-                          </Fragment>
+                              }
+                            >
+                              {trade.status === "closed" && trade.pnl != null
+                                ? formatBinarySettledAmountDisplay(trade, fmtWallet)
+                                : trade.status === "open"
+                                  ? "Open"
+                                  : trade.status}
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -2630,13 +2655,19 @@ export default function App() {
                   <span
                     className={typeof trade.pnl === "number" ? (trade.pnl >= 0 ? "pnl-win" : "pnl-loss") : ""}
                     title={
-                      trade.status === "closed" && trade.closePrice != null
-                        ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                        : undefined
+                      trade.direction === "up" || trade.direction === "down"
+                        ? trade.status === "closed" && trade.pnl != null
+                          ? trade.pnl >= 0
+                            ? "Total credited (trading amount + profit)"
+                            : "Trading amount lost"
+                          : undefined
+                        : trade.status === "closed" && trade.closePrice != null
+                          ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                          : undefined
                     }
                   >
                     {trade.status === "closed" && typeof trade.pnl === "number"
-                      ? (trade.pnl >= 0 ? `+${fmtWallet(trade.pnl)}` : fmtWallet(trade.pnl))
+                      ? formatBinarySettledAmountDisplay(trade, fmtWallet)
                       : "—"}
                   </span>
                 </div>
@@ -2983,21 +3014,30 @@ export default function App() {
               <p className="muted wallet-tx-empty">No ledger entries yet. Deposit or trade on live.</p>
             ) : (
               <div className="wallet-tx-list">
-                {walletTxs.map((tx) => (
-                  <div key={tx.id} className="wallet-tx-row">
-                    <div className="wallet-tx-row-main">
-                      <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
-                      <span className={tx.amount >= 0 ? "wallet-tx-pos" : "wallet-tx-neg"}>
-                        {tx.amount >= 0 ? "+" : ""}
-                        {formatInr(Number(tx.amount))}
-                      </span>
+                {walletTxs.map((tx) => {
+                  const hint = walletLedgerAmountHint(tx);
+                  const lossRow = tx.txn_type === "binary_settle_loss";
+                  const pos = !lossRow && tx.amount >= 0;
+                  return (
+                    <div key={tx.id} className="wallet-tx-row">
+                      <div className="wallet-tx-row-main">
+                        <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
+                        <span
+                          className={lossRow ? "wallet-tx-muted" : pos ? "wallet-tx-pos" : "wallet-tx-neg"}
+                          title={hint ?? undefined}
+                        >
+                          {walletLedgerAmountPrimary(tx)}
+                        </span>
+                      </div>
+                      <div className="wallet-tx-row-sub muted">
+                        {hint ? <span className="wallet-tx-hint">{hint}</span> : null}
+                        {hint ? <span className="wallet-tx-hint-sep"> · </span> : null}
+                        Bal {formatInr(Number(tx.before_balance))} → {formatInr(Number(tx.after_balance))} ·{" "}
+                        {new Date(tx.created_at).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="wallet-tx-row-sub muted">
-                      Bal {formatInr(Number(tx.before_balance))} → {formatInr(Number(tx.after_balance))} ·{" "}
-                      {new Date(tx.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

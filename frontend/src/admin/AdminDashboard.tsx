@@ -6,7 +6,14 @@ import {
   Card,
   CardContent,
   Grid,
+  Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography
 } from "@mui/material";
@@ -32,6 +39,13 @@ type Stats = {
   todayCompanyBinaryGrossInr?: number;
   todayCompanyReferralCostInr?: number;
   todayCompanyNetProfitInr?: number;
+  withdrawalsLast7Days?: Array<{
+    date: string;
+    submittedCount: number;
+    submittedUsdt: number;
+    completedCount: number;
+    completedUsdt: number;
+  }>;
   database?: { kind: string; database?: string; file?: string };
 };
 
@@ -314,6 +328,43 @@ export function AdminDashboard() {
             />
           </Grid>
         </Grid>
+
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
+          Withdrawal report (last 7 UTC days)
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Submitted: requests created that day. Completed: marked completed that day (amount = USDT). Open the{" "}
+          <Button size="small" variant="text" sx={{ p: 0, minWidth: 0 }} onClick={() => goList("withdrawals")}>
+            Withdrawals
+          </Button>{" "}
+          list for detail.
+        </Typography>
+        <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: 720, mb: 1 }}>
+          <Table size="small" aria-label="Withdrawals by UTC calendar day">
+            <TableHead>
+              <TableRow>
+                <TableCell>Date (UTC)</TableCell>
+                <TableCell align="right">Submitted #</TableCell>
+                <TableCell align="right">Submitted USDT</TableCell>
+                <TableCell align="right">Completed #</TableCell>
+                <TableCell align="right">Completed USDT</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(stats.withdrawalsLast7Days ?? []).map((row) => (
+                <TableRow key={row.date}>
+                  <TableCell component="th" scope="row">
+                    {row.date}
+                  </TableCell>
+                  <TableCell align="right">{row.submittedCount}</TableCell>
+                  <TableCell align="right">{row.submittedUsdt.toFixed(2)}</TableCell>
+                  <TableCell align="right">{row.completedCount}</TableCell>
+                  <TableCell align="right">{row.completedUsdt.toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
         </>
       ) : null}
 

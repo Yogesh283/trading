@@ -42,6 +42,14 @@ function utcCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabe
   };
 }
 
+export type WithdrawalDayReportRow = {
+  date: string;
+  submittedCount: number;
+  submittedUsdt: number;
+  completedCount: number;
+  completedUsdt: number;
+};
+
 export type AdminDashboardStatsPayload = {
   usersCount: number;
   pendingDepositReviewCount: number;
@@ -68,7 +76,50 @@ export type AdminDashboardStatsPayload = {
   todayCompanyReferralCostInr: number;
   /** Binary gross minus referral cost (rough P/L; excludes withdrawals, investment yield, etc.). */
   todayCompanyNetProfitInr: number;
+  /** UTC calendar days, newest first: submitted = new requests that day; completed = marked completed that day. */
+  withdrawalsLast7Days: WithdrawalDayReportRow[];
 };
+
+function utcDayBoundsWithOffset(dayOffset: number): { startIso: string; endIso: string; label: string } {
+  const now = new Date();
+  const base = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOffset, 0, 0, 0, 0)
+  );
+  const next = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + 1, 0, 0, 0, 0));
+  return {
+    startIso: base.toISOString(),
+    endIso: next.toISOString(),
+    label: base.toISOString().slice(0, 10)
+  };
+}
+
+async function getWithdrawalsLast7DaysReport(): Promise<WithdrawalDayReportRow[]> {
+  try {
+    const out: WithdrawalDayReportRow[] = [];
+    for (let i = 0; i < 7; i++) {
+      const { startIso, endIso, label } = utcDayBoundsWithOffset(i);
+      const sub = await dbGet<{ c: unknown; s: unknown }>(
+        `SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE created_at >= ? AND created_at < ?`,
+        [startIso, endIso]
+      );
+      const comp = await dbGet<{ c: unknown; s: unknown }>(
+        `SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE status = 'completed' AND updated_at >= ? AND updated_at < ?`,
+        [startIso, endIso]
+      );
+      out.push({
+        date: label,
+        submittedCount: num(sub?.c),
+        submittedUsdt: Number(num(sub?.s).toFixed(6)),
+        completedCount: num(comp?.c),
+        completedUsdt: Number(num(comp?.s).toFixed(6))
+      });
+    }
+    return out;
+  } catch (e) {
+    logger.warn({ err: e }, "admin withdrawals last-7-days report");
+    return [];
+  }
+}
 
 /** Single round-trip aggregates for admin home dashboard. */
 export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPayload> {
@@ -125,6 +176,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
   );
 
   const netProfit = Number((todayBinaryGross - todayReferral).toFixed(4));
+  const withdrawalsLast7Days = await getWithdrawalsLast7DaysReport();
 
   return {
     usersCount: num(u?.c),
@@ -141,6 +193,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     todayDepositsCreditedUsdt: num(todayDep?.s),
     todayCompanyBinaryGrossInr: todayBinaryGross,
     todayCompanyReferralCostInr: todayReferral,
-    todayCompanyNetProfitInr: netProfit
+    todayCompanyNetProfitInr: netProfit,
+    withdrawalsLast7Days
   };
 }
