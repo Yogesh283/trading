@@ -44,10 +44,18 @@ function ticksForBucketAggregation(sortedTicks: MarketTick[]): MarketTick[] {
     const p = numPrice(t);
     return p >= lo && p <= hi;
   });
+  const newest = valid[valid.length - 1]!;
+  let out: MarketTick[];
   if (kept.length >= Math.max(2, Math.ceil(valid.length * 0.4))) {
-    return kept.sort((a, b) => a.timestamp - b.timestamp);
+    out = kept.sort((a, b) => a.timestamp - b.timestamp);
+  } else {
+    out = valid.sort((a, b) => a.timestamp - b.timestamp);
   }
-  return valid;
+  /** Keep the bucket’s latest tick so the forming candle’s close tracks live quotes (IQR filter must not drop it). */
+  if (!out.includes(newest)) {
+    out = [...out, newest].sort((a, b) => a.timestamp - b.timestamp);
+  }
+  return out;
 }
 
 /**

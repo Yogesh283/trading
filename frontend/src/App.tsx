@@ -3721,9 +3721,9 @@ function LiveChart({
     return out;
   }, [trades, symbol]);
 
-  /** 1 Hz tick: countdown + current candle stay aligned with selected timeframe (same buckets as `buildCandles`). */
+  /** ~4 Hz: wall-clock buckets / countdown stay aligned with the feed; 1 Hz felt laggy on forming candles. */
   useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    const id = window.setInterval(() => setTick((n) => n + 1), 250);
     const syncNow = () => {
       if (document.visibilityState === "visible") {
         setTick((n) => n + 1);

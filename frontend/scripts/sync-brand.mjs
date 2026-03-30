@@ -22,18 +22,12 @@ console.log("Synced brand images → frontend/public/brand/");
 
 /**
  * APK adaptive-icon foreground — must match `ic_launcher_foreground_brand.xml` → @drawable/ic_apk_launcher_icon
- * Prefer `public/brand/Fx Logo.png`, then apk.jpeg, then logo.png.
+ * Launcher art is only `public/brand/Fx Logo.png` (do not fall back to apk.jpeg / logo.png).
  */
 const androidRes = path.join(repoRoot, "mobile-apk", "android", "app", "src", "main", "res");
 const drawableDir = path.join(androidRes, "drawable");
-const launcherSrcCandidates = [
-  path.join(outDir, "Fx Logo.png"),
-  path.join(outDir, "apk.jpeg"),
-  path.join(outDir, "apk.jpg"),
-  path.join(outDir, "logo.png")
-];
-const launcherSrc = launcherSrcCandidates.find((p) => fs.existsSync(p));
-if (launcherSrc && fs.existsSync(androidRes)) {
+const launcherSrc = path.join(outDir, "Fx Logo.png");
+if (fs.existsSync(launcherSrc) && fs.existsSync(androidRes)) {
   fs.mkdirSync(drawableDir, { recursive: true });
   for (const base of ["ic_apk_launcher_icon", "ic_brand_logo"]) {
     for (const ext of ["png", "jpg", "jpeg", "webp"]) {
@@ -51,7 +45,7 @@ if (launcherSrc && fs.existsSync(androidRes)) {
       continue;
     }
     const mipmapDir = path.join(androidRes, dir);
-    for (const name of ["ic_launcher.png", "ic_launcher_round.png"]) {
+    for (const name of ["ic_launcher.png", "ic_launcher_round.png", "ic_launcher_foreground.png"]) {
       const dest = path.join(mipmapDir, name);
       if (fs.existsSync(dest)) {
         fs.copyFileSync(launcherSrc, dest);
@@ -60,5 +54,9 @@ if (launcherSrc && fs.existsSync(androidRes)) {
   }
   console.log(
     `Synced ${path.basename(launcherSrc)} → mobile-apk drawable/ic_apk_launcher_icon.${outExt} (+ mipmaps if present)`
+  );
+} else if (fs.existsSync(androidRes) && !fs.existsSync(launcherSrc)) {
+  console.warn(
+    "APK launcher: missing frontend/public/brand/Fx Logo.png — skipping ic_apk_launcher_icon sync (apk.jpeg is not used)."
   );
 }
