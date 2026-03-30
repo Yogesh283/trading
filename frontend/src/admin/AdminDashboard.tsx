@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Grid,
   Paper,
   Stack,
@@ -23,6 +24,11 @@ import { useNavigate } from "react-router-dom";
 import { getAdminApiUrl } from "../backendOrigin";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
+function fmtUsdt(v: unknown): string {
+  const n = v == null ? 0 : typeof v === "number" ? v : Number(v);
+  return `${(Number.isFinite(n) ? n : 0).toFixed(2)} USDT`;
+}
+
 type Stats = {
   usersCount: number;
   pendingDepositReviewCount: number;
@@ -34,6 +40,8 @@ type Stats = {
   totalInvestmentPrincipalInr: number;
   usersLoggedInTodayUtc: number;
   usersLoggedInTodayUtcDate: string;
+  usersLoggedInTodayUtcIds?: string[];
+  usersLoggedInTodayUtcIdsTruncated?: boolean;
   totalDepositsCreditedUsdt?: number;
   todayDepositsCreditedUsdt?: number;
   totalWithdrawalsCompletedUsdt?: number;
@@ -237,7 +245,7 @@ export function AdminDashboard() {
             <StatCard
               title="Logins today (UTC)"
               value={String(stats.usersLoggedInTodayUtc ?? 0)}
-              subtitle={`Window: ${stats.usersLoggedInTodayUtcDate ?? "—"} · successful app logins only`}
+              subtitle={`Window: ${stats.usersLoggedInTodayUtcDate ?? "—"} · successful app logins · see user IDs below`}
               onNavigate={() => goList("user_insights")}
             />
           </Grid>
@@ -286,6 +294,27 @@ export function AdminDashboard() {
           </Grid>
         </Grid>
 
+        <Paper variant="outlined" sx={{ p: 2, mt: 2, maxWidth: 960, bgcolor: "background.paper" }}>
+          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            Today&apos;s logged-in user IDs (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Total <strong>{stats.usersLoggedInTodayUtc ?? 0}</strong> users · order: newest login first
+            {stats.usersLoggedInTodayUtcIdsTruncated
+              ? ` · listing first ${(stats.usersLoggedInTodayUtcIds ?? []).length} IDs`
+              : null}
+          </Typography>
+          {(stats.usersLoggedInTodayUtcIds ?? []).length === 0 ? (
+            <Typography color="text.secondary">No logins for this UTC day yet.</Typography>
+          ) : (
+            <Stack direction="row" flexWrap="wrap" gap={0.75} useFlexGap>
+              {(stats.usersLoggedInTodayUtcIds ?? []).map((id) => (
+                <Chip key={id} label={id} size="small" variant="outlined" />
+              ))}
+            </Stack>
+          )}
+        </Paper>
+
         <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
           Company overview (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
         </Typography>
@@ -297,21 +326,21 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Total deposits credited"
-              value={`${(stats.totalDepositsCreditedUsdt ?? 0).toFixed(2)} USDT`}
+              value={fmtUsdt(stats.totalDepositsCreditedUsdt)}
               subtitle="All-time, status credited"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Today deposits credited"
-              value={`${(stats.todayDepositsCreditedUsdt ?? 0).toFixed(2)} USDT`}
+              value={fmtUsdt(stats.todayDepositsCreditedUsdt)}
               subtitle="By deposit updated_at (UTC day)"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Total withdrawals completed"
-              value={`${(stats.totalWithdrawalsCompletedUsdt ?? 0).toFixed(2)} USDT`}
+              value={fmtUsdt(stats.totalWithdrawalsCompletedUsdt)}
               subtitle="All-time, status completed"
               onNavigate={() => goList("withdrawals")}
             />
@@ -319,7 +348,7 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Today withdrawals completed"
-              value={`${(stats.todayWithdrawalsCompletedUsdt ?? 0).toFixed(2)} USDT`}
+              value={fmtUsdt(stats.todayWithdrawalsCompletedUsdt)}
               subtitle="By withdrawal updated_at (UTC day)"
               onNavigate={() => goList("withdrawals")}
             />

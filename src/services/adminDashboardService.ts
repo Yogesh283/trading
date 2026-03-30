@@ -1,4 +1,4 @@
-import { dbGet, initAppDb } from "../db/appDb";
+import { dbAll, dbGet, initAppDb } from "../db/appDb";
 import { logger } from "../utils/logger";
 
 function num(v: unknown): number {
@@ -9,17 +9,27 @@ function num(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function isMissingTransactionsTable(err: unknown): boolean {
+function isMissingTableError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes("no such table") || msg.includes("doesn't exist") || msg.includes("Unknown table");
+  return (
+    msg.includes("no such table") ||
+    msg.includes("doesn't exist") ||
+    msg.includes("Unknown table") ||
+    msg.includes("ER_NO_SUCH_TABLE")
+  );
 }
 
+/** Single numeric column `AS x` (MySQL/mysql2 may return `X`; SUM may be string). */
 async function queryNum(sql: string, params: unknown[] = []): Promise<number> {
   try {
-    const row = await dbGet<{ x: unknown }>(sql, params);
-    return num(row?.x);
+    const row = await dbGet<Record<string, unknown>>(sql, params);
+    if (!row) {
+      return 0;
+    }
+    const raw = row.x ?? row.X;
+    return num(raw);
   } catch (e) {
-    if (isMissingTransactionsTable(e)) {
+    if (isMissingTableError(e)) {
       return 0;
     }
     logger.warn({ err: e }, "admin dashboard aggregate query failed");
@@ -63,6 +73,10 @@ export type AdminDashboardStatsPayload = {
   usersLoggedInTodayUtc: number;
   /** YYYY-MM-DD (UTC) for the window above. */
   usersLoggedInTodayUtcDate: string;
+  /** User IDs who logged in today (UTC), newest `last_login_at` first; capped for payload size. */
+  usersLoggedInTodayUtcIds: string[];
+  /** True when `usersLoggedInTodayUtc` exceeds the ID list cap. */
+  usersLoggedInTodayUtcIdsTruncated: boolean;
   /** All-time USDT credited (deposits row `amount`, status `credited`). */
   totalDepositsCreditedUsdt: number;
   /** USDT credited today (UTC): `updated_at` when status became credited. */
@@ -95,6 +109,24 @@ function utcDayBoundsWithOffset(dayOffset: number): { startIso: string; endIso: 
     endIso: next.toISOString(),
     label: base.toISOString().slice(0, 10)
   };
+}
+
+const TODAY_LOGIN_IDS_CAP = 300;
+
+async function getUsersLoggedInTodayIds(startIso: string, endIso: string): Promise<string[]> {
+  try {
+    const lim = String(TODAY_LOGIN_IDS_CAP);
+    const rows = await dbAll<{ id: unknown }>(
+      `SELECT id FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= ? AND last_login_at < ? ORDER BY last_login_at DESC LIMIT ${lim}`,
+      [startIso, endIso]
+    );
+    return (Array.isArray(rows) ? rows : [])
+      .map((r) => String(r?.id ?? "").trim())
+      .filter(Boolean);
+  } catch (e) {
+    logger.warn({ err: e }, "admin dashboard today's login user ids");
+    return [];
+  }
 }
 
 async function getWithdrawalsLast7DaysReport(): Promise<WithdrawalDayReportRow[]> {
@@ -149,29 +181,29 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     [startIso, endIso]
   );
 
-  const totalDep = await dbGet<{ s: unknown }>(
-    `SELECT COALESCE(SUM(amount), 0) AS s FROM deposits WHERE status = 'credited'`
+  const totalDepositsCreditedUsdt = await queryNum(
+    `SELECT COALESCE(SUM(amount), 0) AS x FROM deposits WHERE status = 'credited'`
   );
-  const todayDep = await dbGet<{ s: unknown }>(
-    `SELECT COALESCE(SUM(amount), 0) AS s FROM deposits WHERE status = 'credited' AND updated_at >= ? AND updated_at < ?`,
+  const todayDepositsCreditedUsdt = await queryNum(
+    `SELECT COALESCE(SUM(amount), 0) AS x FROM deposits WHERE status = 'credited' AND updated_at >= ? AND updated_at < ?`,
     [startIso, endIso]
   );
 
-  let totalWithdrawalsCompletedUsdt = 0;
-  let todayWithdrawalsCompletedUsdt = 0;
-  try {
-    const totalW = await dbGet<{ s: unknown }>(
-      `SELECT COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE status = 'completed'`
-    );
-    const todayW = await dbGet<{ s: unknown }>(
-      `SELECT COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE status = 'completed' AND updated_at >= ? AND updated_at < ?`,
-      [startIso, endIso]
-    );
-    totalWithdrawalsCompletedUsdt = Number(num(totalW?.s).toFixed(6));
-    todayWithdrawalsCompletedUsdt = Number(num(todayW?.s).toFixed(6));
-  } catch (e) {
-    logger.warn({ err: e }, "admin withdrawal USDT totals");
-  }
+  const totalWithdrawalsCompletedUsdt = Number(
+    (
+      await queryNum(
+        `SELECT COALESCE(SUM(amount), 0) AS x FROM withdrawals WHERE LOWER(TRIM(COALESCE(status, ''))) = 'completed'`
+      )
+    ).toFixed(6)
+  );
+  const todayWithdrawalsCompletedUsdt = Number(
+    (
+      await queryNum(
+        `SELECT COALESCE(SUM(amount), 0) AS x FROM withdrawals WHERE LOWER(TRIM(COALESCE(status, ''))) = 'completed' AND updated_at >= ? AND updated_at < ?`,
+        [startIso, endIso]
+      )
+    ).toFixed(6)
+  );
 
   const todayBinaryGross = await queryNum(
     `SELECT COALESCE(SUM(
@@ -197,6 +229,9 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
 
   const netProfit = Number((todayBinaryGross - todayReferral).toFixed(4));
   const withdrawalsLast7Days = await getWithdrawalsLast7DaysReport();
+  const usersLoggedInTodayUtcIds = await getUsersLoggedInTodayIds(startIso, endIso);
+  const loginCount = num(logins?.c);
+  const usersLoggedInTodayUtcIdsTruncated = loginCount > usersLoggedInTodayUtcIds.length;
 
   return {
     usersCount: num(u?.c),
@@ -207,10 +242,12 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     totalDemoWalletInr: num(w?.demo),
     investorsWithPrincipal: num(inv?.c),
     totalInvestmentPrincipalInr: num(inv?.p),
-    usersLoggedInTodayUtc: num(logins?.c),
+    usersLoggedInTodayUtc: loginCount,
     usersLoggedInTodayUtcDate: dateLabel,
-    totalDepositsCreditedUsdt: num(totalDep?.s),
-    todayDepositsCreditedUsdt: num(todayDep?.s),
+    usersLoggedInTodayUtcIds,
+    usersLoggedInTodayUtcIdsTruncated,
+    totalDepositsCreditedUsdt,
+    todayDepositsCreditedUsdt,
     totalWithdrawalsCompletedUsdt,
     todayWithdrawalsCompletedUsdt,
     todayCompanyBinaryGrossInr: todayBinaryGross,
