@@ -2369,7 +2369,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-history-compact {
-  font-size: 18px;
+  font-size: 15px;
   max-height: min(52vh, 360px);
   overflow-y: auto;
 }
@@ -2383,33 +2383,33 @@ html.cap-native .mobile-dock-apk-row {
 
 /* One line per row: nowrap + min width — swipe horizontally on narrow phones */
 .mobile-hist-table {
-  width: max(100%, 720px);
-  min-width: 720px;
+  width: max(100%, 520px);
+  min-width: 520px;
   border-collapse: collapse;
   table-layout: auto;
-  font-size: 16px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: #e5edf7;
 }
 
 .mobile-hist-table thead th {
-  padding: 6px 8px 8px;
-  font-size: 15px;
+  padding: 4px 6px 6px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: #6b7a8f;
   text-align: left;
   vertical-align: bottom;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.mobile-hist-table thead th:nth-child(6) {
+.mobile-hist-table thead th:nth-child(5) {
   text-align: right;
 }
 
 .mobile-hist-table tbody td {
-  padding: 8px 8px;
+  padding: 5px 6px;
   vertical-align: middle;
   white-space: nowrap;
   word-break: normal;
@@ -2428,15 +2428,17 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-hist-table .dir-up {
   color: #5ee4a3;
   font-weight: 600;
+  font-size: 12px;
 }
 
 .mobile-hist-table .dir-down {
   color: #ff8a8a;
   font-weight: 600;
+  font-size: 12px;
 }
 
 .mobile-hist-close {
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   color: #dbe4f0;
 }

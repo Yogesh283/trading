@@ -2259,8 +2259,7 @@ export default function App() {
                       <tr>
                         <th scope="col">Pair</th>
                         <th scope="col">Up / Down</th>
-                        <th scope="col">P&amp;L</th>
-                        <th scope="col">Trading amount</th>
+                        <th scope="col">Status</th>
                         <th scope="col">Entry</th>
                         <th scope="col">Close</th>
                       </tr>
@@ -2320,7 +2319,6 @@ export default function App() {
                                   ? "Open"
                                   : trade.status}
                             </td>
-                            <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
                             <td title="Price when order was placed (execution / entry)">
                               {formatFxPrice(trade.symbol, trade.entryPrice)}
                             </td>
