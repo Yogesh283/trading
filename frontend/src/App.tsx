@@ -1,5 +1,6 @@
 import {
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
   FormEvent,
   useCallback,
@@ -20,6 +21,7 @@ import {
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
+import { AssetPairFlags, assetPairEmojiPrefix, formatForexPair, formatMarketPairOtc } from "./marketAssetIcon";
 import { lastTickMove } from "./tickDirection";
 import {
   CHART_GRAPH_OPTIONS,
@@ -63,7 +65,8 @@ import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
 import HelpTicketPage from "./HelpTicketPage";
 import { APP_NAME, APK_DOWNLOAD_URL, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
-import { PHONE_COUNTRY_OPTIONS } from "./phoneCountryCodes";
+import { AuthPhoneField } from "./AuthPhoneField";
+import { iso2ForPhoneCountryCode } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
@@ -147,36 +150,10 @@ const CHART_DB_CANDLES_LIMIT = 1500;
 const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType.v2";
 const CHART_GRAPH_TYPE_LEGACY_KEY = "tradeing.chartGraphType";
 
-const FX_BASE_ICON: Record<string, string> = {
-  XAU: "Au",
-  EUR: "€",
-  GBP: "£",
-  USD: "$",
-  JPY: "¥",
-  CHF: "Fr",
-  AUD: "A$",
-  CAD: "C$",
-  NZD: "NZ$",
-  SEK: "kr",
-  NOK: "kr",
-  TRY: "₺",
-  MXN: "MX$",
-  ZAR: "R",
-  SGD: "S$"
-};
-
-function formatForexPair(sym: string) {
-  return /^[A-Z]{6}$/.test(sym) ? `${sym.slice(0, 3)}/${sym.slice(3)}` : sym;
-}
-
 function formatFxPrice(_sym: string, p: number) {
   if (p >= 50) return p.toFixed(3);
   if (p >= 5) return p.toFixed(4);
   return p.toFixed(5);
-}
-
-function getAssetIcon(sym: string) {
-  return FX_BASE_ICON[sym.slice(0, 3)] ?? sym.slice(0, 2);
 }
 
 function getAssetName(sym: string, pairNames: Record<string, string>) {
@@ -1976,7 +1953,9 @@ export default function App() {
                 }
                 onClick={() => setAssetPickerOpen(true)}
               >
-                <span className="mobile-asset-pill-icon">{getAssetIcon(symbol)}</span>
+                <span className="mobile-asset-pill-icon">
+                  <AssetPairFlags symbol={symbol} />
+                </span>
                 <span className="mobile-asset-pill-text">{getAssetName(symbol, pairNames)}</span>
                 <span className="mobile-chevron" aria-hidden>
                   ▾
@@ -2095,7 +2074,7 @@ export default function App() {
                   onClick={() => {
                     const opts = TIMEFRAME_OPTIONS;
                     const i = opts.findIndex((o) => o.value === binaryTimeframe);
-                    setBinaryTimeframe(opts[(i - 1 + opts.length) % opts.length]!.value);
+                    onChartTimeframeChange(opts[(i - 1 + opts.length) % opts.length]!.value);
                   }}
                 >
                   −
@@ -2108,7 +2087,7 @@ export default function App() {
                   onClick={() => {
                     const opts = TIMEFRAME_OPTIONS;
                     const i = opts.findIndex((o) => o.value === binaryTimeframe);
-                    setBinaryTimeframe(opts[(i + 1) % opts.length]!.value);
+                    onChartTimeframeChange(opts[(i + 1) % opts.length]!.value);
                   }}
                 >
                   +
@@ -2257,7 +2236,8 @@ export default function App() {
                 <div className="mobile-open-timers">
                   {openBinaryTrades.map((t) => (
                     <div key={t.id} className="mobile-open-timer-row">
-                      <span>
+                      <span className="mobile-open-timer-pair">
+                        <AssetPairFlags symbol={t.symbol} />
                         {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
                         {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
@@ -2313,7 +2293,12 @@ export default function App() {
                                 : undefined;
                         return (
                           <tr key={trade.id} className="mobile-hist-tr-main">
-                            <td title={trade.symbol}>{formatForexPair(trade.symbol)}</td>
+                            <td title={trade.symbol}>
+                              <span className="hist-pair-cell">
+                                <AssetPairFlags symbol={trade.symbol} />
+                                {formatForexPair(trade.symbol)}
+                              </span>
+                            </td>
                             <td
                               className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
                               title={
@@ -2423,7 +2408,8 @@ export default function App() {
             >
               {forexSymbolList.map((s) => (
                 <option key={s} value={s}>
-                  {formatForexPair(s)} — {getAssetName(s, pairNames)}
+                  {assetPairEmojiPrefix(s)}
+                  {formatMarketPairOtc(s)} · {getAssetName(s, pairNames)}
                 </option>
               ))}
             </select>
@@ -2442,11 +2428,11 @@ export default function App() {
                       onClick={() => setSymbol(s)}
                     >
                       <span className="asset-tile-icon" aria-hidden>
-                        {getAssetIcon(s)}
+                        <AssetPairFlags symbol={s} />
                       </span>
                       <span className="asset-tile-row-text">
-                        <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
-                        <span className="asset-tile-pair">{formatForexPair(s)}</span>
+                        <span className="asset-tile-name asset-tile-name--otc">{formatMarketPairOtc(s)}</span>
+                        <span className="asset-tile-pair">{getAssetName(s, pairNames)}</span>
                       </span>
                       {tick ? (
                         <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
@@ -2473,7 +2459,7 @@ export default function App() {
                 aria-label="Open asset list"
                 onClick={() => setAssetPickerOpen(true)}
               >
-                {getAssetIcon(symbol)}
+                <AssetPairFlags symbol={symbol} className="chart-symbol-flags" />
               </button>
               <h2 className="chart-title-row">
                 <span className="chart-title-static">Live Candle Chart · </span>
@@ -2484,6 +2470,7 @@ export default function App() {
                   aria-expanded={assetPickerOpen}
                   aria-haspopup="dialog"
                 >
+                  <AssetPairFlags symbol={symbol} className="chart-title-flags" />
                   {formatForexPair(symbol)}
                 </button>
               </h2>
@@ -2515,8 +2502,11 @@ export default function App() {
           <section className="panel panel-demo-summary">
             <h2>Demo trading</h2>
             <p className="muted">
-              <strong>{formatForexPair(symbol)}</strong> — open new trades from the{" "}
-              <strong>bar at the bottom</strong> (Up / Down, amount).
+              <strong className="inline-pair-head">
+                <AssetPairFlags symbol={symbol} />
+                {formatForexPair(symbol)}
+              </strong>{" "}
+              — open new trades from the <strong>bar at the bottom</strong> (Up / Down, amount).
             </p>
             <div className="trade-timeout-banner" data-tick={timerTick}>
               <span className="trade-timeout-label">Timeout</span>
@@ -2535,7 +2525,7 @@ export default function App() {
                 Timeframe (also in bottom bar)
                 <select
                   value={binaryTimeframe}
-                  onChange={(e) => setBinaryTimeframe(coerceTradeTimeframeSec(Number(e.target.value)))}
+                  onChange={(e) => onChartTimeframeChange(Number(e.target.value))}
                 >
                   {TIMEFRAME_OPTIONS.map(({ value, label }) => (
                     <option key={value} value={value}>{label}</option>
@@ -2577,7 +2567,8 @@ export default function App() {
                 <ul className="active-trades-list">
                   {openBinaryTrades.map((t) => (
                     <li key={t.id}>
-                      <span>
+                      <span className="active-trade-pair-line">
+                        <AssetPairFlags symbol={t.symbol} />
                         {formatForexPair(t.symbol)} · {t.direction === "up" ? "Up" : "Down"} · trading amount{" "}
                         {formatInr(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
@@ -2618,7 +2609,15 @@ export default function App() {
         <section className="panel">
           <h2>Symbol Snapshot</h2>
           <div className="stats">
-            <Stat label="Selected Symbol" value={symbol} />
+            <Stat
+              label="Selected Symbol"
+              value={
+                <span className="stat-pair-with-flags">
+                  <AssetPairFlags symbol={symbol} />
+                  {formatForexPair(symbol)}
+                </span>
+              }
+            />
             <Stat
               label="Live Price"
               value={selectedTick ? formatFxPrice(symbol, selectedTick.price) : "Waiting..."}
@@ -2647,7 +2646,10 @@ export default function App() {
             ) : (
               trades.map((trade) => (
                 <div key={trade.id} className="table-row" data-tick={timerTick}>
-                  <span>{trade.symbol}</span>
+                  <span className="table-pair-cell">
+                    <AssetPairFlags symbol={trade.symbol} />
+                    {formatForexPair(trade.symbol)}
+                  </span>
                   <span
                     title={
                       trade.direction === "up" || trade.direction === "down"
@@ -2716,7 +2718,7 @@ export default function App() {
                 className="desktop-demo-pair-btn"
                 onClick={() => setAssetPickerOpen(true)}
               >
-                {getAssetIcon(symbol)}{" "}
+                <AssetPairFlags symbol={symbol} className="desktop-demo-pair-flags" />{" "}
                 {formatForexPair(symbol)}
               </button>
             </div>
@@ -2724,7 +2726,7 @@ export default function App() {
               <span className="desktop-demo-label">Timeout</span>
               <select
                 value={binaryTimeframe}
-                onChange={(e) => setBinaryTimeframe(coerceTradeTimeframeSec(Number(e.target.value)))}
+                onChange={(e) => onChartTimeframeChange(Number(e.target.value))}
                 aria-label="Trade timeout"
               >
                 {TIMEFRAME_OPTIONS.map(({ value, label: lb }) => (
@@ -2849,6 +2851,7 @@ export default function App() {
             <div className="desktop-demo-open-strip">
               {openBinaryTrades.map((t) => (
                 <span key={t.id} className="desktop-demo-open-pill">
+                  <AssetPairFlags symbol={t.symbol} className="demo-open-pill-flags" />
                   {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
                   {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)} · cut in{" "}
                   <strong>{countdownToExpiry(t.expiryAt)}</strong>
@@ -2903,11 +2906,11 @@ export default function App() {
                       }}
                     >
                       <span className="asset-tile-icon" aria-hidden>
-                        {getAssetIcon(s)}
+                        <AssetPairFlags symbol={s} />
                       </span>
                       <span className="asset-tile-row-text">
-                        <span className="asset-tile-name">{getAssetName(s, pairNames)}</span>
-                        <span className="asset-tile-pair">{formatForexPair(s)}</span>
+                        <span className="asset-tile-name asset-tile-name--otc">{formatMarketPairOtc(s)}</span>
+                        <span className="asset-tile-pair">{getAssetName(s, pairNames)}</span>
                       </span>
                       {tick ? (
                         <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
@@ -3168,6 +3171,26 @@ export default function App() {
   );
 }
 
+function AuthDialCodeFlag({ dialCode }: { dialCode: string }) {
+  const iso = iso2ForPhoneCountryCode(dialCode);
+  return (
+    <span
+      className={`auth-phone-cc-flag${iso ? "" : " auth-phone-cc-flag--empty"}`}
+      aria-hidden
+    >
+      {iso ? (
+        <img
+          src={`https://flagcdn.com/w40/${iso}.png`}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      ) : null}
+    </span>
+  );
+}
+
 function AuthScreen({
   authBusy,
   authMessage,
@@ -3366,9 +3389,9 @@ function AuthScreen({
             <div key={tick.symbol} className="price-row">
               <div className="price-row-left">
                 <span className="price-row-icon" aria-hidden>
-                  {getAssetIcon(tick.symbol)}
+                  <AssetPairFlags symbol={tick.symbol} />
                 </span>
-                <strong>{formatForexPair(tick.symbol)}</strong>
+                <strong className="auth-market-pair-otc">{formatMarketPairOtc(tick.symbol)}</strong>
               </div>
               <span className="price-row-value">{formatFxPrice(tick.symbol, tick.price)}</span>
             </div>
@@ -3431,50 +3454,61 @@ function AuthScreen({
             </label>
           ) : null}
 
-          <div className="auth-phone-combo" role="group" aria-label="Phone number">
-            <div className="auth-phone-combo-labels">
-              <span>Country code</span>
-              <span>Mobile number</span>
-            </div>
-            <div className="auth-phone-combo-inner">
-              <input
-                className="auth-phone-cc-input"
-                type="text"
-                inputMode="numeric"
-                maxLength={4}
-                value={authView === "login" ? loginForm.countryCode : registerForm.countryCode}
-                onChange={(event) => {
-                  const v = event.target.value.replace(/\D/g, "").slice(0, 4);
-                  if (authView === "login") {
-                    onLoginFormChange((c) => ({ ...c, countryCode: v }));
-                  } else {
-                    onRegisterFormChange((c) => ({ ...c, countryCode: v }));
-                  }
-                }}
-                placeholder="91"
-                autoComplete="tel-country-code"
-                aria-label="Country calling code e.g. 91 India, 92 Pakistan"
+          {authView === "register" ? (
+            <div className="auth-phone-combo" role="group" aria-label="Phone number">
+              <div className="auth-phone-combo-labels auth-phone-combo-labels--npm">
+                <span>Mobile number</span>
+              </div>
+              <AuthPhoneField
+                countryCode={registerForm.countryCode}
+                phone={registerForm.phone}
+                disabled={authBusy}
+                onChange={(cc, nat) =>
+                  onRegisterFormChange((c) => ({ ...c, countryCode: cc, phone: nat }))
+                }
               />
-              <span className="auth-phone-combo-divider" aria-hidden />
-              <input
-                className="auth-phone-num-input"
-                type="tel"
-                inputMode="numeric"
-                value={authView === "login" ? loginForm.phone : registerForm.phone}
-                onChange={(event) => {
-                  const v = event.target.value.replace(/\D/g, "").slice(0, 15);
-                  if (authView === "login") {
+            </div>
+          ) : (
+            <div className="auth-phone-combo" role="group" aria-label="Phone number">
+              <div className="auth-phone-combo-labels">
+                <span>Country code</span>
+                <span>Mobile number</span>
+              </div>
+              <div className="auth-phone-combo-inner">
+                <div className="auth-phone-cc-field">
+                  <AuthDialCodeFlag dialCode={loginForm.countryCode} />
+                  <input
+                    className="auth-phone-cc-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={loginForm.countryCode}
+                    onChange={(event) => {
+                      const v = event.target.value.replace(/\D/g, "").slice(0, 4);
+                      onLoginFormChange((c) => ({ ...c, countryCode: v }));
+                    }}
+                    placeholder="91"
+                    autoComplete="tel-country-code"
+                    aria-label="Country calling code e.g. 91 India, 92 Pakistan"
+                  />
+                </div>
+                <span className="auth-phone-combo-divider" aria-hidden />
+                <input
+                  className="auth-phone-num-input"
+                  type="tel"
+                  inputMode="numeric"
+                  value={loginForm.phone}
+                  onChange={(event) => {
+                    const v = event.target.value.replace(/\D/g, "").slice(0, 15);
                     onLoginFormChange((c) => ({ ...c, phone: v }));
-                  } else {
-                    onRegisterFormChange((c) => ({ ...c, phone: v }));
-                  }
-                }}
-                placeholder="9876543210"
-                autoComplete="tel-national"
-                aria-label="Mobile number without country code"
-              />
+                  }}
+                  placeholder="9876543210"
+                  autoComplete="tel-national"
+                  aria-label="Mobile number without country code"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <label className="auth-field-password">
             Password
@@ -3580,11 +3614,11 @@ function AuthScreen({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="stat">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong className="stat-value-line">{value}</strong>
     </div>
   );
 }
@@ -3882,7 +3916,10 @@ function LiveChart({
       {!isMobileChart ? (
         <div className="chart-meta tv-chart-toolbar">
           <div className="tv-toolbar-left">
-            <strong className="tv-symbol">{pairLabel}</strong>
+            <strong className="tv-symbol">
+              <AssetPairFlags symbol={symbol} className="tv-symbol-flags" />
+              {pairLabel}
+            </strong>
             {tickDirection ? (
               <span className={`tv-spot-tick ${tickDirection}`} aria-hidden>
                 {tickDirection === "up" ? "↑" : "↓"}

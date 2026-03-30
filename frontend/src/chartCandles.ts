@@ -22,21 +22,12 @@ function ticksForBucketAggregation(sortedTicks: MarketTick[]): MarketTick[] {
   if (valid.length === 0) {
     return sortedTicks;
   }
-  if (valid.length === 2) {
-    const a = numPrice(valid[0]!);
-    const b = numPrice(valid[1]!);
-    const rel = Math.abs(a - b) / Math.min(a, b);
-    if (rel > 0.025) {
-      const mid = (a + b) / 2;
-      return [
-        { ...valid[0]!, price: mid },
-        { ...valid[1]!, price: mid }
-      ];
-    }
-    return valid;
-  }
   if (valid.length < 2) {
     return valid;
+  }
+  /** Keep true open→close on 2 ticks. Old “midpoint both” rule (>2.5% spread) flattened real volatile bars. */
+  if (valid.length === 2) {
+    return valid.sort((a, b) => a.timestamp - b.timestamp);
   }
   const prices = valid.map((t) => numPrice(t));
   const sorted = [...prices].sort((x, y) => x - y);
@@ -174,6 +165,14 @@ export function clampChartCandleBar(c: CandlePoint, intervalSeconds: number): Ca
   if (!Number.isFinite(range) || range <= 0) {
     return c;
   }
+  /**
+   * Caps below target 1m+ bars where mixed DB + live ticks produce absurd wicks.
+   * For ≤60s (5s–1m) scalping — especially XAU — the old cap (~0.06% of price) crushed real volatility,
+   * so candles looked nothing like external 5s charts. Skip clamp on short TFs.
+   */
+  if (intervalSeconds <= 60) {
+    return c;
+  }
   const mid = (high + low) / 2;
   const body = Math.abs(open - close);
   const tfEff = Math.max(5, intervalSeconds);
@@ -308,7 +307,8 @@ export function overlayLivePriceOnFormingCandle(
   const high = Math.max(last.high, close);
   const low = Math.min(last.low, close);
   const nextLast: CandlePoint = { ...last, close, high, low };
-  return [...candles.slice(0, -1), clampChartCandleBar(nextLast, timeframeSec)];
+  /** Don’t clamp the forming bar — live overlay should reflect real spikes (clamp stays on closed bar merge). */
+  return [...candles.slice(0, -1), nextLast];
 }
 
 /** Append flat O=H=L=C bars from the last timestamp through the current bucket (wall-time alignment). */

@@ -71,9 +71,9 @@ function areaSeriesFillTop(tickDirection: "up" | "down" | null | undefined): str
 
 export type ChartTradeMarker = {
   time: number;
-  position: "belowBar" | "aboveBar";
+  position: "belowBar" | "aboveBar" | "inBar";
   color: string;
-  shape: "arrowUp" | "arrowDown";
+  shape: "arrowUp" | "arrowDown" | "circle";
   text?: string;
   id?: string;
 };
@@ -85,38 +85,32 @@ export type ChartTradeEntryLine = {
   direction: "up" | "down";
 };
 
-/** Keep scroll/zoom when the chart canvas is resized (viewport, rotation, container). */
-function resizeChartPreserveRange(chart: IChartApi, width: number, heightPx: number) {
-  const range = chart.timeScale().getVisibleLogicalRange();
-  chart.resize(width, heightPx);
-  if (range != null && Number.isFinite(range.from) && Number.isFinite(range.to)) {
-    requestAnimationFrame(() => {
-      chart.timeScale().setVisibleLogicalRange(range);
-    });
-  }
-}
-
-function useMobileChartHeightPx(isMobile: boolean): number {
+/**
+ * Responsive chart pane height: mobile uses a share of visual viewport; desktop uses remaining viewport
+ * so the chart grows/shrinks when the window is resized (auto-fit).
+ */
+function useAdaptiveChartPaneHeight(isMobile: boolean): number {
   const compute = useCallback(() => {
     if (typeof window === "undefined") {
-      return 280;
+      return isMobile ? 320 : 520;
     }
     const vh = window.visualViewport?.height ?? window.innerHeight;
-    const target = vh * 0.54;
-    return Math.round(Math.min(560, Math.max(280, target)));
-  }, []);
-
-  const [px, setPx] = useState(() => {
-    if (!isMobile || typeof window === "undefined") {
-      return 440;
+    if (isMobile) {
+      const target = vh * 0.54;
+      return Math.round(Math.min(580, Math.max(280, target)));
     }
-    return compute();
-  });
+    /** Reserve space for app header, chart toolbar, margins (~180–240px). */
+    const reserved = Math.min(280, Math.max(180, Math.round(vh * 0.22)));
+    return Math.round(Math.max(380, Math.min(920, vh - reserved)));
+  }, [isMobile]);
+
+  const [px, setPx] = useState(() => compute());
 
   useEffect(() => {
-    if (!isMobile) {
-      return;
-    }
+    setPx(compute());
+  }, [compute]);
+
+  useEffect(() => {
     const on = () => setPx(compute());
     on();
     window.addEventListener("resize", on);
@@ -130,9 +124,9 @@ function useMobileChartHeightPx(isMobile: boolean): number {
       vv?.removeEventListener("resize", on);
       vv?.removeEventListener("scroll", on);
     };
-  }, [isMobile, compute]);
+  }, [compute]);
 
-  return isMobile ? px : 480;
+  return px;
 }
 
 type MergedCandle = {
@@ -162,6 +156,31 @@ function candlestickDataFromCandles(candles: CandlePoint[]): MergedCandle[] {
     out.push({ bucketMs: c.timestamp, open: o, high, low, close: cl });
   }
   return out;
+}
+
+/**
+ * Close visual gaps between bars when price jumps: open each bar at the prior close
+ * and widen H/L so the body spans the jump (display-only — same closes as feed).
+ */
+function bridgeCandleOpensForDisplay(cd: MergedCandle[]): MergedCandle[] {
+  if (cd.length <= 1) {
+    return cd;
+  }
+  const out: MergedCandle[] = [{ ...cd[0]! }];
+  for (let i = 1; i < cd.length; i++) {
+    const c = cd[i]!;
+    const prevClose = out[out.length - 1]!.close;
+    const o = prevClose;
+    const cl = c.close;
+    const hi = Math.max(c.high, o, cl);
+    const lo = Math.min(c.low, o, cl);
+    out.push({ bucketMs: c.bucketMs, open: o, high: hi, low: lo, close: cl });
+  }
+  return out;
+}
+
+function mergedCandlesForChart(candles: CandlePoint[]): MergedCandle[] {
+  return bridgeCandleOpensForDisplay(candlestickDataFromCandles(candles));
 }
 
 function candlestickOHLCForDisplay(c: MergedCandle): [number, number, number, number] {
@@ -382,11 +401,15 @@ function buildSeriesMarkers(cd: MergedCandle[], markers: ChartTradeMarker[]): Se
     if (idx < 0) continue;
     const bar = cd[idx]!;
     const t = toUtcTime(bar.bucketMs);
+    const pos: SeriesMarker<Time>["position"] =
+      m.position === "inBar" ? "inBar" : m.position === "belowBar" ? "belowBar" : "aboveBar";
+    const shape: SeriesMarker<Time>["shape"] =
+      m.shape === "circle" ? "circle" : m.shape === "arrowDown" ? "arrowDown" : "arrowUp";
     out.push({
       time: t,
-      position: m.position === "belowBar" ? "belowBar" : "aboveBar",
+      position: pos,
       color: m.color,
-      shape: m.shape === "arrowUp" ? "arrowUp" : "arrowDown",
+      shape,
       text: m.text
     });
   }
@@ -472,9 +495,7 @@ export function LightweightTradingChart({
     [assetTag, lastChartActivityMs, lockTick]
   );
 
-  const height = useMobileChartHeightPx(isMobileChart);
-  const heightRef = useRef(height);
-  heightRef.current = height;
+  const height = useAdaptiveChartPaneHeight(isMobileChart);
 
   const syncLivePriceChrome = useCallback(() => {
     const chart = chartRef.current;
@@ -486,7 +507,7 @@ export function LightweightTradingChart({
       return;
     }
     const list = candlesRef.current;
-    const cd = candlestickDataFromCandles(list);
+    const cd = mergedCandlesForChart(list);
     if (cd.length === 0) {
       setShowLiveRightUi(false);
       setAxisPillTop(null);
@@ -585,8 +606,8 @@ export function LightweightTradingChart({
         rightOffset: isMobileChart ? MOBILE_CHART_RIGHT_GAP_BARS : 8,
         /** Only shifts when the last bar is still visible — keeps the forming candle in view without snapping pan when viewing history. */
         shiftVisibleRangeOnNewBar: true,
-        /** Slightly wider floor so zoomed-out candles don’t look razor-thin. */
-        minBarSpacing: 1
+        /** Slightly wider floor so candles read larger at the same logical zoom. */
+        minBarSpacing: 2
       },
       crosshair: {
         /**
@@ -624,13 +645,10 @@ export function LightweightTradingChart({
       localization: {
         locale: "en-US"
       },
-      width: el.clientWidth,
-      height,
-      autoSize: false
+      autoSize: true
     });
     chartRef.current = chart;
     const ro = new ResizeObserver(() => {
-      resizeChartPreserveRange(chart, el.clientWidth, heightRef.current);
       syncLivePriceChrome();
     });
     ro.observe(el);
@@ -649,14 +667,12 @@ export function LightweightTradingChart({
     };
   }, [assetTag, isMobileChart, timeframeSec, syncLivePriceChrome]);
 
-  /** Pixel height changes must not recreate the chart — only resize (pan/zoom preserved). */
+  /** Pane height changes: library `autoSize` resizes the canvas; refresh overlay UI. */
   useEffect(() => {
     const chart = chartRef.current;
-    const el = containerRef.current;
-    if (!chart || !el) {
+    if (!chart) {
       return;
     }
-    resizeChartPreserveRange(chart, el.clientWidth, height);
     syncLivePriceChrome();
   }, [height, syncLivePriceChrome]);
 
@@ -667,7 +683,7 @@ export function LightweightTradingChart({
       return;
     }
 
-    const cd = candlestickDataFromCandles(candles);
+    const cd = mergedCandlesForChart(candles);
     if (cd.length === 0) {
       return;
     }
@@ -715,7 +731,8 @@ export function LightweightTradingChart({
 
     const refreshPriceLine = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
       const xau = isXauUsdSymbol(assetTag);
-      const plCandle = xauLocked && xau ? XAU_PRICE_LINE_OFF : PRO_LAST_PRICE;
+      /** Olymp-style terminals: live last-price line follows tick direction (green / red), not neutral gray. */
+      const plCandle = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       const plLine = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       if (graphType === "candles") {
         const opts = {
@@ -767,7 +784,6 @@ export function LightweightTradingChart({
             syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
             applyMarkers(series);
             requestAnimationFrame(() => {
-              resizeChartPreserveRange(chart, el.clientWidth, height);
               syncLivePriceChrome();
             });
             return;
@@ -841,7 +857,6 @@ export function LightweightTradingChart({
       }
       lastBarCountForRangeRef.current = rangeN;
       requestAnimationFrame(() => {
-        resizeChartPreserveRange(chart, el.clientWidth, height);
         syncLivePriceChrome();
       });
       return;
@@ -875,7 +890,7 @@ export function LightweightTradingChart({
       prevCandlestickRowsRef.current = candleRows;
       priceLineRef.current = series.createPriceLine({
         price: lastPriceLine,
-        color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : PRO_LAST_PRICE,
+        color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : lineCol,
         lineWidth: 1,
         lineStyle: 0,
         axisLabelVisible: false
@@ -936,7 +951,6 @@ export function LightweightTradingChart({
     chart.timeScale().scrollToRealTime();
 
     requestAnimationFrame(() => {
-      resizeChartPreserveRange(chart, el.clientWidth, height);
       syncLivePriceChrome();
     });
   }, [
@@ -963,7 +977,7 @@ export function LightweightTradingChart({
     if (!s || candles.length === 0) {
       return;
     }
-    const cd = candlestickDataFromCandles(candles);
+    const cd = mergedCandlesForChart(candles);
     if (cd.length === 0) {
       return;
     }
@@ -976,7 +990,7 @@ export function LightweightTradingChart({
       if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
         priceLineRef.current.applyOptions({
           price: lastPriceLine,
-          color: xauLocked ? XAU_PRICE_LINE_OFF : graphType === "candles" ? PRO_LAST_PRICE : lineCol,
+          color: xauLocked ? XAU_PRICE_LINE_OFF : lineCol,
           lineWidth: 1,
           lineStyle: graphType === "candles" ? 0 : 2,
           axisLabelVisible: false
@@ -994,7 +1008,7 @@ export function LightweightTradingChart({
       if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
         priceLineRef.current.applyOptions({
           price: lastPriceLine,
-          color: graphType === "candles" ? PRO_LAST_PRICE : lineCol,
+          color: lineCol,
           lineWidth: 1,
           lineStyle: graphType === "candles" ? 0 : 2,
           axisLabelVisible: false
@@ -1038,7 +1052,7 @@ export function LightweightTradingChart({
   /** Matches the Candlestick series’ last bar close (after `candlestickOHLCForDisplay`), not raw `last.close`. */
   const axisPillPrice = useMemo(() => {
     if (candles.length === 0) return null;
-    const cd = candlestickDataFromCandles(candles);
+    const cd = mergedCandlesForChart(candles);
     if (cd.length === 0) return null;
     if (graphType !== "candles") {
       return Number(candles[candles.length - 1]!.close);

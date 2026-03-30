@@ -20,10 +20,14 @@ for (const [from, to] of map) {
 }
 console.log("Synced brand images → frontend/public/brand/");
 
-/** APK adaptive-icon foreground: prefer dedicated apk.jpeg, else logo.png → drawable/ic_brand_logo.* */
+/**
+ * APK adaptive-icon foreground — must match `ic_launcher_foreground_brand.xml` → @drawable/ic_apk_launcher_icon
+ * Prefer `public/brand/Fx Logo.png`, then apk.jpeg, then logo.png.
+ */
 const androidRes = path.join(repoRoot, "mobile-apk", "android", "app", "src", "main", "res");
 const drawableDir = path.join(androidRes, "drawable");
 const launcherSrcCandidates = [
+  path.join(outDir, "Fx Logo.png"),
   path.join(outDir, "apk.jpeg"),
   path.join(outDir, "apk.jpg"),
   path.join(outDir, "logo.png")
@@ -31,15 +35,17 @@ const launcherSrcCandidates = [
 const launcherSrc = launcherSrcCandidates.find((p) => fs.existsSync(p));
 if (launcherSrc && fs.existsSync(androidRes)) {
   fs.mkdirSync(drawableDir, { recursive: true });
-  for (const ext of ["png", "jpg", "jpeg", "webp"]) {
-    const stale = path.join(drawableDir, `ic_brand_logo.${ext}`);
-    if (fs.existsSync(stale)) {
-      fs.unlinkSync(stale);
+  for (const base of ["ic_apk_launcher_icon", "ic_brand_logo"]) {
+    for (const ext of ["png", "jpg", "jpeg", "webp"]) {
+      const stale = path.join(drawableDir, `${base}.${ext}`);
+      if (fs.existsSync(stale)) {
+        fs.unlinkSync(stale);
+      }
     }
   }
   const ext = path.extname(launcherSrc).replace(/^\./, "").toLowerCase();
   const outExt = ext === "jpeg" ? "jpg" : ext;
-  fs.copyFileSync(launcherSrc, path.join(drawableDir, `ic_brand_logo.${outExt}`));
+  fs.copyFileSync(launcherSrc, path.join(drawableDir, `ic_apk_launcher_icon.${outExt}`));
   for (const dir of fs.readdirSync(androidRes)) {
     if (!dir.startsWith("mipmap-")) {
       continue;
@@ -52,5 +58,7 @@ if (launcherSrc && fs.existsSync(androidRes)) {
       }
     }
   }
-  console.log(`Synced ${path.basename(launcherSrc)} → mobile-apk drawable/ic_brand_logo.${outExt} (+ mipmaps if present)`);
+  console.log(
+    `Synced ${path.basename(launcherSrc)} → mobile-apk drawable/ic_apk_launcher_icon.${outExt} (+ mipmaps if present)`
+  );
 }

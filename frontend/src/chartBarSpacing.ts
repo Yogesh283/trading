@@ -15,20 +15,22 @@ export function effectiveZoomIndexForView(zoomIndex: number, _timeframeSec?: num
  * Short TFs (5s/10s/30s) start a bit zoomed in so ticks don’t look like a flat hairline.
  */
 export function defaultZoomIndexForTimeframe(timeframeSec: number, isMobileChart: boolean): number {
+  const cap = CHART_ZOOM_STEP_COUNT - 1;
+  const z = (n: number) => Math.min(cap, n + 1);
   if (timeframeSec === 5) {
-    return 2;
+    return z(2);
   }
   if (timeframeSec === 10) {
-    return 3;
+    return z(3);
   }
   if (timeframeSec === 30) {
-    return 3;
+    return z(3);
   }
   if (timeframeSec === 60) {
-    return 1;
+    return z(1);
   }
   if (timeframeSec === 180 || timeframeSec === 300) {
-    return isMobileChart ? 3 : 2;
+    return z(isMobileChart ? 3 : 2);
   }
-  return 0;
+  return z(0);
 }

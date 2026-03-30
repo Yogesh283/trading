@@ -1,0 +1,190 @@
+/* Dark auth — polished `react-phone-number-input` (scoped variables, spacing, flag) */
+
+.auth-phone-npm {
+  width: 100%;
+  /* Override library :root defaults without touching global theme */
+  --PhoneInput-color--focus: #00e676;
+  --PhoneInputInternationalIconPhone-opacity: 0.9;
+  --PhoneInputInternationalIconGlobe-opacity: 0.75;
+  --PhoneInputCountrySelect-marginRight: 0;
+  --PhoneInputCountrySelectArrow-width: 6px;
+  --PhoneInputCountrySelectArrow-marginLeft: 10px;
+  --PhoneInputCountrySelectArrow-borderWidth: 1.5px;
+  --PhoneInputCountrySelectArrow-opacity: 1;
+  --PhoneInputCountrySelectArrow-color: #9fb3d6;
+  --PhoneInputCountrySelectArrow-color--focus: #c8dcf5;
+  --PhoneInputCountryFlag-aspectRatio: 1.45;
+  --PhoneInputCountryFlag-height: 22px;
+  --PhoneInputCountryFlag-borderWidth: 1px;
+  --PhoneInputCountryFlag-borderColor: rgba(255, 255, 255, 0.22);
+  --PhoneInputCountryFlag-borderColor--focus: rgba(0, 230, 118, 0.75);
+  --PhoneInputCountryFlag-backgroundColor--loading: rgba(30, 34, 44, 0.6);
+}
+
+.auth-phone-npm .PhoneInput {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 52px;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(8, 10, 14, 0.55);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.auth-phone-npm .PhoneInput:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(10, 12, 18, 0.62);
+}
+
+.auth-phone-npm .PhoneInput:focus-within {
+  border-color: rgba(0, 230, 118, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(0, 230, 118, 0.14),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+  background: rgba(6, 8, 12, 0.72);
+}
+
+/* Left segment: flag + chevron — comfortable tap target */
+.auth-phone-npm .PhoneInputCountry {
+  position: relative;
+  margin: 0;
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 16px;
+  min-width: 108px;
+  max-width: 140px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.auth-phone-npm .PhoneInputCountryIcon {
+  opacity: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.auth-phone-npm .PhoneInputCountryIcon--border {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.auth-phone-npm .PhoneInputCountryIconImg {
+  border-radius: 3px;
+}
+
+/* Invisible overlay select — keep hit area full segment */
+.auth-phone-npm .PhoneInputCountrySelect {
+  cursor: pointer;
+}
+
+.auth-phone-npm .PhoneInputCountrySelectArrow {
+  flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0.92;
+}
+
+.auth-phone-npm .PhoneInputCountrySelect:focus + .PhoneInputCountryIcon + .PhoneInputCountrySelectArrow {
+  opacity: 1;
+  border-color: #c8dcf5;
+}
+
+/* Number (+36 …) — rest of pill */
+.auth-phone-npm .PhoneInputInput,
+.auth-phone-npm-number {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  border-left: none;
+  background: transparent;
+  color: #f2f6fc;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  padding: 14px 18px 14px 16px;
+  box-shadow: none;
+  outline: none;
+  line-height: 1.35;
+}
+
+.auth-phone-npm .PhoneInputInput::placeholder,
+.auth-phone-npm-number::placeholder {
+  color: #5a6d88;
+  font-weight: 500;
+}
+
+/* Tablets / large phones — keep one row, shrink left segment */
+@media (max-width: 640px) {
+  .auth-phone-npm {
+    --PhoneInputCountryFlag-height: 20px;
+    --PhoneInputCountrySelectArrow-width: 5px;
+    --PhoneInputCountrySelectArrow-marginLeft: 8px;
+  }
+
+  .auth-phone-npm .PhoneInput {
+    min-height: 50px;
+  }
+
+  .auth-phone-npm .PhoneInputCountry {
+    min-width: 92px;
+    max-width: min(130px, 36vw);
+    padding: 0 10px 0 12px;
+  }
+
+  .auth-phone-npm .PhoneInputInput,
+  .auth-phone-npm-number {
+    font-size: 16px;
+    padding: 12px 14px 12px 12px;
+  }
+}
+
+/* Small phones — same single row; shrink left strip so +92 & digits stay one line */
+@media (max-width: 420px) {
+  .auth-phone-npm .PhoneInput {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  .auth-phone-npm .PhoneInputCountry {
+    min-width: 76px;
+    max-width: min(118px, 30vw);
+    padding: 0 8px 0 10px;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .auth-phone-npm .PhoneInputInput,
+  .auth-phone-npm-number {
+    min-width: 0;
+    padding: 12px 12px 12px 10px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-phone-npm .PhoneInputCountry {
+    min-width: 72px;
+    max-width: min(108px, 28vw);
+    padding: 0 6px 0 8px;
+    --PhoneInputCountrySelectArrow-marginLeft: 6px;
+  }
+
+  .auth-phone-npm .PhoneInputInput,
+  .auth-phone-npm-number {
+    padding: 12px 10px;
+  }
+}

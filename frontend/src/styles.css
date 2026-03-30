@@ -1491,7 +1491,7 @@ select {
 
 .auth-phone-combo-labels {
   display: grid;
-  grid-template-columns: 5.25rem 1fr;
+  grid-template-columns: minmax(6.75rem, 8rem) 1fr;
   gap: 0;
   padding: 0 2px;
   color: #b8c8dc;
@@ -1499,6 +1499,16 @@ select {
   font-weight: 600;
   letter-spacing: 0.02em;
   direction: ltr;
+}
+
+.auth-phone-combo-labels--npm {
+  grid-template-columns: 1fr;
+}
+
+.auth-phone-combo-labels--npm span {
+  display: block;
+  min-width: 0;
+  width: 100%;
 }
 
 .auth-phone-combo-inner {
@@ -1531,6 +1541,40 @@ select {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.auth-phone-cc-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding-left: 10px;
+  padding-right: 4px;
+  min-width: 0;
+}
+
+.auth-phone-cc-flag {
+  flex: none;
+  width: 26px;
+  height: 20px;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.auth-phone-cc-flag img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.auth-phone-cc-flag--empty {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
 .auth-form .auth-phone-cc-input,
 .auth-form .auth-phone-num-input {
   flex: none;
@@ -1546,10 +1590,14 @@ select {
 }
 
 .auth-form .auth-phone-cc-input {
-  width: 5.25rem;
-  flex: 0 0 5.25rem;
+  width: auto;
+  min-width: 2.75rem;
+  max-width: 4.75rem;
+  flex: 0 1 4.25rem;
   text-align: center;
   font-weight: 600;
+  padding-left: 6px;
+  padding-right: 10px;
 }
 
 .auth-form .auth-phone-num-input {
@@ -1805,6 +1853,32 @@ select {
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tv-symbol-flags {
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+.stat-pair-with-flags,
+.table-pair-cell,
+.hist-pair-cell,
+.inline-pair-head,
+.active-trade-pair-line,
+.mobile-open-timer-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-value-line {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .tv-ohlc {
@@ -3096,13 +3170,178 @@ button.desktop-demo-cta:disabled,
 }
 
 .asset-tile-icon {
-  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+}
+
+/* Olymp-style: overlapping circular flags / crypto tile (see marketAssetIcon.tsx) */
+.market-asset-icon {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 36px;
+  height: 28px;
+  vertical-align: middle;
+  line-height: 0;
+}
+
+.market-asset-icon--forex {
+  width: 38px;
+  height: 30px;
+}
+
+.market-asset-icon__disc {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
   line-height: 1;
+  background: linear-gradient(155deg, #3d4555 0%, #252a35 100%);
+  border: 2px solid #0d0f14;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.market-asset-icon__disc--gold {
+  background: linear-gradient(145deg, #ffe7b8 0%, #e59a2a 45%, #a86a0f 100%);
+}
+
+.market-asset-icon__flag-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 1;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.market-asset-icon__emoji {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  z-index: 0;
+}
+
+.market-asset-icon__emoji--hidden {
+  display: none;
+}
+
+.market-asset-icon__disc--back {
+  top: 0;
+  left: 0;
+  z-index: 0;
+}
+
+.market-asset-icon__disc--front {
+  bottom: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.market-asset-icon__crypto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  border: 2px solid #0d0f14;
+  box-sizing: border-box;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.market-asset-icon--crypto {
+  width: 28px;
+  height: 28px;
+}
+
+.market-asset-icon--other {
+  width: 28px;
+  height: 28px;
+}
+
+.market-asset-icon__fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #d1d4dc;
+  background: #2f3542;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chart-symbol-logo-btn .market-asset-icon--forex {
+  transform: scale(0.92);
+  transform-origin: center center;
+}
+
+.tv-symbol-flags.market-asset-icon--forex {
+  margin-right: 2px;
+}
+
+.asset-pair-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+.asset-pair-flags .asset-flag {
+  display: inline-block;
+  line-height: 1;
+  font-size: 1em;
+}
+
+.chart-symbol-logo-btn .chart-symbol-flags {
+  font-size: 15px;
+  gap: 2px;
+  justify-content: center;
+}
+
+.chart-pair-button .chart-title-flags {
+  font-size: 1.05em;
+  margin-right: 2px;
 }
 
 .asset-tile-name {
   font-weight: 700;
   font-size: 16px;
+}
+
+.asset-tile-name--otc {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 15px;
+}
+
+.auth-market-pair-otc {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 15px;
 }
 
 .asset-tile-pair {
@@ -3162,7 +3401,9 @@ button.desktop-demo-cta:disabled,
 }
 
 .chart-pair-button {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   padding: 0 2px 2px;
   border: none;
@@ -3558,6 +3799,9 @@ button.desktop-demo-cta:disabled,
 }
 
 .desktop-demo-open-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 14px;
   padding: 6px 12px;
   border-radius: 999px;
@@ -3799,6 +4043,43 @@ button.desktop-demo-cta:disabled,
   .auth-demo {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-page-wrap {
+    padding: 6px max(12px, env(safe-area-inset-left, 0px)) 40px max(12px, env(safe-area-inset-right, 0px));
+    box-sizing: border-box;
+  }
+
+  .auth-sticky-nav {
+    border-radius: 14px;
+    margin-bottom: 12px;
+  }
+
+  .auth-hero,
+  .auth-card {
+    padding: 20px max(14px, env(safe-area-inset-left, 0px)) 20px max(14px, env(safe-area-inset-right, 0px));
+    border-radius: 18px;
+    box-sizing: border-box;
+  }
+
+  .auth-form {
+    min-width: 0;
+  }
+
+  .auth-form label {
+    font-size: 14px;
+    min-width: 0;
+  }
+
+  .auth-phone-combo-labels,
+  .auth-phone-combo-labels--npm {
+    font-size: 14px;
+  }
+
+  .auth-form .auth-password-input {
+    font-size: 16px;
   }
 }
 
