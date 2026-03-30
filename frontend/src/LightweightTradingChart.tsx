@@ -173,7 +173,34 @@ function candlestickOHLCForDisplay(c: MergedCandle): [number, number, number, nu
   return [p - t / 2, p + t / 2, p - t, p + t];
 }
 
+/** Same bar order as the Candlestick series — last row’s close/high match what is drawn (see `candlestickOHLCForDisplay`). */
+function buildCandlestickRowsFromCd(cd: MergedCandle[]): CandlestickData<UTCTimestamp>[] {
+  const candleRows: CandlestickData<UTCTimestamp>[] = [];
+  const seen = new Map<number, CandlestickData<UTCTimestamp>>();
+  for (const c of cd) {
+    const [open, close, low, high] = candlestickOHLCForDisplay(c);
+    const t = toUtcTime(c.bucketMs);
+    seen.set(t as number, { time: t, open, high, low, close });
+  }
+  for (const v of seen.values()) {
+    candleRows.push(v);
+  }
+  candleRows.sort((a, b) => (a.time as number) - (b.time as number));
+  return candleRows;
+}
+
 export type ChartGraphType = "candles" | "line" | "area";
+
+function lastPriceLineValue(
+  graphType: ChartGraphType,
+  lastPt: MergedCandle,
+  candleRows: CandlestickData<UTCTimestamp>[]
+): number {
+  if (graphType === "candles" && candleRows.length > 0) {
+    return candleRows[candleRows.length - 1]!.close;
+  }
+  return lastPt.close;
+}
 
 export const CHART_GRAPH_OPTIONS: { value: ChartGraphType; label: string }[] = [
   { value: "candles", label: "Candles" },
@@ -488,7 +515,11 @@ export function LightweightTradingChart({
       return;
     }
     const lastBar = cd[cd.length - 1]!;
-    const y = series.priceToCoordinate(lastBar.close);
+    const gt0 = graphTypeRef.current;
+    const rowsForPill = gt0 === "candles" ? buildCandlestickRowsFromCd(cd) : [];
+    const yPrice =
+      gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.close : lastBar.close;
+    const y = series.priceToCoordinate(yPrice);
     setAxisPillTop(y != null && Number.isFinite(y) ? y : null);
 
     const tag = assetTagRef.current;
@@ -496,8 +527,8 @@ export function LightweightTradingChart({
     if (shouldShowXauMarketLock(tag, act)) {
       const t = toUtcTime(lastBar.bucketMs);
       const x = chart.timeScale().timeToCoordinate(t as Time);
-      const gt0 = graphTypeRef.current;
-      const price = gt0 === "candles" ? lastBar.high : lastBar.close;
+      const price =
+        gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.high : lastBar.close;
       const yLock = series.priceToCoordinate(price);
       if (x != null && yLock != null && Number.isFinite(x) && Number.isFinite(yLock)) {
         setLockOverlay({ left: x, top: yLock });
@@ -627,17 +658,8 @@ export function LightweightTradingChart({
       priceRange: { minValue: yScaled.min, maxValue: yScaled.max }
     });
 
-    const candleRows: CandlestickData<UTCTimestamp>[] = [];
-    const seen = new Map<number, CandlestickData<UTCTimestamp>>();
-    for (const c of cd) {
-      const [open, close, low, high] = candlestickOHLCForDisplay(c);
-      const t = toUtcTime(c.bucketMs);
-      seen.set(t as number, { time: t, open, high, low, close });
-    }
-    for (const v of seen.values()) {
-      candleRows.push(v);
-    }
-    candleRows.sort((a, b) => (a.time as number) - (b.time as number));
+    const candleRows = buildCandlestickRowsFromCd(cd);
+    const lastPriceLine = lastPriceLineValue(graphType, lastPt, candleRows);
 
     const lineData: LineData<UTCTimestamp>[] = cd.map((c) => ({
       time: toUtcTime(c.bucketMs),
@@ -663,7 +685,7 @@ export function LightweightTradingChart({
       const plLine = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       if (graphType === "candles") {
         const opts = {
-          price: lastPt.close,
+          price: lastPriceLine,
           color: plCandle,
           lineWidth: 1 as const,
           lineStyle: 0 as const,
@@ -676,7 +698,7 @@ export function LightweightTradingChart({
         }
       } else if (graphType === "line") {
         const opts = {
-          price: lastPt.close,
+          price: lastPriceLine,
           color: plLine,
           lineWidth: 1 as const,
           lineStyle: 2 as const,
@@ -818,7 +840,7 @@ export function LightweightTradingChart({
       applyXauSeriesVisualLock(series, graphType, xauLocked, tickDirection, assetTag);
       prevCandlestickRowsRef.current = candleRows;
       priceLineRef.current = series.createPriceLine({
-        price: lastPt.close,
+        price: lastPriceLine,
         color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : PRO_LAST_PRICE,
         lineWidth: 1,
         lineStyle: 0,
@@ -841,7 +863,7 @@ export function LightweightTradingChart({
       series.setData(lineData);
       applyXauSeriesVisualLock(series, graphType, xauLocked, tickDirection, assetTag);
       priceLineRef.current = series.createPriceLine({
-        price: lastPt.close,
+        price: lastPriceLine,
         color: xauLocked && isXauUsdSymbol(assetTag) ? XAU_PRICE_LINE_OFF : lineCol,
         lineWidth: 1,
         lineStyle: 2,
@@ -910,12 +932,14 @@ export function LightweightTradingChart({
       return;
     }
     const lastPt = cd[cd.length - 1]!;
+    const candleRows = buildCandlestickRowsFromCd(cd);
+    const lastPriceLine = lastPriceLineValue(graphType, lastPt, candleRows);
     const lineCol = priceLineColorForTick(tickDirection);
     applyXauSeriesVisualLock(s, graphType, xauLocked, tickDirection, assetTag);
     if (isXauUsdSymbol(assetTag)) {
       if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
         priceLineRef.current.applyOptions({
-          price: lastPt.close,
+          price: lastPriceLine,
           color: xauLocked ? XAU_PRICE_LINE_OFF : graphType === "candles" ? PRO_LAST_PRICE : lineCol,
           lineWidth: 1,
           lineStyle: graphType === "candles" ? 0 : 2,
@@ -933,7 +957,7 @@ export function LightweightTradingChart({
       }
       if (priceLineRef.current && (graphType === "candles" || graphType === "line")) {
         priceLineRef.current.applyOptions({
-          price: lastPt.close,
+          price: lastPriceLine,
           color: graphType === "candles" ? PRO_LAST_PRICE : lineCol,
           lineWidth: 1,
           lineStyle: graphType === "candles" ? 0 : 2,
@@ -975,6 +999,17 @@ export function LightweightTradingChart({
   }, [syncLivePriceChrome]);
 
   const last = candles.length > 0 ? candles[candles.length - 1]! : null;
+  /** Matches the Candlestick series’ last bar close (after `candlestickOHLCForDisplay`), not raw `last.close`. */
+  const axisPillPrice = useMemo(() => {
+    if (candles.length === 0) return null;
+    const cd = candlestickDataFromCandles(candles);
+    if (cd.length === 0) return null;
+    if (graphType !== "candles") {
+      return Number(candles[candles.length - 1]!.close);
+    }
+    const rows = buildCandlestickRowsFromCd(cd);
+    return rows.length > 0 ? rows[rows.length - 1]!.close : Number(candles[candles.length - 1]!.close);
+  }, [candles, graphType]);
   const mobileTimerMod =
     tickDirection === "up"
       ? " tv-live-badge--tick-up"
@@ -1028,7 +1063,9 @@ export function LightweightTradingChart({
           <div className="chart-lw-axis-pill-layer" aria-hidden>
             <div className={`chart-lw-axis-pill chart-lw-axis-pill--terminal${pillMod}`} style={{ top: axisPillTop }}>
               <div className="chart-lw-axis-pill-anchor">
-                <span className="chart-lw-axis-pill-price">{formatPrice(last.close)}</span>
+                <span className="chart-lw-axis-pill-price">
+                  {formatPrice(axisPillPrice ?? last.close)}
+                </span>
                 <span className="chart-lw-axis-pill-timer">
                   <span className="chart-lw-axis-pill-tf">{timeframeLabel}</span>
                   <span className="chart-lw-axis-pill-cd">{countdownStr}</span>

@@ -274,7 +274,7 @@ export default function App() {
   /** Server `chart_candles` (closed bars) keyed `${symbol}:${timeframeSec}` — merged with WebSocket LivePrice ticks. */
   const [dbClosedCandles, setDbClosedCandles] = useState<Record<string, CandlePoint[]>>({});
   const [status, setStatus] = useState("Connecting...");
-  const [symbol, setSymbol] = useState("EURUSD");
+  const [symbol, setSymbol] = useState("XAUUSD");
   const [pairNames, setPairNames] = useState<Record<string, string>>({});
   const [forexSymbolList, setForexSymbolList] = useState<string[]>([...FOREX_SYMBOLS_DEFAULT]);
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -3775,6 +3775,11 @@ function LiveChart({
   }
 
   allCandles = fillCandleTimeGaps(allCandles, timeframeSec);
+  // Bridge last bar to the current bucket so the forming candle + trade markers align with wall time
+  // (merge + gap-fill alone can end before now when ticks are sparse).
+  if (allCandles.length > 0) {
+    allCandles = extendClosedCandlesToNow(allCandles, timeframeSec, candleWallNow);
+  }
 
   allCandles = overlayLivePriceOnFormingCandle(
     allCandles,
@@ -3935,7 +3940,7 @@ function LiveChart({
             candles={displayCandles}
             assetTag={symbol}
             timeframeLabel={tfLabel(timeframeSec)}
-            formatPrice={fmtPrice}
+            formatPrice={(p) => formatFxPrice(symbol, p)}
             timeframeSec={timeframeSec}
             zoomIndex={zoomIndex}
             isMobileChart={isMobileChart}
