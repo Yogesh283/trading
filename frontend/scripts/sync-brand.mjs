@@ -40,6 +40,19 @@ if (fs.existsSync(launcherSrc) && fs.existsSync(androidRes)) {
   const ext = path.extname(launcherSrc).replace(/^\./, "").toLowerCase();
   const outExt = ext === "jpeg" ? "jpg" : ext;
   fs.copyFileSync(launcherSrc, path.join(drawableDir, `ic_apk_launcher_icon.${outExt}`));
+  /**
+   * Same name under drawable-nodpi overrides drawable for many devices — old file kept the previous logo.
+   * Keep a single canonical bitmap in `drawable/`.
+   */
+  const nodpiDir = path.join(androidRes, "drawable-nodpi");
+  if (fs.existsSync(nodpiDir)) {
+    for (const e of ["png", "jpg", "jpeg", "webp"]) {
+      const staleNodpi = path.join(nodpiDir, `ic_apk_launcher_icon.${e}`);
+      if (fs.existsSync(staleNodpi)) {
+        fs.unlinkSync(staleNodpi);
+      }
+    }
+  }
   for (const dir of fs.readdirSync(androidRes)) {
     if (!dir.startsWith("mipmap-")) {
       continue;
