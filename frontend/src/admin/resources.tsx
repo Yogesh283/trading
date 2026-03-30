@@ -7,6 +7,7 @@ import {
   DateField,
   Edit,
   EditButton,
+  FieldProps,
   FunctionField,
   List,
   NumberField,
@@ -19,18 +20,38 @@ import {
   TextField,
   TextInput,
   useNotify,
+  useRecordContext,
   useRefresh
 } from "react-admin";
 import { adminApproveDeposit, adminSetWithdrawalStatus, type AdminWithdrawalStatus } from "../api";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
-function DepositApproveButton({ record }: { record: { id: string; status: string } }) {
+type DepositAdminRow = {
+  id: string;
+  status?: string;
+  wallet_provider?: string;
+  tx_hash?: string | null;
+};
+
+function DepositApproveButton({ record }: { record: DepositAdminRow }) {
   const refresh = useRefresh();
   const notify = useNotify();
   const [busy, setBusy] = useState(false);
-  if (record.status !== "pending_review") {
+  const status = String(record.status ?? "").trim();
+  const provider = String(record.wallet_provider ?? "").trim();
+
+  if (status === "pending_review") {
+    /* fall through — show Approve */
+  } else if (status === "pending_wallet" && provider === "qr_scan") {
+    return (
+      <span style={{ fontSize: 12, color: "#64748b", maxWidth: 200, display: "inline-block" }} title="User paid via QR but has not submitted transaction hash + from-address in the app yet.">
+        Waiting for user to submit tx in app
+      </span>
+    );
+  } else {
     return <span>—</span>;
   }
+
   return (
     <Button
       size="small"
@@ -62,9 +83,36 @@ function DepositApproveButton({ record }: { record: { id: string; status: string
   );
 }
 
+/**
+ * Datagrid column: must not use FunctionField (it wraps in Typography — nested Button breaks in some browsers).
+ */
+function DepositApproveField(_props: FieldProps) {
+  const record = useRecordContext<DepositAdminRow>();
+  if (!record?.id) {
+    return null;
+  }
+  return <DepositApproveButton record={record} />;
+}
+
+const depositListFilters = [
+  <SelectInput
+    key="deposit_status"
+    source="status"
+    label="Filter by status"
+    emptyText="All statuses"
+    choices={[
+      { id: "pending_review", name: "Awaiting approval (QR — user submitted tx)" },
+      { id: "pending_wallet", name: "Pending — user has not submitted tx yet" },
+      { id: "credited", name: "Credited" },
+      { id: "tx_sent", name: "Tx sent (in-app wallet, usually auto-credited)" }
+    ]}
+    alwaysOn
+  />
+];
+
 export function DepositList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={depositListFilters}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
@@ -86,7 +134,7 @@ export function DepositList() {
             )
           }
         />
-        <FunctionField label="Action" render={(r) => <DepositApproveButton record={r} />} />
+        <DepositApproveField source="status" label="Approve / status" />
       </Datagrid>
     </List>
   );
