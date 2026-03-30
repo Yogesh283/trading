@@ -6,7 +6,9 @@ import {
   createChart,
   createSeriesMarkers,
   CrosshairMode,
-  LineSeries
+  LastPriceAnimationMode,
+  LineSeries,
+  LineStyle
 } from "lightweight-charts";
 import type {
   IChartApi,
@@ -571,7 +573,9 @@ export function LightweightTradingChart({
         borderColor: SCALE_BORDER,
         scaleMargins: { top: 0.08, bottom: 0.08 },
         /** Reserve a bit more width for axis labels so the candle pane doesn’t crowd the last-price pill. */
-        minimumWidth: isMobileChart ? 56 : 52
+        minimumWidth: isMobileChart ? 56 : 52,
+        /** Fewer half-clipped scale labels jumping at the edges. */
+        entireTextOnly: true
       },
       timeScale: {
         borderColor: SCALE_BORDER,
@@ -580,12 +584,42 @@ export function LightweightTradingChart({
         /** Kept in sync with logical `to` when we extend past last bar on mobile. */
         rightOffset: isMobileChart ? MOBILE_CHART_RIGHT_GAP_BARS : 8,
         /** Only shifts when the last bar is still visible — keeps the forming candle in view without snapping pan when viewing history. */
-        shiftVisibleRangeOnNewBar: true
+        shiftVisibleRangeOnNewBar: true,
+        /** Slightly wider floor so zoomed-out candles don’t look razor-thin. */
+        minBarSpacing: 1
       },
       crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: { color: CROSSHAIR, width: 1, style: 2, labelBackgroundColor: "#1e222d" },
-        horzLine: { color: CROSSHAIR, width: 1, style: 2, labelBackgroundColor: "#1e222d" }
+        /**
+         * `MagnetOHLC` can feel jittery (snaps between O/H/L/C). `Magnet` = smooth follow + snap to close / line value — better “feel” for most users.
+         */
+        mode: CrosshairMode.Magnet,
+        vertLine: {
+          color: CROSSHAIR,
+          width: 1,
+          style: LineStyle.Solid,
+          labelBackgroundColor: "#1e222d"
+        },
+        horzLine: {
+          color: CROSSHAIR,
+          width: 1,
+          style: LineStyle.Solid,
+          labelBackgroundColor: "#1e222d"
+        }
+      },
+      /** Touch inertia only — mouse kinetic often feels floaty on desktop. */
+      kineticScroll: { touch: true, mouse: false },
+      handleScroll: {
+        mouseWheel: true,
+        pressedMouseMove: true,
+        horzTouchDrag: true,
+        /** Mobile: don’t trap vertical swipes in the chart pane (page scroll + horizontal pan feel more natural). */
+        vertTouchDrag: !isMobileChart
+      },
+      handleScale: {
+        mouseWheel: true,
+        pinch: true,
+        axisPressedMouseMove: true,
+        axisDoubleClickReset: true
       },
       localization: {
         locale: "en-US"
@@ -858,6 +892,7 @@ export function LightweightTradingChart({
         crosshairMarkerVisible: true,
         priceLineVisible: false,
         lastValueVisible: false,
+        lastPriceAnimation: LastPriceAnimationMode.Continuous,
         autoscaleInfoProvider: autoscale
       });
       series.setData(lineData);
@@ -882,6 +917,7 @@ export function LightweightTradingChart({
         lineWidth: 2,
         priceLineVisible: false,
         lastValueVisible: false,
+        lastPriceAnimation: LastPriceAnimationMode.Continuous,
         autoscaleInfoProvider: autoscale
       });
       series.setData(lineData);

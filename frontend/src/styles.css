@@ -2149,6 +2149,8 @@ select {
   z-index: 0;
   width: 100%;
   overflow: visible;
+  /* Wheel / trackpad: bias toward horizontal pan on chart (vertical still works for scale on chart). */
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .chart-lw-wrap .chart-lw-host {
@@ -2235,6 +2237,10 @@ select {
 
 .chart-lw-host {
   overflow: visible;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  /* Composited layer — smoother pans/zooms on mobile GPUs. */
+  transform: translateZ(0);
 }
 
 .chart-lw-stack {

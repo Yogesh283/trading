@@ -378,6 +378,8 @@ export default function App() {
   const binarySettlePopupTimeoutRef = useRef<number | null>(null);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
   const binaryTradesSnapInitializedRef = useRef(false);
+  /** True after `visibility:hidden` / app background — used so `focus` can refresh chart DB candles when visibility events are flaky (mobile WebView / APK). */
+  const chartWasBackgroundedRef = useRef(false);
 
   /** Drop removed TFs (e.g. old 1s) so countdown + `/api/markets/candles` stay in sync. */
   useEffect(() => {
@@ -679,9 +681,9 @@ export default function App() {
     };
   }, [booting, symbol, chartSessionKey]);
 
-  /** After screen lock / tab background, timers are throttled — refresh ticks + DB candles when the user returns. */
+  /** After tab / app background (mobile browser + Capacitor APK), timers / WS can stall — refresh ticks + `chart_candles` when user returns. */
   useEffect(() => {
-    if (booting || !chartSessionKey) {
+    if (booting) {
       return;
     }
     let debounce: number | null = null;
@@ -714,17 +716,44 @@ export default function App() {
         run();
       }, 200);
     };
-    const onVis = () => schedule();
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        chartWasBackgroundedRef.current = true;
+        return;
+      }
+      if (chartWasBackgroundedRef.current) {
+        chartWasBackgroundedRef.current = false;
+        schedule();
+      }
+    };
+    const onFocus = () => {
+      if (!chartWasBackgroundedRef.current) {
+        return;
+      }
+      chartWasBackgroundedRef.current = false;
+      schedule();
+    };
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        chartWasBackgroundedRef.current = false;
+        schedule();
+      }
+    };
+    const onOnline = () => schedule();
     document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pageshow", onVis);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pageshow", onVis);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
       if (debounce != null) {
         window.clearTimeout(debounce);
       }
     };
-  }, [booting, chartSessionKey]);
+  }, [booting]);
 
   /** Bootstrap closed OHLC from DB — retries after login/register so `chart_candles` isn’t missed on slow networks. */
   useEffect(() => {
