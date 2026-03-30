@@ -373,7 +373,7 @@ export default function App() {
   const demoFundsPopupTimeoutRef = useRef<number | null>(null);
   /** After binary timeout — win/loss popup for demo and live (same modal shell). */
   const [binarySettlePopup, setBinarySettlePopup] = useState<
-    null | { text: string; pnl: number; account: "demo" | "live" }
+    null | { text: string; amountHighlight: string; pnl: number }
   >(null);
   const binarySettlePopupTimeoutRef = useRef<number | null>(null);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
@@ -1079,24 +1079,22 @@ export default function App() {
       }
       const settledWithPnl = newlySettled.filter((t): t is Trade & { pnl: number } => typeof t.pnl === "number");
       let text: string;
+      let amountHighlight: string;
       if (settledWithPnl.length === 1) {
         const t = settledWithPnl[0]!;
-        text = `${formatForexPair(t.symbol)} · Timeout · ${t.pnl >= 0 ? "Win" : "Loss"} · ${formatBinarySettledAmountDisplay(
-          t,
-          formatInr
-        )}`;
+        text = `${formatForexPair(t.symbol)} · Timeout · ${t.pnl >= 0 ? "Win" : "Loss"}`;
+        amountHighlight = formatBinarySettledAmountDisplay(t, formatInr);
       } else {
         const netDisplay = settledWithPnl.reduce((s, tr) => {
           const q = Number(tr.quantity);
           if (tr.pnl >= 0 && Number.isFinite(q)) return s + tr.pnl + q;
           return s + tr.pnl;
         }, 0);
-        text = `${settledWithPnl.length} trades · Timeout · net ${netDisplay >= 0 ? "+" : ""}${formatInr(
-          Number(netDisplay.toFixed(2))
-        )}`;
+        text = `${settledWithPnl.length} trades · Timeout · net`;
+        amountHighlight = `${netDisplay >= 0 ? "+" : ""}${formatInr(Number(netDisplay.toFixed(2)))}`;
       }
       const totalPnl = settledWithPnl.reduce((s, tr) => s + tr.pnl, 0);
-      setBinarySettlePopup({ text, pnl: totalPnl, account: accountWallet });
+      setBinarySettlePopup({ text, amountHighlight, pnl: totalPnl });
       binarySettlePopupTimeoutRef.current = window.setTimeout(() => {
         setBinarySettlePopup(null);
         binarySettlePopupTimeoutRef.current = null;
@@ -2261,10 +2259,10 @@ export default function App() {
                       <tr>
                         <th scope="col">Pair</th>
                         <th scope="col">Up / Down</th>
+                        <th scope="col">P&amp;L</th>
                         <th scope="col">Trading amount</th>
                         <th scope="col">Entry</th>
                         <th scope="col">Close</th>
-                        <th scope="col">P&amp;L</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2290,26 +2288,13 @@ export default function App() {
                             <td title={trade.symbol}>{formatForexPair(trade.symbol)}</td>
                             <td
                               className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
-                              title={isBinary ? `Direction: ${dir}` : undefined}
-                            >
-                              {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
-                            </td>
-                            <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
-                            <td title="Price when order was placed (execution / entry)">
-                              {formatFxPrice(trade.symbol, trade.entryPrice)}
-                            </td>
-                            <td
-                              className="mobile-hist-close"
                               title={
-                                closeDetailTitle ??
-                                (trade.status === "closed"
-                                  ? typeof trade.closePrice === "number"
-                                    ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                                    : "Close price not recorded"
-                                  : "Shows close price after trade settles")
+                                isBinary
+                                  ? `Direction: ${dir} · Stake ${fmtWallet(trade.quantity)}`
+                                  : `Stake ${fmtWallet(trade.quantity)}`
                               }
                             >
-                              {formatTradeCloseCell(trade)}
+                              {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
                             </td>
                             <td
                               className={
@@ -2334,6 +2319,23 @@ export default function App() {
                                 : trade.status === "open"
                                   ? "Open"
                                   : trade.status}
+                            </td>
+                            <td title="Trading amount (₹)">{fmtWallet(trade.quantity)}</td>
+                            <td title="Price when order was placed (execution / entry)">
+                              {formatFxPrice(trade.symbol, trade.entryPrice)}
+                            </td>
+                            <td
+                              className="mobile-hist-close"
+                              title={
+                                closeDetailTitle ??
+                                (trade.status === "closed"
+                                  ? typeof trade.closePrice === "number"
+                                    ? `Settlement / close price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                                    : "Close price not recorded"
+                                  : "Shows close price after trade settles")
+                              }
+                            >
+                              {formatTradeCloseCell(trade)}
                             </td>
                           </tr>
                         );
@@ -3045,45 +3047,64 @@ export default function App() {
       ) : null}
       {binarySettlePopup ? (
         <div
-          className="order-placed-backdrop"
+          className={`order-placed-backdrop${
+            binarySettlePopup.pnl >= 0 ? " order-placed-backdrop--celebrate-win" : ""
+          }`}
           role="presentation"
           onClick={dismissBinarySettlePopup}
         >
           <div
             className={`order-placed-modal order-placed-modal--${
               binarySettlePopup.pnl >= 0 ? "up" : "down"
-            }`}
+            }${binarySettlePopup.pnl >= 0 ? " order-placed-modal--celebrate" : ""}`}
             role="alertdialog"
             aria-labelledby="binary-settle-title"
             aria-describedby="binary-settle-desc"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="order-placed-icon" aria-hidden>
-              {binarySettlePopup.pnl >= 0 ? "✓" : "−"}
+            {binarySettlePopup.pnl >= 0 ? (
+              <>
+                <div className="order-placed-celebrate-confetti" aria-hidden>
+                  {Array.from({ length: 22 }, (_, i) => (
+                    <span key={i} className="order-placed-confetti-piece" />
+                  ))}
+                </div>
+                <div className="order-placed-celebrate-ribbon" aria-hidden>
+                  Winner
+                </div>
+              </>
+            ) : null}
+            <div className="order-placed-modal-inner">
+              <div className="order-placed-icon" aria-hidden>
+                {binarySettlePopup.pnl >= 0 ? "✓" : "−"}
+              </div>
+              <p
+                className={`order-placed-direction order-placed-direction--${
+                  binarySettlePopup.pnl >= 0 ? "up" : "down"
+                }`}
+              >
+                {binarySettlePopup.pnl >= 0 ? "Win" : "Loss"}
+              </p>
+              <h2 id="binary-settle-title" className="order-placed-title">
+                {binarySettlePopup.pnl >= 0 ? "You won!" : "Trade closed — loss"}
+              </h2>
+              {binarySettlePopup.pnl >= 0 ? (
+                <p className="order-placed-celebrate-sub">Trade settled in your favour</p>
+              ) : null}
+              <p id="binary-settle-desc" className="order-placed-summary">
+                <span className="order-placed-summary-text">{binarySettlePopup.text}</span>
+                <span className="order-placed-amount-highlight" aria-label="Settlement amount">
+                  {binarySettlePopup.amountHighlight}
+                </span>
+              </p>
+              <button
+                type="button"
+                className={`order-placed-ok${binarySettlePopup.pnl < 0 ? " order-placed-ok--loss" : ""}`}
+                onClick={dismissBinarySettlePopup}
+              >
+                OK
+              </button>
             </div>
-            <p className={`order-placed-badge ${binarySettlePopup.account}`}>
-              {binarySettlePopup.account === "demo" ? "Demo account" : "Live account"}
-            </p>
-            <p
-              className={`order-placed-direction order-placed-direction--${
-                binarySettlePopup.pnl >= 0 ? "up" : "down"
-              }`}
-            >
-              {binarySettlePopup.pnl >= 0 ? "Win" : "Loss"}
-            </p>
-            <h2 id="binary-settle-title" className="order-placed-title">
-              {binarySettlePopup.pnl >= 0 ? "Success — you won" : "Trade closed — loss"}
-            </h2>
-            <p id="binary-settle-desc" className="order-placed-summary">
-              {binarySettlePopup.text}
-            </p>
-            <button
-              type="button"
-              className={`order-placed-ok${binarySettlePopup.pnl < 0 ? " order-placed-ok--loss" : ""}`}
-              onClick={dismissBinarySettlePopup}
-            >
-              OK
-            </button>
           </div>
         </div>
       ) : null}
@@ -3103,10 +3124,9 @@ export default function App() {
             <div className="order-placed-icon" aria-hidden>
               ✓
             </div>
-            <p className="order-placed-badge demo">Demo account</p>
             <p className="order-placed-direction order-placed-direction--up">Balance updated</p>
             <h2 id="demo-funds-success-title" className="order-placed-title">
-              Good — demo funds added
+              Good — funds added
             </h2>
             <p id="demo-funds-success-desc" className="order-placed-summary">
               {formatInr(demoFundsSuccessPopup.added)} added · New balance {formatInr(demoFundsSuccessPopup.balance)}
