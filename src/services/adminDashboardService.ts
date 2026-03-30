@@ -67,6 +67,10 @@ export type AdminDashboardStatsPayload = {
   totalDepositsCreditedUsdt: number;
   /** USDT credited today (UTC): `updated_at` when status became credited. */
   todayDepositsCreditedUsdt: number;
+  /** All-time USDT paid out (withdrawals `amount`, status `completed`). */
+  totalWithdrawalsCompletedUsdt: number;
+  /** USDT completed today (UTC): `updated_at` when marked completed. */
+  todayWithdrawalsCompletedUsdt: number;
   /**
    * Live binary settled today (UTC): per trade, stake kept minus win payout (INR ledger).
    * Loss: full stake; win: stake minus payout (often negative when win multiplier exceeds 1).
@@ -153,6 +157,22 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     [startIso, endIso]
   );
 
+  let totalWithdrawalsCompletedUsdt = 0;
+  let todayWithdrawalsCompletedUsdt = 0;
+  try {
+    const totalW = await dbGet<{ s: unknown }>(
+      `SELECT COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE status = 'completed'`
+    );
+    const todayW = await dbGet<{ s: unknown }>(
+      `SELECT COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE status = 'completed' AND updated_at >= ? AND updated_at < ?`,
+      [startIso, endIso]
+    );
+    totalWithdrawalsCompletedUsdt = Number(num(totalW?.s).toFixed(6));
+    todayWithdrawalsCompletedUsdt = Number(num(todayW?.s).toFixed(6));
+  } catch (e) {
+    logger.warn({ err: e }, "admin withdrawal USDT totals");
+  }
+
   const todayBinaryGross = await queryNum(
     `SELECT COALESCE(SUM(
         CASE
@@ -191,6 +211,8 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     usersLoggedInTodayUtcDate: dateLabel,
     totalDepositsCreditedUsdt: num(totalDep?.s),
     todayDepositsCreditedUsdt: num(todayDep?.s),
+    totalWithdrawalsCompletedUsdt,
+    todayWithdrawalsCompletedUsdt,
     todayCompanyBinaryGrossInr: todayBinaryGross,
     todayCompanyReferralCostInr: todayReferral,
     todayCompanyNetProfitInr: netProfit,

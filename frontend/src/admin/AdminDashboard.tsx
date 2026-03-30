@@ -36,6 +36,8 @@ type Stats = {
   usersLoggedInTodayUtcDate: string;
   totalDepositsCreditedUsdt?: number;
   todayDepositsCreditedUsdt?: number;
+  totalWithdrawalsCompletedUsdt?: number;
+  todayWithdrawalsCompletedUsdt?: number;
   todayCompanyBinaryGrossInr?: number;
   todayCompanyReferralCostInr?: number;
   todayCompanyNetProfitInr?: number;
@@ -288,8 +290,8 @@ export function AdminDashboard() {
           Company overview (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Deposits: credited USDT only. Profit: live binary settles today minus referral payouts (level income). Not full
-          accounting — excludes withdrawals, investment yield, fees.
+          Deposits: credited USDT only. Withdrawals: completed USDT only (paid out). Profit: live binary settles today minus
+          referral payouts (level income). Not full accounting — excludes investment yield, fees, etc.
         </Typography>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -304,6 +306,22 @@ export function AdminDashboard() {
               title="Today deposits credited"
               value={`${(stats.todayDepositsCreditedUsdt ?? 0).toFixed(2)} USDT`}
               subtitle="By deposit updated_at (UTC day)"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Total withdrawals completed"
+              value={`${(stats.totalWithdrawalsCompletedUsdt ?? 0).toFixed(2)} USDT`}
+              subtitle="All-time, status completed"
+              onNavigate={() => goList("withdrawals")}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Today withdrawals completed"
+              value={`${(stats.todayWithdrawalsCompletedUsdt ?? 0).toFixed(2)} USDT`}
+              subtitle="By withdrawal updated_at (UTC day)"
+              onNavigate={() => goList("withdrawals")}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
