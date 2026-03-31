@@ -3,7 +3,7 @@
   "appName": "IQFX Pro",
   "webDir": "www",
   "server": {
-    "url": "https://updowanfx.com",
+    "url": "https://www.iqfxpro.com",
     "androidScheme": "https"
   }
 }

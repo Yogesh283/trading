@@ -4455,11 +4455,11 @@ button.desktop-demo-cta:disabled,
   margin-top: 6px;
 }
 
-/* Binary order success popup (demo + live) */
+/* Binary order success popup (demo + live) — above .global-alert-backdrop (100000) so login/order modals show */
 .order-placed-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 350;
+  z-index: 100050;
   background: rgba(8, 12, 22, 0.72);
   backdrop-filter: blur(6px);
   display: flex;

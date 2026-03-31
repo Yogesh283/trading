@@ -68,7 +68,9 @@ export default function ReferralPage({ token }: Props) {
           <BrandLogo size={40} />
           <h1>Promotion</h1>
         </div>
-        <p className="funds-network">Share your link. Friends who register join your team — see their activity below.</p>
+        <p className="funds-network">
+          Share your link. Friends who register join your team — figures below are <strong>today (IST)</strong> only.
+        </p>
 
         {data ? (
           <>
@@ -112,11 +114,11 @@ export default function ReferralPage({ token }: Props) {
 
             <section className="referral-section referral-section--total-earn" aria-labelledby="referral-total-earn-heading">
               <h2 className="referral-h2" id="referral-total-earn-heading">
-                Total earnings
+                Today’s earnings
               </h2>
               <div className="referral-total-earn-card">
                 <div className="referral-total-earn-hero">
-                  <span className="referral-total-earn-label">Total (INR)</span>
+                  <span className="referral-total-earn-label">Today total (INR)</span>
                   <span className="referral-total-earn-value">
                     {formatInr(data.totalReferralCommissionInr ?? 0)}
                   </span>
@@ -154,8 +156,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th title="Total credited to your live wallet from this level (trading + staking)">
-                        You received (INR)
+                      <th title="Credited to your live wallet from this level today (trading + staking)">
+                        Today (INR)
                       </th>
                     </tr>
                   </thead>
@@ -193,8 +195,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of gross monthly yield)</th>
-                      <th title="Total credited to your live wallet from this level (monthly ROI upline)">
-                        You received (INR)
+                      <th title="Credited to your live wallet from this level today (monthly ROI upline)">
+                        Today (INR)
                       </th>
                     </tr>
                   </thead>
@@ -224,21 +226,21 @@ export default function ReferralPage({ token }: Props) {
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Team stats</h2>
+              <h2 className="referral-h2">Team stats (today)</h2>
               <div className="referral-stats">
                 <div className="referral-stat">
                   <span className="referral-stat-value">{data.directCount}</span>
-                  <span className="referral-stat-label">Direct</span>
+                  <span className="referral-stat-label">Direct joined today</span>
                 </div>
                 <div className="referral-stat">
                   <span className="referral-stat-value">{data.totalTeamCount}</span>
-                  <span className="referral-stat-label">Total downline</span>
+                  <span className="referral-stat-label">All levels joined today</span>
                 </div>
               </div>
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Your team (direct)</h2>
+              <h2 className="referral-h2">Your team (direct, joined today)</h2>
               <div className="referral-table-wrap">
                 <table className="referral-table">
                   <thead>
@@ -256,7 +258,7 @@ export default function ReferralPage({ token }: Props) {
                     {data.directTeam.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="referral-table-empty">
-                          No direct referrals yet — share your promotion link above to grow your team.
+                          No direct sign-ups today — share your promotion link; new joins will appear here.
                         </td>
                       </tr>
                     ) : (

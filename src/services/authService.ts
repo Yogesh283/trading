@@ -745,7 +745,13 @@ type AdminUserDbBase = Omit<AdminUserRow, "is_blocked" | "last_login_at" | "pass
   withdrawal_totp_enabled?: number | string | null;
 };
 
-type ReferralGraphRow = { id: string; self_referral_code: string | null; referral_code: string | null };
+type ReferralGraphRow = {
+  id: string;
+  self_referral_code: string | null;
+  referral_code: string | null;
+  /** Present when row includes `created_at` (promotion dashboard). */
+  created_at?: string;
+};
 
 function buildReferralChildrenMap(rows: ReferralGraphRow[]): Map<string, string[]> {
   const codeToId = new Map<string, string>();
@@ -857,6 +863,45 @@ function formatFractionAsPercentLabel(fraction: number): string {
   return `${s.replace(/\.?0+$/, "")}%`;
 }
 
+/** IST calendar day bounds; `created_at` values are UTC ISO — compare with `>= startIso && < endIso`. */
+function getIstDayUtcIsoBounds(now = new Date()): { startIso: string; endIso: string } {
+  const tz = "Asia/Kolkata";
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(now);
+  const [y, mo, day] = ymd.split("-");
+  const start = new Date(`${y}-${mo}-${day}T00:00:00+05:30`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
+function countDownlineJoinedInWindow(
+  userId: string,
+  childrenByParentId: Map<string, string[]>,
+  joinedAtByUserId: Map<string, string>,
+  startIso: string,
+  endIso: string
+): number {
+  const inWin = (uid: string) => {
+    const ca = joinedAtByUserId.get(uid) ?? "";
+    return ca >= startIso && ca < endIso;
+  };
+  let n = 0;
+  const walk = (uid: string) => {
+    for (const k of childrenByParentId.get(uid) ?? []) {
+      if (inWin(k)) {
+        n += 1;
+      }
+      walk(k);
+    }
+  };
+  walk(userId);
+  return n;
+}
+
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
 export async function getReferralDashboardForUser(userId: string): Promise<{
   selfReferralCode: string;
@@ -917,10 +962,11 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     throw new Error("User not found");
   }
   const myCode = String(me.self_referral_code ?? "").trim();
+  const { startIso, endIso } = getIstDayUtcIsoBounds();
 
   const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
-    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') GROUP BY txn_type`,
-    [uid]
+    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ? GROUP BY txn_type`,
+    [uid, startIso, endIso]
   );
   let bettingCommissionInr = 0;
   let stakingCommissionInr = 0;
@@ -947,8 +993,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     reference_id: string | null;
     amount: number | string | null;
   }>(
-    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi')`,
-    [uid]
+    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ?`,
+    [uid, startIso, endIso]
   );
   const betRecvByLevel = new Map<number, number>();
   const stakeRecvByLevel = new Map<number, number>();
@@ -997,10 +1043,12 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       ? `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
+         AND created_at >= ? AND created_at < ?
          ORDER BY created_at DESC`
       : `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
+         AND created_at >= ? AND created_at < ?
          ORDER BY created_at DESC`;
     const directRows = await dbAll<{
       id: string | number;
@@ -1010,7 +1058,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       phone_local: string | null;
       created_at: string;
       self_referral_code: string | null;
-    }>(directSql, [myCode]);
+    }>(directSql, [myCode, startIso, endIso]);
     directTeam = directRows.map((r) => ({
       id: String(r.id),
       name: r.name,
@@ -1023,9 +1071,15 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     }));
   }
 
-  const graph = await dbAll<ReferralGraphRow>("SELECT id, self_referral_code, referral_code FROM users");
+  const graph = await dbAll<ReferralGraphRow>(
+    "SELECT id, self_referral_code, referral_code, created_at FROM users"
+  );
   const childrenByParentId = buildReferralChildrenMap(graph);
-  const totalTeamCount = countTotalDownline(uid, childrenByParentId);
+  const joinedAtByUserId = new Map<string, string>();
+  for (const r of graph) {
+    joinedAtByUserId.set(String(r.id), String(r.created_at ?? ""));
+  }
+  const totalTeamCount = countDownlineJoinedInWindow(uid, childrenByParentId, joinedAtByUserId, startIso, endIso);
 
   const directIds = directTeam.map((m) => m.id);
   const walletByDirect = await loadWalletBalancesForUserIds(directIds);

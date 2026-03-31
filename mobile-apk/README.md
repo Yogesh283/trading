@@ -121,7 +121,7 @@ android:usesCleartextTraffic="true"
 
 ## `appId` / ऐप का नाम
 
-- Package name: `capacitor.config.json` → `appId` (जैसे `com.updowanfx.app`)  
+- Package name: `capacitor.config.json` → `appId` (जैसे `com.updowanfx.app`; नया publish = `com.iqfxpro.app` जैसा अलग ID)  
 - ऐप लेबल: `appName`  
 पहली बार `cap add android` से पहले सही कर लें; बाद में बदलने पर Android project में भी अपडेट लग सकता है।
 
@@ -137,7 +137,7 @@ android:usesCleartextTraffic="true"
 
 ## APK में नया अपडेट कैसे मिलेगा?
 
-तुम्हारा APK **WebView** में **`server.url`** वाली **live site** खोलता है (जैसे `https://updowanfx.com`).
+तुम्हारा APK **WebView** में **`server.url`** वाली **live site** खोलता है (production: **`https://www.iqfxpro.com`**).
 
 ### ज़्यादातर बदलाव (UI, React, API वही server)
 

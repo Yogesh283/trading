@@ -1240,10 +1240,6 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      showAlert(
-        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`,
-        "info"
-      );
       await refresh();
     } catch (error) {
       showAlert(error instanceof Error ? error.message : "Order failed", "error");
@@ -1277,10 +1273,6 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      showAlert(
-        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`,
-        "info"
-      );
       await refresh();
     } catch (error) {
       showAlert(error instanceof Error ? error.message : "Order failed", "error");
@@ -3447,7 +3439,7 @@ export default function App() {
               <p id="post-auth-welcome-desc" className="order-placed-summary">
               <span className="order-placed-summary-text">
   {postAuthWelcome.kind === "login"
-    ? "We’re upgrading our platform and moving to our new domain: https://iqfxpro.com/. This process may take up to 48 hours. Thank you for your patience."
+    ? "Welcome back. Use the Demo wallet to practice, or fund Live when you’re ready."
     : `Your account is ready. User ID ${postAuthWelcome.userId}. Use the Demo wallet first to practice, then fund Live when you want.`}
 </span>
                 {postAuthWelcome.detail ? (
