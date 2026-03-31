@@ -336,6 +336,8 @@ export default function App() {
   const xauWeekendOrdersBlocked = isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow();
   const [mobileSide, setMobileSide] = useState<"buy" | "sell">("buy");
   const [mobileMultiplier] = useState(1); /* multiplier UI hidden — stake = amount */
+  /** Highlight X1…X100 after tap; cleared when balance chip, ±, or quantity field changes. */
+  const [mobileStakeMultSelection, setMobileStakeMultSelection] = useState<number | null>(null);
   const [walletActivityOpen, setWalletActivityOpen] = useState(false);
   const [walletTxs, setWalletTxs] = useState<WalletLedgerRow[]>([]);
   const [walletTxLoading, setWalletTxLoading] = useState(false);
@@ -1302,6 +1304,7 @@ export default function App() {
   };
 
   const bumpMobileStake = (delta: number) => {
+    setMobileStakeMultSelection(null);
     const cur = Math.max(1, Math.floor(Number(quantity) || 0));
     setQuantity(String(Math.max(1, cur + delta)));
   };
@@ -2295,7 +2298,10 @@ export default function App() {
                       key={n}
                       type="button"
                       className={`mobile-olymp-chip${active ? " mobile-olymp-chip--active" : ""}`}
-                      onClick={() => setBalancePreset(n)}
+                      onClick={() => {
+                        setMobileStakeMultSelection(null);
+                        setBalancePreset(n);
+                      }}
                     >
                       {n}
                     </button>
@@ -2329,6 +2335,7 @@ export default function App() {
                     className="mobile-stepper-inr-input"
                     value={quantity}
                     onChange={(e) => {
+                      setMobileStakeMultSelection(null);
                       const v = e.target.value;
                       if (v === "") {
                         setQuantity("");
@@ -2361,8 +2368,13 @@ export default function App() {
                   <button
                     key={mult}
                     type="button"
-                    className="mobile-olymp-mult-btn"
-                    onClick={() => applyStakeMultiplier(mult)}
+                    className={`mobile-olymp-mult-btn${
+                      mobileStakeMultSelection === mult ? " mobile-olymp-mult-btn--active" : ""
+                    }`}
+                    onClick={() => {
+                      setMobileStakeMultSelection(mult);
+                      applyStakeMultiplier(mult);
+                    }}
                   >
                     X{mult}
                   </button>

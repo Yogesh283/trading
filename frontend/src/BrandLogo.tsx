@@ -7,7 +7,7 @@ type Props = {
   alt?: string;
 };
 
-/** App logo — `public/brand/logof.png` (see brandUrls) */
+/** App logo — `public/brand/IQ00Fx Logo.png` (see brandUrls.brandLogo) */
 export function BrandLogo({ size = 32, className = "", alt = APP_NAME }: Props) {
   return (
     <img

@@ -22,21 +22,24 @@ console.log("Synced brand images → frontend/public/brand/");
 
 /**
  * APK adaptive-icon foreground — must match `ic_launcher_foreground_brand.xml` → @drawable/ic_apk_launcher_icon
- * Prefers `public/brand/apkl.png`, then `logof.png`, `logoiq.jpeg`, else `Fx Logo.png`.
+ * Prefers `public/brand/IQ00Fx Logo.png`, then `logoiq.jpeg`, `apkl.png`, `logof.png`, else `Fx Logo.png`.
  */
 const androidRes = path.join(repoRoot, "mobile-apk", "android", "app", "src", "main", "res");
 const drawableDir = path.join(androidRes, "drawable");
+const iq00FxLogoPath = path.join(outDir, "IQ00Fx Logo.png");
+const logoiqPath = path.join(outDir, "logoiq.jpeg");
 const apkIconPath = path.join(outDir, "apkl.png");
 const logofPath = path.join(outDir, "logof.png");
-const logoiqPath = path.join(outDir, "logoiq.jpeg");
 const fxLogoPath = path.join(outDir, "Fx Logo.png");
-const launcherSrc = fs.existsSync(apkIconPath)
-  ? apkIconPath
-  : fs.existsSync(logofPath)
-    ? logofPath
-    : fs.existsSync(logoiqPath)
-      ? logoiqPath
-      : fxLogoPath;
+const launcherSrc = fs.existsSync(iq00FxLogoPath)
+  ? iq00FxLogoPath
+  : fs.existsSync(logoiqPath)
+    ? logoiqPath
+    : fs.existsSync(apkIconPath)
+      ? apkIconPath
+      : fs.existsSync(logofPath)
+        ? logofPath
+        : fxLogoPath;
 if (fs.existsSync(launcherSrc) && fs.existsSync(androidRes)) {
   fs.mkdirSync(drawableDir, { recursive: true });
   for (const base of ["ic_apk_launcher_icon", "ic_brand_logo"]) {
@@ -80,12 +83,13 @@ if (fs.existsSync(launcherSrc) && fs.existsSync(androidRes)) {
   );
 } else if (
   fs.existsSync(androidRes) &&
+  !fs.existsSync(iq00FxLogoPath) &&
+  !fs.existsSync(logoiqPath) &&
   !fs.existsSync(apkIconPath) &&
   !fs.existsSync(logofPath) &&
-  !fs.existsSync(logoiqPath) &&
   !fs.existsSync(fxLogoPath)
 ) {
   console.warn(
-    "APK launcher: add frontend/public/brand/apkl.png (or logof.png, logoiq.jpeg, Fx Logo.png) — skipping ic_apk_launcher_icon sync."
+    "APK launcher: add frontend/public/brand/IQ00Fx Logo.png (or logoiq.jpeg, apkl.png, …) — skipping ic_apk_launcher_icon sync."
   );
 }
