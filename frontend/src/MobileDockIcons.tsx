@@ -90,31 +90,6 @@ export function DockIconTradeSprout(props: IconProps = {}) {
   );
 }
 
-/** Trend line + arrow — investment */
-export function DockIconInvest(props: IconProps = {}) {
-  const { className } = props;
-  return (
-    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M4 17V8.5l4 3 3.5-2.5L16 13l4-4.5V17"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.45"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M17 6.5h3.5V10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.45"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 /** 2×2 grid — markets */
 export function DockIconMarkets(props: IconProps = {}) {
   const { className } = props;
@@ -124,6 +99,89 @@ export function DockIconMarkets(props: IconProps = {}) {
       <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.35" />
       <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.35" />
       <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.35" />
+    </svg>
+  );
+}
+
+/** House outline — main tab Home */
+export function DockIconHome(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M4 10.5 12 4l8 6.5V20a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-9.5z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Three bars — main tab Markets */
+export function DockIconMarketsBars(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path d="M7 18V10" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+      <path d="M12 18V6" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+      <path d="M17 18V12" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+      <rect x="5.25" y="12" width="3.5" height="6" rx="0.65" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <rect x="10.25" y="8" width="3.5" height="10" rx="0.65" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <rect x="15.25" y="14" width="3.5" height="4" rx="0.65" fill="none" stroke="currentColor" strokeWidth="1.25" />
+    </svg>
+  );
+}
+
+/** Diamond — Promotion tab */
+export function DockIconPromotionDiamond(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M12 4l2.2 3.2h4.4L12 20 3.4 7.2h4.4L12 4z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M6.8 7.2h10.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity={0.85} />
+    </svg>
+  );
+}
+
+/** Price tag — Offers */
+export function DockIconTag(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M4 11.2V6.8A1.8 1.8 0 016.8 5h4.4l9.8 9.8-4.6 4.6L4 11.2z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+      <circle cx="8.2" cy="8.2" r="0.95" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Wallet — Assets */
+export function DockIconWalletTab(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M4 8.5A2.5 2.5 0 016.5 6H17a3 3 0 013 3v9a2 2 0 01-2 2H6.5A2.5 2.5 0 014 17.5v-9z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinejoin="round"
+      />
+      <path d="M4 11.5h15.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity={0.5} />
+      <rect x="15" y="13.2" width="4" height="2.8" rx="0.55" fill="none" stroke="currentColor" strokeWidth="1.1" />
     </svg>
   );
 }
@@ -159,6 +217,11 @@ export function DockIconReferral(props: IconProps = {}) {
 }
 
 /* —— Drawer-only (same visual language) —— */
+
+export function DrawerIconHome(props: IconProps = {}) {
+  const { className } = props;
+  return <DockIconHome className={cx(drawerCls, className)} />;
+}
 
 export function DrawerIconTrading(props: IconProps = {}) {
   const { className } = props;
@@ -254,11 +317,6 @@ export function DrawerIconDeposit(props: IconProps = {}) {
 export function DrawerIconWithdraw(props: IconProps = {}) {
   const { className } = props;
   return <DockIconWithdraw className={cx(drawerCls, className)} />;
-}
-
-export function DrawerIconInvestment(props: IconProps = {}) {
-  const { className } = props;
-  return <DockIconInvest className={cx(drawerCls, className)} />;
 }
 
 export function DrawerIconPromotion(props: IconProps = {}) {

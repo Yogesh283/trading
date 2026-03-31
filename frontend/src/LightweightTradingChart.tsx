@@ -731,7 +731,7 @@ export function LightweightTradingChart({
 
     const refreshPriceLine = (series: ISeriesApi<"Candlestick" | "Line" | "Area">) => {
       const xau = isXauUsdSymbol(assetTag);
-      /** Olymp-style terminals: live last-price line follows tick direction (green / red), not neutral gray. */
+      /** Live last-price line follows tick direction (up / down accent), not neutral gray. */
       const plCandle = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       const plLine = xauLocked && xau ? XAU_PRICE_LINE_OFF : lineCol;
       if (graphType === "candles") {

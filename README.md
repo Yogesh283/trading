@@ -1,4 +1,4 @@
-# UpDown FX
+# IQFX Pro
 
 Full-stack trading platform (Node.js, TypeScript, Express, React, WebSockets).
 

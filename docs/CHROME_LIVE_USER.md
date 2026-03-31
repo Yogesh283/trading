@@ -44,7 +44,7 @@ If the user already exists, the server skips creation (no error).
     return;
   }
   localStorage.setItem(
-    "updownfx-session",
+    "iqfxpro-session",
     JSON.stringify({ mode: "user", token: data.token, user: data.user })
   );
   location.reload();
@@ -74,7 +74,7 @@ Page reloads → you are logged in as that user. Edit CSS/JS in DevTools or your
     return;
   }
   localStorage.setItem(
-    "updownfx-session",
+    "iqfxpro-session",
     JSON.stringify({ mode: "user", token: data.token, user: data.user })
   );
   location.reload();

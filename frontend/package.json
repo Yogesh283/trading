@@ -1,5 +1,5 @@
 {
-  "name": "updownfx-frontend",
+  "name": "iqfxpro-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -13,11 +13,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^7.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.3.9",
     "ethers": "^6.16.0",
+    "iqfxpro": "file:..",
     "libphonenumber-js": "^1.12.41",
     "lightweight-charts": "^5.1.0",
     "qrcode": "^1.5.4",
@@ -26,8 +28,7 @@
     "react-admin": "^5.14.4",
     "react-dom": "^19.1.1",
     "react-phone-number-input": "^3.4.16",
-    "react-router-dom": "^7.13.1",
-    "updownfx": "file:.."
+    "react-router-dom": "^7.13.1"
   },
   "devDependencies": {
     "@metamask/logo": "^4.0.0",

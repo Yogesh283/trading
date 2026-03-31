@@ -96,6 +96,7 @@ a.landing-pill-link {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   color: #e8eaed;
 }
 
@@ -162,13 +163,13 @@ a.landing-pill-link:hover {
   padding: 10px 22px;
   border-radius: 12px;
   border: 0;
-  background: linear-gradient(180deg, #00ff88, #00e676);
-  color: #04140a;
+  background: linear-gradient(180deg, #eab308, #ca8a04);
+  color: #1a1204;
   font-family: inherit;
   font-size: 16px;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 4px 24px rgba(0, 230, 118, 0.35);
+  box-shadow: 0 4px 24px rgba(234, 179, 8, 0.35);
   transition:
     filter 0.2s ease,
     transform 0.15s ease,
@@ -179,7 +180,7 @@ a.landing-pill-link:hover {
 .landing-btn-tryfree:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 8px 28px rgba(0, 230, 118, 0.45);
+  box-shadow: 0 8px 28px rgba(234, 179, 8, 0.45);
 }
 
 .landing-brand {
@@ -215,7 +216,7 @@ a.landing-pill-link:hover {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(145deg, #00c853, #009624);
+  background: linear-gradient(145deg, #ca8a04, #92400e);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -263,9 +264,9 @@ a.landing-link {
 .landing-btn-outline {
   padding: 10px 18px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 200, 83, 0.5);
+  border: 1px solid rgba(202, 138, 4, 0.5);
   background: transparent;
-  color: #69f0ae;
+  color: #fde68a;
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
@@ -278,10 +279,10 @@ a.landing-link {
 }
 
 .landing-btn-outline:hover {
-  background: rgba(0, 200, 83, 0.14);
-  border-color: rgba(0, 230, 118, 0.85);
-  color: #b9f6ca;
-  box-shadow: 0 4px 24px rgba(0, 230, 118, 0.2);
+  background: rgba(202, 138, 4, 0.14);
+  border-color: rgba(234, 179, 8, 0.85);
+  color: #fef3c7;
+  box-shadow: 0 4px 24px rgba(234, 179, 8, 0.2);
   transform: translateY(-1px);
 }
 
@@ -293,12 +294,12 @@ a.landing-link {
   padding: 10px 20px;
   border-radius: 10px;
   border: 0;
-  background: linear-gradient(180deg, #00e676, #00c853);
-  color: #04210f;
+  background: linear-gradient(180deg, #eab308, #ca8a04);
+  color: #1a1204;
   font-weight: 800;
   font-size: 16px;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0, 200, 83, 0.35);
+  box-shadow: 0 4px 20px rgba(202, 138, 4, 0.35);
   transition:
     filter 0.2s ease,
     box-shadow 0.2s ease,
@@ -307,7 +308,7 @@ a.landing-link {
 
 .landing-btn-primary:hover {
   filter: brightness(1.1);
-  box-shadow: 0 8px 32px rgba(0, 230, 118, 0.5);
+  box-shadow: 0 8px 32px rgba(234, 179, 8, 0.5);
   transform: translateY(-2px);
 }
 
@@ -350,7 +351,7 @@ a.landing-link {
   width: 120%;
   max-width: 900px;
   height: 60%;
-  background: radial-gradient(ellipse, rgba(0, 200, 83, 0.06) 0%, transparent 65%);
+  background: radial-gradient(ellipse, rgba(202, 138, 4, 0.06) 0%, transparent 65%);
   pointer-events: none;
 }
 
@@ -362,7 +363,7 @@ a.landing-link {
 }
 
 .landing-eyebrow {
-  color: #00e676;
+  color: #eab308;
   font-weight: 700;
   font-size: 15px;
   text-transform: uppercase;
@@ -380,7 +381,7 @@ a.landing-link {
 }
 
 .landing-gradient-text {
-  background: linear-gradient(90deg, #69f0ae, #00e676);
+  background: linear-gradient(90deg, #fde68a, #eab308);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -395,7 +396,7 @@ a.landing-link {
 }
 
 .landing-hero-sub a {
-  color: #69f0ae;
+  color: #fde68a;
 }
 
 .landing-hero-cta {
@@ -446,10 +447,10 @@ a.landing-link {
 }
 
 .landing-feature-card:hover {
-  border-color: rgba(0, 230, 118, 0.35);
-  background: rgba(0, 230, 118, 0.04);
+  border-color: rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.04);
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 230, 118, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(234, 179, 8, 0.12);
 }
 
 .landing-feature-icon {
@@ -490,8 +491,8 @@ a.landing-link {
   margin: 0 auto;
   padding: 40px 32px;
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(0, 200, 83, 0.08) 0%, rgba(0, 0, 0, 0.95) 50%);
-  border: 1px solid rgba(0, 200, 83, 0.2);
+  background: linear-gradient(135deg, rgba(202, 138, 4, 0.08) 0%, rgba(0, 0, 0, 0.95) 50%);
+  border: 1px solid rgba(202, 138, 4, 0.2);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -504,8 +505,8 @@ a.landing-link {
 }
 
 .landing-demo-inner:hover {
-  border-color: rgba(0, 230, 118, 0.45);
-  box-shadow: 0 20px 56px rgba(0, 230, 118, 0.12), 0 0 0 1px rgba(0, 230, 118, 0.15);
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 20px 56px rgba(234, 179, 8, 0.12), 0 0 0 1px rgba(234, 179, 8, 0.15);
   transform: translateY(-2px);
 }
 
@@ -545,7 +546,7 @@ a.landing-link {
 .landing-demo-brand-visual {
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(0, 230, 118, 0.22);
+  border: 1px solid rgba(234, 179, 8, 0.22);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
@@ -590,7 +591,7 @@ a.landing-link {
 }
 
 .landing-trust-line a:hover {
-  color: #69f0ae;
+  color: #fde68a;
 }
 
 .landing-footer {
@@ -658,9 +659,9 @@ a.landing-link {
 }
 
 .landing-menu-btn:hover {
-  background: rgba(0, 230, 118, 0.12);
-  border-color: rgba(0, 230, 118, 0.35);
-  box-shadow: 0 4px 18px rgba(0, 230, 118, 0.15);
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.35);
+  box-shadow: 0 4px 18px rgba(234, 179, 8, 0.15);
 }
 
 .landing-menu-burger {
@@ -687,12 +688,12 @@ a.landing-link {
 }
 
 .landing-drawer {
-  width: min(300px, 90vw);
+  width: min(360px, 92vw);
   height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   background: #0a0a0a;
-  border-right: 1px solid rgba(0, 200, 83, 0.2);
+  border-right: 1px solid rgba(202, 138, 4, 0.2);
   box-shadow: 12px 0 48px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
@@ -754,41 +755,87 @@ a.landing-link {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px 12px;
+  padding: 12px 14px max(20px, env(safe-area-inset-bottom, 0px));
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.landing-drawer-links button,
-.landing-drawer-links a.landing-drawer-link {
-  text-align: left;
-  padding: 14px 16px;
+/* Uniform vertical list: icon + label — no CTA highlight */
+.landing-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 15px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: #111318;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #242830;
   color: #e8eaed;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  text-align: left;
   text-decoration: none;
-  display: block;
   box-sizing: border-box;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-.landing-drawer-links button:hover,
-.landing-drawer-links a.landing-drawer-link:hover {
-  background: rgba(0, 230, 118, 0.12);
-  border-color: rgba(0, 230, 118, 0.4);
-  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.1);
-  transform: translateX(4px);
+.landing-drawer-item:hover {
+  background: #2c313a;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-.landing-drawer-links button:active,
-.landing-drawer-links a.landing-drawer-link:active {
-  transform: translateX(2px);
+.landing-drawer-item:active {
+  background: #22262d;
+}
+
+.landing-drawer-item__ico {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.landing-drawer-ico {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.landing-drawer-item__txt {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Auth drawer: legacy plain buttons — match `.landing-drawer-item` look */
+.landing-drawer-links > button:not(.landing-drawer-item) {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #242830;
+  color: #e8eaed;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.landing-drawer-links > button:not(.landing-drawer-item):hover {
+  background: #2c313a;
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 @media (min-width: 769px) {
@@ -838,7 +885,7 @@ a.landing-link {
   }
 }
 
-/* —— Hero showcase (UpDown FX style) —— */
+/* —— Hero showcase (Iqfx Pro style) —— */
 .landing-showcase {
   position: relative;
   width: 100%;
@@ -1006,7 +1053,7 @@ a.landing-link {
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: #16a34a;
+  color: #b45309;
 }
 
 .landing-showcase-cta-orange {
@@ -1054,7 +1101,7 @@ a.landing-link {
 }
 
 .landing-showcase-dot.is-active {
-  background: #22c55e;
+  background: #eab308;
   transform: scale(1.2);
 }
 
@@ -1118,10 +1165,10 @@ a.landing-link {
   }
 }
 
-/* ========== Olymptrade-inspired landing (UpDown FX) ========== */
+/* ========== Olymptrade-inspired landing (Iqfx Pro) ========== */
 .landing-ot {
-  --ot-green: #00e676;
-  --ot-green-d: #00c853;
+  --ot-gold: #eab308;
+  --ot-gold-d: #ca8a04;
   --ot-bg: #0a0a0a;
   --ot-card: #111318;
   --ot-border: rgba(255, 255, 255, 0.08);
@@ -1145,7 +1192,7 @@ a.landing-link {
   transform: translateX(-50%);
   width: min(900px, 140%);
   height: 70%;
-  background: radial-gradient(ellipse, rgba(0, 230, 118, 0.12) 0%, transparent 65%);
+  background: radial-gradient(ellipse, rgba(234, 179, 8, 0.12) 0%, transparent 65%);
   pointer-events: none;
 }
 
@@ -1162,7 +1209,7 @@ a.landing-link {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ot-green);
+  color: var(--ot-gold);
 }
 
 .landing-ot-hero-label--with-logo {
@@ -1175,7 +1222,7 @@ a.landing-link {
 
 .landing-ot-hero-logo {
   border-radius: 50%;
-  box-shadow: 0 0 0 1px rgba(0, 230, 118, 0.25);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.25);
   object-fit: contain;
 }
 
@@ -1212,167 +1259,17 @@ a.landing-link {
   align-items: center;
 }
 
-/* Cinematic video strip (no overlay) */
-.landing-ot-cinematic {
-  padding: 12px 18px 44px;
-  max-width: 1180px;
-  margin: 0 auto;
-  /* When aspect-ratio + max-height shrink the card narrower than this column, center it */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.landing-ot-cinematic-inner {
-  position: relative;
-  width: 100%;
-  /* Match the width that aspect-ratio uses when height is capped — avoids a short card stuck left */
-  max-width: min(100%, calc(min(56vh, 520px) * 16 / 9));
-  margin-inline: auto;
-  border-radius: 24px;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  max-height: min(56vh, 520px);
-  border: 1px solid rgba(0, 230, 118, 0.32);
-  box-shadow:
-    0 28px 80px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.07),
-    0 0 100px rgba(0, 230, 118, 0.1);
-}
-
-.landing-ot-cinematic-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-  transform: scale(1.03);
-  filter: saturate(1.04) contrast(1.03) brightness(1.02);
-}
-
-.landing-ot-cinematic-video {
-  background: #0a0e14;
-}
-
-.landing-cinematic-play-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.25);
-  pointer-events: auto;
-  transition: opacity 0.35s ease;
-}
-
-.landing-cinematic-play-btn {
-  width: clamp(72px, 14vw, 100px);
-  height: clamp(72px, 14vw, 100px);
-  border-radius: 50%;
-  border: 3px solid rgba(0, 230, 118, 0.85);
-  background: rgba(4, 12, 8, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 12px 40px rgba(0, 0, 0, 0.45),
-    0 0 48px rgba(0, 230, 118, 0.25);
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
-}
-
-.landing-cinematic-play-btn:hover {
-  transform: scale(1.06);
-  border-color: #69f0ae;
-  background: rgba(0, 230, 118, 0.15);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 16px 48px rgba(0, 0, 0, 0.5),
-    0 0 56px rgba(0, 230, 118, 0.35);
-}
-
-.landing-cinematic-play-btn:active {
-  transform: scale(0.98);
-}
-
-/* Triangle play icon (no font dependency) */
-.landing-cinematic-play-triangle {
-  display: block;
-  width: 0;
-  height: 0;
-  margin-left: 8px;
-  border-style: solid;
-  border-width: 14px 0 14px 22px;
-  border-color: transparent transparent transparent #e8fff0;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
-}
-
-@media (max-width: 480px) {
-  .landing-cinematic-play-triangle {
-    margin-left: 6px;
-    border-width: 11px 0 11px 18px;
-  }
-}
-
-/* Desktop: centered 78vw cinematic + play-to-start */
-@media (min-width: 1024px) {
-  .landing-ot-cinematic {
-    max-width: none;
-    width: 100%;
-    margin: 0;
-    padding: 0 0 52px;
-    align-items: stretch;
-  }
-
-  .landing-ot-cinematic-inner {
-    width: 78vw;
-    position: relative;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: none;
-    margin-inline: 0;
-    border-radius: 3px;
-    border-left: 0;
-    border-right: 0;
-    aspect-ratio: unset;
-    height: min(56.25vw, 88vh, 960px);
-    max-height: none;
-  }
-}
-
-@media (max-width: 640px) {
-  .landing-ot-cinematic-inner {
-    aspect-ratio: 4 / 3;
-    max-height: none;
-    max-width: 100%;
-  }
-
-  .landing-ot-cinematic-img {
-    object-position: center 40%;
-  }
-}
-
 .landing-ot-btn-main {
   padding: 16px 36px;
   border-radius: 10px;
   border: 0;
-  background: linear-gradient(180deg, var(--ot-green), var(--ot-green-d));
+  background: linear-gradient(180deg, var(--ot-gold), var(--ot-gold-d));
   color: #04210f;
   font-family: inherit;
   font-size: 18px;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 6px 28px rgba(0, 200, 83, 0.4);
+  box-shadow: 0 6px 28px rgba(202, 138, 4, 0.4);
   transition:
     filter 0.2s ease,
     transform 0.2s ease,
@@ -1382,7 +1279,7 @@ a.landing-link {
 .landing-ot-btn-main:hover {
   filter: brightness(1.1);
   transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0, 230, 118, 0.55);
+  box-shadow: 0 12px 40px rgba(234, 179, 8, 0.55);
 }
 
 .landing-ot-btn-main:active {
@@ -1393,7 +1290,14 @@ a.landing-ot-btn-main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   text-decoration: none;
+}
+
+.landing-apk-btn-ico {
+  flex-shrink: 0;
+  border-radius: 6px;
+  object-fit: contain;
 }
 
 .landing-ot-btn-xl {
@@ -1405,7 +1309,7 @@ a.landing-ot-btn-main {
   padding: 14px 24px;
   border: 0;
   background: transparent;
-  color: var(--ot-green);
+  color: var(--ot-gold);
   font-family: inherit;
   font-size: 18px;
   font-weight: 700;
@@ -1421,22 +1325,28 @@ a.landing-ot-btn-main {
 
 .landing-ot-btn-ghost:hover {
   color: #b9f6ca;
-  background: rgba(0, 230, 118, 0.08);
+  background: rgba(234, 179, 8, 0.08);
   text-underline-offset: 6px;
+}
+
+a.landing-ot-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* Highlight: Log in, Register, Demo ($0) — nav, hero, demo strip, final CTA */
 .landing-nav-desktop .landing-btn-outline {
   border-width: 2px;
-  border-color: rgba(0, 230, 118, 0.7);
+  border-color: rgba(234, 179, 8, 0.7);
   color: #b9f6ca;
-  box-shadow: 0 0 22px rgba(0, 230, 118, 0.22), inset 0 0 24px rgba(0, 230, 118, 0.05);
+  box-shadow: 0 0 22px rgba(234, 179, 8, 0.22), inset 0 0 24px rgba(234, 179, 8, 0.05);
 }
 
 .landing-nav-desktop .landing-btn-primary {
   box-shadow:
-    0 4px 26px rgba(0, 230, 118, 0.55),
-    0 0 0 2px rgba(0, 230, 118, 0.38);
+    0 4px 26px rgba(234, 179, 8, 0.55),
+    0 0 0 2px rgba(234, 179, 8, 0.38);
 }
 
 /* —— Strong CTA highlight: Demo, Log in, Register, Start for $0 (nav + drawer) —— */
@@ -1444,13 +1354,13 @@ a.landing-ot-btn-main {
   0%,
   100% {
     box-shadow:
-      0 0 0 2px rgba(0, 230, 118, 0.45),
-      0 0 18px rgba(0, 230, 118, 0.25);
+      0 0 0 2px rgba(234, 179, 8, 0.45),
+      0 0 18px rgba(234, 179, 8, 0.25);
   }
   50% {
     box-shadow:
       0 0 0 3px rgba(0, 255, 150, 0.65),
-      0 0 28px rgba(0, 230, 118, 0.45);
+      0 0 28px rgba(234, 179, 8, 0.45);
   }
 }
 
@@ -1458,7 +1368,7 @@ a.landing-ot-btn-main {
   0%,
   100% {
     box-shadow:
-      0 4px 24px rgba(0, 230, 118, 0.5),
+      0 4px 24px rgba(234, 179, 8, 0.5),
       0 0 0 2px rgba(180, 255, 200, 0.35);
   }
   50% {
@@ -1470,9 +1380,9 @@ a.landing-ot-btn-main {
 
 .landing-nav-desktop .landing-cta-highlight--demo.landing-link,
 .landing-nav-desktop .landing-cta-highlight--login.landing-link {
-  color: #e8f5e9;
-  background: rgba(0, 230, 118, 0.14);
-  border: 1px solid rgba(0, 230, 118, 0.5);
+  color: #fffbeb;
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.5);
   border-radius: 10px;
   animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
 }
@@ -1493,8 +1403,8 @@ a.landing-ot-btn-main {
 .landing-nav-desktop .landing-cta-highlight--register.landing-btn-outline {
   border-width: 2px;
   border-color: rgba(0, 255, 150, 0.85);
-  color: #e8f5e9;
-  background: rgba(0, 230, 118, 0.12);
+  color: #fffbeb;
+  background: rgba(234, 179, 8, 0.12);
   animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
 }
 
@@ -1505,49 +1415,17 @@ a.landing-ot-btn-main {
 .landing-nav-desktop .landing-cta-highlight--demo.landing-link:hover,
 .landing-nav-desktop .landing-cta-highlight--login.landing-link:hover {
   filter: brightness(1.12);
-  background: rgba(0, 230, 118, 0.22);
+  background: rgba(234, 179, 8, 0.22);
 }
 
 .landing-nav-desktop .landing-cta-highlight--register.landing-btn-outline:hover {
   filter: brightness(1.08);
-  background: rgba(0, 230, 118, 0.2);
+  background: rgba(234, 179, 8, 0.2);
 }
 
 .landing-nav-desktop .landing-cta-highlight--start.landing-btn-primary:hover {
   filter: brightness(1.12);
   transform: translateY(-2px);
-}
-
-.landing-drawer-links .landing-cta-highlight--demo,
-.landing-drawer-links .landing-cta-highlight--login {
-  border: 2px solid rgba(0, 230, 118, 0.55) !important;
-  background: linear-gradient(180deg, rgba(0, 230, 118, 0.18), rgba(0, 230, 118, 0.06)) !important;
-  color: #e8f5e9 !important;
-  font-weight: 700 !important;
-  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
-}
-
-.landing-drawer-links .landing-cta-highlight--register {
-  border: 2px solid rgba(0, 255, 150, 0.75) !important;
-  background: rgba(0, 230, 118, 0.12) !important;
-  color: #b9f6ca !important;
-  font-weight: 700 !important;
-  animation: landing-cta-glow-ring 2.4s ease-in-out infinite;
-}
-
-.landing-drawer-links .landing-cta-highlight--start {
-  border: 2px solid rgba(200, 255, 220, 0.55) !important;
-  background: linear-gradient(180deg, #00e676, #00c853) !important;
-  color: #04210f !important;
-  font-weight: 800 !important;
-  animation: landing-cta-glow-solid 2.4s ease-in-out infinite;
-}
-
-.landing-drawer-links .landing-cta-highlight--apk {
-  border: 2px solid rgba(56, 189, 248, 0.5) !important;
-  background: rgba(14, 165, 233, 0.14) !important;
-  color: #e0f2fe !important;
-  font-weight: 700 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1557,20 +1435,21 @@ a.landing-ot-btn-main {
   .landing-cta-highlight--start {
     animation: none !important;
   }
+
 }
 
 .landing-ot-hero .landing-ot-btn-main {
   box-shadow:
-    0 8px 38px rgba(0, 230, 118, 0.52),
-    0 0 0 2px rgba(0, 230, 118, 0.38);
+    0 8px 38px rgba(234, 179, 8, 0.52),
+    0 0 0 2px rgba(234, 179, 8, 0.38);
 }
 
 .landing-ot-hero .landing-ot-btn-ghost {
-  border: 1px solid rgba(0, 230, 118, 0.4);
+  border: 1px solid rgba(234, 179, 8, 0.4);
   border-radius: 10px;
   padding: 14px 22px;
   text-decoration: none;
-  background: rgba(0, 230, 118, 0.07);
+  background: rgba(234, 179, 8, 0.07);
   color: #b9f6ca;
   transition:
     border-color 0.2s ease,
@@ -1580,19 +1459,55 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-hero .landing-ot-btn-ghost:hover {
-  border-color: rgba(0, 230, 118, 0.75);
-  background: rgba(0, 230, 118, 0.14);
-  box-shadow: 0 6px 28px rgba(0, 230, 118, 0.18);
+  border-color: rgba(234, 179, 8, 0.75);
+  background: rgba(234, 179, 8, 0.14);
+  box-shadow: 0 6px 28px rgba(234, 179, 8, 0.18);
   transform: translateY(-2px);
-  color: #e8f5e9;
+  color: #fffbeb;
+}
+
+/* Hero: Android APK highlight — mint fill + dark text (see .landing-ot-btn-apk-highlight) */
+.landing-ot-hero .landing-ot-btn-ghost.landing-ot-btn-apk-highlight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px solid #a16207;
+  border-radius: 12px;
+  padding: 14px 24px;
+  background: #3eda9e;
+  color: #1a1003;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.18) inset,
+    0 8px 28px rgba(202, 138, 4, 0.45),
+    0 0 0 1px rgba(254, 243, 199, 0.35);
+}
+
+.landing-ot-hero .landing-ot-btn-ghost.landing-ot-btn-apk-highlight:hover {
+  border-color: #15803d;
+  background: #5ee8b5;
+  color: #0a0a0a;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.12) inset,
+    0 12px 36px rgba(62, 218, 158, 0.45),
+    0 0 0 1px rgba(220, 252, 231, 0.55);
+  transform: translateY(-2px);
+}
+
+.landing-ot-hero .landing-ot-btn-ghost.landing-ot-btn-apk-highlight:active {
+  transform: translateY(0);
+  filter: brightness(0.97);
 }
 
 .landing-demo-inner .landing-btn-primary.landing-btn-lg {
-  box-shadow: 0 6px 30px rgba(0, 230, 118, 0.48), 0 0 0 2px rgba(0, 230, 118, 0.32);
+  box-shadow: 0 6px 30px rgba(234, 179, 8, 0.48), 0 0 0 2px rgba(234, 179, 8, 0.32);
 }
 
 .landing-ot-final-cta .landing-ot-btn-main.landing-ot-btn-xl {
-  box-shadow: 0 8px 38px rgba(0, 230, 118, 0.52), 0 0 0 2px rgba(0, 230, 118, 0.35);
+  box-shadow: 0 8px 38px rgba(234, 179, 8, 0.52), 0 0 0 2px rgba(234, 179, 8, 0.35);
 }
 
 /* Android APK strip (see appBrand APK_DOWNLOAD_URL) */
@@ -1700,10 +1615,10 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-pill:hover {
-  border-color: rgba(0, 230, 118, 0.4);
-  background: rgba(0, 230, 118, 0.1);
-  color: #e8f5e9;
-  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.15);
+  border-color: rgba(234, 179, 8, 0.4);
+  background: rgba(234, 179, 8, 0.1);
+  color: #fffbeb;
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.15);
   transform: translateY(-2px) scale(1.02);
 }
 
@@ -1727,112 +1642,6 @@ a.landing-ot-btn-main {
     mask-image: none;
     -webkit-mask-image: none;
   }
-}
-
-/* Landing: binary Up / Down explainer */
-.landing-ot-binary {
-  padding: clamp(40px, 6vw, 72px) 20px 56px;
-  max-width: 1040px;
-  margin: 0 auto;
-  border-bottom: 1px solid var(--ot-border);
-  background: linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
-}
-
-.landing-ot-binary-lead {
-  margin-top: 12px !important;
-  max-width: 640px !important;
-}
-
-.landing-ot-binary-steps {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  margin-top: 28px;
-}
-
-@media (min-width: 768px) {
-  .landing-ot-binary-steps {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-  }
-}
-
-.landing-ot-binary-card {
-  position: relative;
-  padding: 22px 20px 20px;
-  border-radius: 16px;
-  background: var(--ot-card);
-  border: 1px solid var(--ot-border);
-  text-align: left;
-  transition:
-    border-color 0.25s ease,
-    transform 0.25s ease,
-    box-shadow 0.25s ease,
-    background 0.25s ease;
-}
-
-.landing-ot-binary-card:hover {
-  border-color: rgba(0, 230, 118, 0.3);
-  background: rgba(17, 19, 24, 0.98);
-  transform: translateY(-3px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 230, 118, 0.08);
-}
-
-.landing-ot-binary-card h3 {
-  margin: 0 0 10px;
-  font-size: 19px;
-  font-weight: 800;
-  color: #fff;
-}
-
-.landing-ot-binary-card p {
-  margin: 0;
-  font-size: 16px;
-  line-height: 1.55;
-  color: #9aa0a6;
-}
-
-.landing-ot-binary-step {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-bottom: 12px;
-  border-radius: 8px;
-  background: rgba(0, 230, 118, 0.15);
-  color: var(--ot-green);
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.landing-ot-binary-tag {
-  display: inline-block;
-  padding: 3px 10px;
-  margin: 0 2px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.landing-ot-binary-tag--up {
-  background: rgba(0, 230, 118, 0.2);
-  color: #4ade80;
-}
-
-.landing-ot-binary-tag--down {
-  background: rgba(239, 68, 68, 0.18);
-  color: #f87171;
-}
-
-.landing-ot-binary-foot {
-  margin: 28px auto 0;
-  max-width: 560px;
-  text-align: center;
-  font-size: 15px;
-  line-height: 1.5;
-  color: #6b7280;
 }
 
 .landing-ot-band {
@@ -1930,7 +1739,7 @@ a.landing-ot-btn-main {
   max-width: min(400px, 90vw);
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(0, 230, 118, 0.2);
+  border: 1px solid rgba(234, 179, 8, 0.2);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
   transition:
     border-color 0.3s ease,
@@ -1939,8 +1748,8 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-banner-wrap:hover {
-  border-color: rgba(0, 230, 118, 0.5);
-  box-shadow: 0 20px 56px rgba(0, 230, 118, 0.15), 0 12px 40px rgba(0, 0, 0, 0.45);
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 20px 56px rgba(234, 179, 8, 0.15), 0 12px 40px rgba(0, 0, 0, 0.45);
   transform: scale(1.02);
 }
 
@@ -1979,7 +1788,7 @@ a.landing-ot-btn-main {
   border-radius: 26px;
   overflow: hidden;
   background: #0a0e14;
-  border: 1px solid rgba(0, 230, 118, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.15);
 }
 
 .landing-ot-phone-header {
@@ -2020,8 +1829,8 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-phone-pills .up {
-  background: rgba(0, 230, 118, 0.2);
-  color: var(--ot-green);
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--ot-gold);
 }
 
 .landing-ot-phone-pills .down {
@@ -2062,10 +1871,10 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-demo-card:hover {
-  border-color: rgba(0, 230, 118, 0.45);
+  border-color: rgba(234, 179, 8, 0.45);
   background: rgba(20, 24, 30, 0.95);
   transform: translateY(-4px);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 230, 118, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(234, 179, 8, 0.12);
 }
 
 .landing-ot-demo-card h3 {
@@ -2084,7 +1893,7 @@ a.landing-ot-btn-main {
 .landing-ot-link-btn {
   border: 0;
   background: none;
-  color: var(--ot-green);
+  color: var(--ot-gold);
   font-weight: 700;
   font-size: 16px;
   cursor: pointer;
@@ -2102,14 +1911,14 @@ a.landing-ot-btn-main {
 .landing-ot-link-btn:hover {
   color: #b9f6ca;
   text-decoration: underline;
-  text-decoration-color: var(--ot-green);
+  text-decoration-color: var(--ot-gold);
   letter-spacing: 0.02em;
 }
 
 .landing-ot-legal-strip {
   padding: 28px 20px;
-  background: rgba(0, 200, 83, 0.06);
-  border-top: 1px solid rgba(0, 200, 83, 0.12);
+  background: rgba(202, 138, 4, 0.06);
+  border-top: 1px solid rgba(202, 138, 4, 0.12);
   border-bottom: 1px solid var(--ot-border);
 }
 
@@ -2151,8 +1960,8 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-support-card:hover {
-  border-color: rgba(0, 230, 118, 0.25);
-  background: rgba(0, 230, 118, 0.05);
+  border-color: rgba(234, 179, 8, 0.25);
+  background: rgba(234, 179, 8, 0.05);
   transform: translateY(-3px);
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
 }
@@ -2172,7 +1981,7 @@ a.landing-ot-btn-main {
 
 .landing-ot-withdraw {
   padding: 48px 20px;
-  background: linear-gradient(135deg, rgba(0, 200, 83, 0.08) 0%, #0a0a0a 55%);
+  background: linear-gradient(135deg, rgba(202, 138, 4, 0.08) 0%, #0a0a0a 55%);
 }
 
 .landing-ot-withdraw-inner {
@@ -2220,16 +2029,16 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-stat:hover {
-  border-color: rgba(0, 230, 118, 0.2);
-  background: rgba(0, 230, 118, 0.06);
+  border-color: rgba(234, 179, 8, 0.2);
+  background: rgba(234, 179, 8, 0.06);
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(0, 230, 118, 0.1);
+  box-shadow: 0 8px 28px rgba(234, 179, 8, 0.1);
 }
 
 .landing-ot-stat strong {
   display: block;
   font-size: 24px;
-  color: var(--ot-green);
+  color: var(--ot-gold);
   margin-bottom: 6px;
 }
 
@@ -2264,7 +2073,7 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-review-card:hover {
-  border-color: rgba(0, 230, 118, 0.2);
+  border-color: rgba(234, 179, 8, 0.2);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
   transform: translateY(-2px);
 }
@@ -2274,7 +2083,7 @@ a.landing-ot-btn-main {
   height: 56px;
   margin: 0 auto 16px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ot-green-d), #00695c);
+  background: linear-gradient(135deg, var(--ot-gold-d), #78350f);
   color: #fff;
   font-size: 24px;
   font-weight: 800;
@@ -2328,11 +2137,11 @@ a.landing-ot-btn-main {
 }
 
 .landing-ot-review-nav button:hover {
-  border-color: var(--ot-green);
-  background: rgba(0, 230, 118, 0.12);
-  color: var(--ot-green);
+  border-color: var(--ot-gold);
+  background: rgba(234, 179, 8, 0.12);
+  color: var(--ot-gold);
   transform: scale(1.08);
-  box-shadow: 0 4px 20px rgba(0, 230, 118, 0.25);
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.25);
 }
 
 .landing-ot-review-nav button:active {
@@ -2347,7 +2156,7 @@ a.landing-ot-btn-main {
 .landing-ot-final-cta {
   padding: 64px 20px 48px;
   text-align: center;
-  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 230, 118, 0.1), transparent 55%);
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(234, 179, 8, 0.1), transparent 55%);
 }
 
 .landing-ot-final-cta h2 {
@@ -2386,7 +2195,6 @@ a.landing-ot-btn-main {
   .landing-ot-btn-main:hover,
   .landing-ot-btn-main:active,
   .landing-ot-pill:hover,
-  .landing-ot-binary-card:hover,
   .landing-ot-demo-card:hover,
   .landing-ot-support-card:hover,
   .landing-ot-stat:hover,
@@ -2395,8 +2203,8 @@ a.landing-ot-btn-main {
   .landing-ot-review-card:hover,
   .landing-ot-review-nav button:hover,
   .landing-ot-review-nav button:active,
-  .landing-drawer-links button:hover,
-  .landing-drawer-links button:active,
+  .landing-drawer-item:hover,
+  .landing-drawer-item:active,
   .landing-ot-hero .landing-ot-btn-ghost:hover,
   .landing-nav-desktop .landing-cta-highlight--start.landing-btn-primary:hover {
     transform: none !important;

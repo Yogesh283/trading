@@ -3,9 +3,9 @@
 यह **अलग फ़ोल्डर** है। मुख्य `tradeing` वेब प्रोजेक्ट में **कोई बदलाव नहीं**।  
 Capacitor एक **WebView** में आपकी **live website** खोलता है (`server.url`).
 
-**Landing पर APK लिंक:** वेब `frontend` में बिल्ड के बाद APK को `frontend/public/downloads/UpDownFX.apk` नाम से रखें, या `.env` में `VITE_APK_DOWNLOAD_URL` सेट करें — विवरण `frontend/public/downloads/README.txt` में।
+**Landing पर APK लिंक:** वेब `frontend` में बिल्ड के बाद APK को `frontend/public/downloads/Iqfxpro.apk` नाम से रखें, या `.env` में `VITE_APK_DOWNLOAD_URL` सेट करें — विवरण `frontend/public/downloads/README.txt` में।
 
-**Launcher icon:** `frontend` में `npm run sync:brand` पहले `public/brand/Fx Logo.png` को `android/app/src/main/res/drawable/ic_apk_launcher_icon.png` पर ले जाता है (`ic_launcher_foreground_brand.xml`)। आइकन बदलने के बाद यह चलाएँ और Android Studio से **नया APK** बनाएं।
+**Launcher icon:** `frontend` में `npm run sync:brand` `public/brand/logoiq.jpeg` (या `Fx Logo.png`) को `drawable/ic_apk_launcher_icon.*` पर कॉपी करता है। आइकन बदलने के बाद `sync:brand` चलाएँ और **नया APK** बनाएं।
 
 **ऊपर की खाली जगह (APK):** वेब `frontend` में `html.cap-native` क्लास से `#root` का ऊपर वाला safe-area हटता है (Capacitor WebView डबल inset से बचने के लिए)। नया **frontend build** + `npx cap copy` / sync के बाद APK।
 
@@ -127,13 +127,13 @@ android:usesCleartextTraffic="true"
 
 ## वेबसाइट पर “Download APK” बटन
 
-लैंडिंग लिंक (default): **`/api/system/android-apk`** — **`/api/android-app.apk`**, **`/downloads/UpDownFX.apk`**, **`/api/mobile-app`** bhi same file।
+लैंडिंग लिंक (default): **`/api/system/android-apk`** — **`/api/android-app.apk`**, **`/downloads/Iqfxpro.apk`**, **`/api/mobile-app`** bhi same file।
 
 1. Android Studio से APK बनाएँ।  
-2. Repo root से: **`npm run copy-apk`** — यह `app-release.apk` / `app-debug.apk` को **`frontend/public/downloads/UpDownFX.apk`** पर कॉपी करता है।  
+2. Repo root से: **`npm run copy-apk`** — यह `app-release.apk` / `app-debug.apk` को **`frontend/public/downloads/Iqfxpro.apk`** पर कॉपी करता है।  
 3. फिर **`npm run build:all`** (या कम से कम frontend build) ताकि `dist` में APK जाए।
 
-**सर्वर पर बिना rebuild:** VPS पर **`releases/UpDownFX.apk`** रखें (repo root के बगल में), या `.env` में **`APK_FILE_PATH`** — Node सीधे वहीं से serve करेगा।
+**सर्वर पर बिना rebuild:** VPS पर **`releases/Iqfxpro.apk`** रखें (repo root के बगल में), या `.env` में **`APK_FILE_PATH`** — Node सीधे वहीं से serve करेगा।
 
 ## APK में नया अपडेट कैसे मिलेगा?
 

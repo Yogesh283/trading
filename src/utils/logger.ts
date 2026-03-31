@@ -4,6 +4,6 @@ import { env } from "../config/env";
 export const logger = pino({
   level: env.LOG_LEVEL,
   base: {
-    service: "updownfx"
+    service: "iqfxpro"
   }
 });

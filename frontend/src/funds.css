@@ -12,17 +12,6 @@
   min-width: 0;
 }
 
-.deposit-qr-24h-notice {
-  margin: 0 0 16px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 180, 80, 0.35);
-  background: rgba(255, 160, 40, 0.1);
-  color: #e8d9c4;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
 .investment-title-row {
   margin-top: 8px;
 }
@@ -62,8 +51,8 @@
   display: inline-block;
   padding: 4px 10px;
   border-radius: 8px;
-  background: rgba(0, 200, 83, 0.2);
-  color: #70f0b4;
+  background: rgba(202, 138, 4, 0.2);
+  color: #fbbf24;
   font-weight: 700;
   font-size: 14px;
 }
@@ -101,16 +90,16 @@
 .funds-copy {
   padding: 12px 20px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 200, 83, 0.5);
-  background: rgba(0, 200, 83, 0.12);
-  color: #70f0b4;
+  border: 1px solid rgba(202, 138, 4, 0.5);
+  background: rgba(202, 138, 4, 0.12);
+  color: #fbbf24;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .funds-copy:hover {
-  background: rgba(0, 200, 83, 0.2);
+  background: rgba(202, 138, 4, 0.2);
 }
 
 .funds-balance {
@@ -179,7 +168,7 @@
   padding: 12px 16px;
   border-radius: 12px;
   background: rgba(126, 240, 181, 0.12);
-  color: #70f0b4;
+  color: #fbbf24;
   font-size: 16px;
 }
 
@@ -237,9 +226,9 @@
 }
 
 .dashboard-nav-funds button.active-funds {
-  background: rgba(0, 200, 83, 0.15);
-  border-color: rgba(0, 200, 83, 0.4);
-  color: #70f0b4;
+  background: rgba(202, 138, 4, 0.15);
+  border-color: rgba(202, 138, 4, 0.4);
+  color: #fbbf24;
 }
 
 .funds-mobile-tip {
@@ -312,26 +301,6 @@
   color: #8da2c0;
 }
 
-.deposit-flow-steps {
-  margin: 0 0 20px;
-  padding-left: 1.15rem;
-  font-size: 15px;
-  line-height: 1.55;
-  color: #a8b8cf;
-}
-
-.deposit-flow-steps li {
-  margin-bottom: 8px;
-}
-
-.deposit-flow-steps strong {
-  color: #c5d4ea;
-}
-
-.deposit-flow-steps-short {
-  margin-bottom: 12px;
-}
-
 .deposit-flow-mobile-hint {
   margin: 0 0 18px;
   font-size: 15px;
@@ -349,32 +318,25 @@
   padding: 16px 20px;
   border-radius: 16px;
   border: none;
-  background: linear-gradient(135deg, #00c853 0%, #00a344 100%);
-  color: #041208;
+  background: linear-gradient(135deg, #ca8a04 0%, #a16207 100%);
+  color: #1a1204;
   font-size: 19px;
   font-weight: 800;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 8px 28px rgba(0, 200, 83, 0.35);
+  box-shadow: 0 8px 28px rgba(202, 138, 4, 0.35);
   transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .deposit-confirm-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 32px rgba(0, 200, 83, 0.45);
+  box-shadow: 0 12px 32px rgba(202, 138, 4, 0.45);
 }
 
 .deposit-confirm-primary:disabled {
   opacity: 0.65;
   cursor: not-allowed;
   transform: none;
-}
-
-.deposit-direct-sub {
-  margin: 12px 0 0;
-  font-size: 15px;
-  line-height: 1.5;
-  color: #8da2c0;
 }
 
 .deposit-connect-first {
@@ -455,7 +417,7 @@
 
 .wallet-tile-busy {
   font-size: 13px;
-  color: #70f0b4;
+  color: #fbbf24;
 }
 
 .wallet-row-minimal {
@@ -575,8 +537,8 @@
 
 .dep-tx_sent,
 .dep-credited {
-  background: rgba(0, 200, 83, 0.15);
-  color: #70f0b4;
+  background: rgba(202, 138, 4, 0.15);
+  color: #fbbf24;
 }
 
 .deposit-qr-section {
@@ -804,7 +766,7 @@
   margin: 1.25rem 0;
   padding: 1.35rem 1.35rem 1.45rem;
   border-radius: 18px;
-  border: 1px solid rgba(0, 200, 83, 0.22);
+  border: 1px solid rgba(202, 138, 4, 0.22);
   background: linear-gradient(165deg, #0a1210 0%, #0a100d 45%, #0d1814 100%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -835,8 +797,8 @@
   padding: 7px 14px;
   border-radius: 999px;
   background: rgba(0, 55, 35, 0.85);
-  border: 1px solid rgba(0, 200, 83, 0.35);
-  color: #69f0ae;
+  border: 1px solid rgba(202, 138, 4, 0.35);
+  color: #fde68a;
   font-weight: 700;
   font-size: 0.82rem;
   letter-spacing: 0.02em;
@@ -848,19 +810,19 @@
   padding: 14px 20px;
   border-radius: 14px;
   border: none;
-  background: #00c853;
+  background: #ca8a04;
   color: #fff;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.03em;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 200, 83, 0.35);
+  box-shadow: 0 8px 24px rgba(202, 138, 4, 0.35);
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
 }
 
 .withdrawal-tpn-primary-btn:hover:not(:disabled) {
-  background: #00e676;
-  box-shadow: 0 10px 28px rgba(0, 200, 83, 0.45);
+  background: #facc15;
+  box-shadow: 0 10px 28px rgba(202, 138, 4, 0.45);
   transform: translateY(-1px);
 }
 
@@ -909,7 +871,7 @@
 .withdrawal-tpn-setup input {
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 200, 83, 0.18);
+  border: 1px solid rgba(202, 138, 4, 0.18);
   background: rgba(0, 0, 0, 0.35);
   color: #e8f5ef;
   font-size: 17px;
@@ -919,8 +881,8 @@
 
 .withdrawal-tpn-setup input:focus {
   outline: none;
-  border-color: rgba(0, 200, 83, 0.45);
-  box-shadow: 0 0 0 3px rgba(0, 200, 83, 0.15);
+  border-color: rgba(202, 138, 4, 0.45);
+  box-shadow: 0 0 0 3px rgba(202, 138, 4, 0.15);
 }
 
 .withdrawal-tpn-setup input::placeholder {
@@ -1277,6 +1239,175 @@
   font-size: 16px;
 }
 
+/* —— Promotion page theme: #000 / #1A1C1E surfaces, #EAB308 accent (matches Offers + dock) —— */
+.referral-page.funds-page {
+  background: #000000;
+  padding-top: 18px;
+  padding-left: 16px;
+  padding-right: 16px;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+.referral-page .referral-card.funds-card {
+  background: #1a1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: none;
+  padding: 22px 18px 26px;
+}
+
+.referral-page .funds-card h1 {
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.referral-page .investment-title-row {
+  margin-top: 4px;
+}
+
+.referral-page .funds-network {
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 15px;
+}
+
+.referral-page .referral-h2 {
+  color: #f1f5f9;
+  font-weight: 700;
+}
+
+.referral-page .referral-section {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+.referral-page .referral-code-big {
+  background: #0d0d0f;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  color: #eab308;
+}
+
+.referral-page .referral-copy-btn,
+.referral-page .referral-copy-full {
+  background: #eab308;
+  color: #0a0a0a;
+  border: none;
+  font-weight: 750;
+  box-shadow: none;
+}
+
+.referral-page .referral-copy-btn:hover,
+.referral-page .referral-copy-full:hover {
+  background: #facc15;
+  filter: none;
+}
+
+.referral-page .referral-link-input {
+  background: #0d0d0f;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+}
+
+.referral-page .referral-link-input:focus {
+  outline: none;
+  border-color: rgba(234, 179, 8, 0.55);
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.12);
+}
+
+.referral-page .referral-inviter strong {
+  color: #ffffff;
+}
+
+.referral-page code.referral-code-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.88em;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #fde68a;
+}
+
+.referral-page .referral-stat {
+  background: #121214;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.referral-page .referral-stat-value {
+  color: #eab308;
+}
+
+.referral-page .referral-stat-label {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.referral-page .referral-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #121214;
+}
+
+.referral-page .referral-table th,
+.referral-page .referral-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.referral-page .referral-table th {
+  color: rgba(148, 163, 184, 0.95);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.referral-page .referral-table td {
+  color: #e2e8f0;
+}
+
+.referral-page .referral-income-total td {
+  background: rgba(234, 179, 8, 0.14);
+  border-bottom-color: rgba(234, 179, 8, 0.2);
+  color: #fef9c3;
+}
+
+.referral-page .referral-total-earn-card {
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: linear-gradient(165deg, rgba(234, 179, 8, 0.14) 0%, #1a1c1e 45%, #0a0a0a 100%);
+  box-shadow: none;
+}
+
+.referral-page .referral-total-earn-label {
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.referral-page .referral-total-earn-value {
+  color: #eab308;
+  text-shadow: 0 1px 16px rgba(234, 179, 8, 0.35);
+}
+
+.referral-page .referral-total-earn-breakdown {
+  border-top-color: rgba(255, 255, 255, 0.07);
+}
+
+.referral-page .referral-total-earn-src {
+  color: rgba(184, 197, 217, 0.9);
+}
+
+.referral-page .referral-total-earn-amt {
+  color: #f8fafc;
+}
+
+.referral-page .referral-schedule-warn {
+  color: #fbbf24;
+}
+
+.referral-page .referral-error {
+  color: #fda4af;
+}
+
+.referral-page .referral-copy-toast {
+  color: #fde68a;
+}
+
+.referral-page .muted {
+  color: rgba(148, 163, 184, 0.9) !important;
+}
+
 .help-ticket-form {
   display: flex;
   flex-direction: column;
@@ -1361,11 +1492,11 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #86efac;
+  color: #fcd34d;
 }
 
 .help-ticket-status--open {
-  color: #86efac;
+  color: #fcd34d;
 }
 
 .help-ticket-status--in_progress {
@@ -1401,8 +1532,8 @@
   margin: 0 0 20px;
   padding: 16px 18px;
   border-radius: 14px;
-  background: linear-gradient(145deg, rgba(0, 200, 120, 0.1), rgba(8, 24, 20, 0.95));
-  border: 1px solid rgba(0, 230, 118, 0.28);
+  background: linear-gradient(145deg, rgba(202, 138, 4, 0.1), rgba(42, 24, 8, 0.95));
+  border: 1px solid rgba(234, 179, 8, 0.28);
 }
 
 .deposit-address-title {

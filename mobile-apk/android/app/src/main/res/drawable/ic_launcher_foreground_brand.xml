@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Adaptive foreground: full logo inside ~72dp safe zone (inset on 108dp canvas).
-  Bitmap: ic_apk_launcher_icon.png (sync from frontend/public/brand/Fx Logo.png via npm run sync:brand).
+  Bitmap: ic_apk_launcher_icon.* (sync from frontend/public/brand/apkl.png preferred, else logof.png, via npm run sync:brand).
 -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/ic_apk_launcher_icon"

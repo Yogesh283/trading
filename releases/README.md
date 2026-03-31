@@ -1,9 +1,9 @@
 # Release APK (optional)
 
-Place your signed **`UpDownFX.apk`** here as:
+Place your signed **`Iqfxpro.apk`** here as:
 
 ```
-releases/UpDownFX.apk
+releases/Iqfxpro.apk
 ```
 
 Same folder level as **`frontend/`** and **`src/`** (repo root).
@@ -12,16 +12,16 @@ Same folder level as **`frontend/`** and **`src/`** (repo root).
 
 ```bash
 # Pehle Studio se APK build, phir:
-npm run copy-apk          # → frontend/public/downloads/UpDownFX.apk
-npm run copy-apk:releases # → releases/UpDownFX.apk
+npm run copy-apk          # → frontend/public/downloads/Iqfxpro.apk
+npm run copy-apk:releases # → releases/Iqfxpro.apk
 
 # Ya ek saath:
 npm run apk:sync
 ```
 
-Phir **`releases/UpDownFX.apk`** ko SFTP se VPS par bhejo:
+Phir **`releases/Iqfxpro.apk`** ko SFTP se VPS par bhejo:
 
-` /home/updowanfx/htdocs/updowanfx.com/releases/UpDownFX.apk `
+` /home/user/htdocs/site/releases/Iqfxpro.apk `
 
 The Node server serves this APK from **`GET /api/system/android-apk`** (and other aliases) if this file is present (see **`APK_FILE_PATH`** in **`.env.example`** for a custom path).
 

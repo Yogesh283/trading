@@ -1,5 +1,5 @@
 {
-  "name": "updownfx",
+  "name": "iqfxpro",
   "version": "1.0.0",
   "description": "Node.js trading bot scaffold",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "dev:api-only": "cross-env SEPARATE_FRONTEND=1 tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json && npm run verify:dist",
-    "verify:dist": "node -e \"const fs=require('fs');const p='dist/server.js';if(!fs.existsSync(p)){console.error('missing dist/server.js');process.exit(1)}const s=fs.readFileSync(p,'utf8');if(!s.includes('updownfx-raw')){console.error('dist/server.js missing raw handler — pull latest src from GitHub then npm run build');process.exit(1)}console.log('verify:dist OK');\"",
+    "verify:dist": "node -e \"const fs=require('fs');const p='dist/server.js';if(!fs.existsSync(p)){console.error('missing dist/server.js');process.exit(1)}const s=fs.readFileSync(p,'utf8');if(!s.includes('iqfxpro-raw')){console.error('dist/server.js missing raw handler — pull latest src from GitHub then npm run build');process.exit(1)}console.log('verify:dist OK');\"",
     "frontend:ci": "npm ci --include=dev --prefix frontend",
     "frontend:install": "npm install --prefix frontend",
     "build:all": "npm run build && npm run frontend:install && npm run frontend:build",
@@ -32,7 +32,8 @@
     "frontend:build": "npm --prefix frontend run build",
     "cron:investment": "tsx scripts/investment-cron.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",
-    "test:live-admin": "tsx scripts/test-live-admin.ts"
+    "test:live-admin": "tsx scripts/test-live-admin.ts",
+    "test:user-side": "tsx scripts/test-user-side.ts"
   },
   "keywords": [],
   "author": "",

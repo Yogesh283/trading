@@ -42,7 +42,7 @@ import "../site-frame.css";
 const darkTheme = createTheme({
   palette: {
     mode: "dark",
-    primary: { main: "#00e676" },
+    primary: { main: "#eab308" },
     background: { default: "#0a0a0a", paper: "#121418" }
   }
 });
@@ -64,7 +64,7 @@ ReactDOM.createRoot(adminMount).render(
         dataProvider={adminDataProvider}
         authProvider={adminAuthProvider}
         loginPage={AdminLoginPage}
-        title="UpDown FX · Admin"
+        title="IQFX Pro · Admin"
         requireAuth
         disableTelemetry
       >

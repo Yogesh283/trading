@@ -24,6 +24,13 @@ body {
     inset 0 0 160px var(--prime-lock-glow);
 }
 
+/* Phones: drop the decorative inset frame — reads as an unwanted border around the app */
+@media (max-width: 768px) {
+  body {
+    box-shadow: none;
+  }
+}
+
 #root,
 #admin-root {
   min-height: 100vh;

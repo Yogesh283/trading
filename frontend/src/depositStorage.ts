@@ -2,14 +2,14 @@
 export const DEPOSIT_AMOUNT_QUERY = "depositAmount";
 /** When set to 1, Deposit page auto-opens the USDT transfer prompt (treasury + amount) in the in-wallet browser. */
 export const AUTODEPOSIT_QUERY = "autodeposit";
-export const DEPOSIT_AMOUNT_SESSION_KEY = "updownfx_deposit_amount";
+export const DEPOSIT_AMOUNT_SESSION_KEY = "iqfxpro_deposit_amount";
 /** Same-origin localStorage sometimes survives in-wallet reload (query/hash are primary). */
-export const DEPOSIT_AMOUNT_LOCAL_KEY = "updownfx_deposit_amount_v1";
+export const DEPOSIT_AMOUNT_LOCAL_KEY = "iqfxpro_deposit_amount_v1";
 /** Set right before wallet deep link; read after in-app browser loads (query can be stripped). */
-export const AUTODEPOSIT_LOCAL_KEY = "updownfx_autodeposit_v1";
-export const AUTODEPOSIT_TS_KEY = "updownfx_autodeposit_ts";
+export const AUTODEPOSIT_LOCAL_KEY = "iqfxpro_autodeposit_v1";
+export const AUTODEPOSIT_TS_KEY = "iqfxpro_autodeposit_ts";
 /** Some in-app browsers keep sessionStorage for the same dapp navigation. */
-export const AUTODEPOSIT_SESSION_KEY = "updownfx_autodeposit";
+export const AUTODEPOSIT_SESSION_KEY = "iqfxpro_autodeposit";
 /** Abandon stale “open wallet” intents after this many ms. */
 export const AUTODEPOSIT_MAX_AGE_MS = 25 * 60 * 1000;
 

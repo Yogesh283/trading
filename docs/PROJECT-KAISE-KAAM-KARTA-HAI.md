@@ -1,4 +1,4 @@
-# Yeh project kaise kaam karta hai (UpDown FX)
+# Yeh project kaise kaam karta hai (Iqfx Pro)
 
 Roman Urdu + English — poora flow samajhne ke liye. Technical detail ke liye root **`README.md`** aur server deploy ke liye **`DEPLOY.md`** dekho.
 
@@ -6,7 +6,7 @@ Roman Urdu + English — poora flow samajhne ke liye. Technical detail ke liye r
 
 ## 1. Short mein kya hai?
 
-**UpDown FX** ek **full-stack trading web app** hai:
+**Iqfx Pro** ek **full-stack trading web app** hai:
 
 - **Frontend:** React (splash → landing → login/register → trading dashboard)
 - **Backend:** Node.js + Express (**REST API** + **WebSocket** live prices ke liye)
@@ -53,7 +53,7 @@ flowchart LR
 | **`frontend/src/`** | React app: `App.tsx` (main UI), `LandingPage.tsx`, `api.ts` (fetch helpers) |
 | **`frontend/public/`** | Static assets (brand images, `downloads/` APK copy) |
 | **`mobile-apk/`** | Capacitor Android shell — `capacitor.config.json` mein **`server.url`** = live site |
-| **`releases/`** | Optional: server par **`UpDownFX.apk`** yahan rakh sakte ho — download route |
+| **`releases/`** | Optional: server par **`Iqfxpro.apk`** yahan rakh sakte ho — download route |
 | **`.env`** | `PORT`, `AUTH_SECRET`, MySQL, USDT address, `APK_FILE_PATH`, wagaira |
 
 ---

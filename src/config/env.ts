@@ -127,16 +127,29 @@ const envSchema = z.object({
     .optional()
     .transform((s) => s === "0" || String(s).toLowerCase() === "false"),
   /**
-   * Absolute path (or path relative to repo root) to `UpDownFX.apk` for GET /api/system/android-apk, /api/android-app.apk, /downloads/UpDownFX.apk, /api/mobile-app.
-   * If unset, server looks for releases/UpDownFX.apk, frontend/dist/downloads/UpDownFX.apk, frontend/public/downloads/UpDownFX.apk.
+   * Absolute path (or path relative to repo root) to `Iqfxpro.apk` for GET /api/system/android-apk, /api/android-app.apk, /downloads/Iqfxpro.apk, /api/mobile-app.
+   * If unset, server looks for releases/Iqfxpro.apk, frontend/dist/downloads/Iqfxpro.apk, frontend/public/downloads/Iqfxpro.apk.
    */
-  APK_FILE_PATH: z.string().optional()
+  APK_FILE_PATH: z.string().optional(),
+  /**
+   * Declared latest Android build — must match `versionCode` in `mobile-apk/android/app/build.gradle` after each release.
+   * Clients in the APK compare this to `App.getInfo().build` to show “Update available” (GET /api/system/android-app-info).
+   */
+  ANDROID_APP_VERSION_CODE: z.string().optional(),
+  ANDROID_APP_VERSION_NAME: z.string().optional()
 });
 
 const parsed = envSchema.parse(process.env);
 
 const mysqlDatabaseEffective =
   parsed.MYSQL_DATABASE?.trim() || (parsed.USE_MYSQL ? "tradeing" : undefined);
+
+const androidVersionCodeParsed = (() => {
+  const s = parsed.ANDROID_APP_VERSION_CODE?.trim();
+  if (!s) return 1;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+})();
 
 export const env = {
   ...parsed,
@@ -146,5 +159,7 @@ export const env = {
   SKIP_CLEAR_CACHE_ON_REGISTER: Boolean(parsed.SKIP_CLEAR_CACHE_ON_REGISTER),
   SEED_CHROME_USER: Boolean(parsed.SEED_CHROME_USER),
   INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS,
-  FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY)
+  FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY),
+  ANDROID_APP_VERSION_CODE: androidVersionCodeParsed,
+  ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0"
 };

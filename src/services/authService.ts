@@ -356,7 +356,7 @@ export async function registerUser(input: {
   const pass = input.password;
   for (let attempt = 0; attempt < 25; attempt++) {
     const id = await allocateUniqueFourDigitUserId();
-    const email = internalEmailPath ? requestedEmail : `${id}@m.updownfx.local`;
+    const email = internalEmailPath ? requestedEmail : `${id}@m.iqfxpro.local`;
     const selfCode = await allocateUniqueSelfReferralCode();
     try {
       if (isMysqlMode()) {

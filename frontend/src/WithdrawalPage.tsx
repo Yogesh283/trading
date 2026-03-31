@@ -10,6 +10,7 @@ import {
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
+import { useGlobalAlert } from "./GlobalAlertContext";
 import { formatInr, INR_PER_USDT, previewInrFromUsdt } from "./fundsConfig";
 
 const MIN_WITHDRAW_USDT = 10;
@@ -25,10 +26,10 @@ type Props = {
 };
 
 export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
+  const { showAlert } = useGlobalAlert();
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
   const [codeField, setCodeField] = useState("");
-  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
   const [pinSet, setPinSet] = useState(false);
@@ -67,7 +68,6 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
 
   const handleRefresh = useCallback(async () => {
     setRefreshBusy(true);
-    setMessage("");
     try {
       await Promise.allSettled([
         loadMyWithdrawals(token).then((r) => setWithdrawals(r.withdrawals)),
@@ -83,23 +83,21 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
   const codeDigits = pinSet ? 4 : totpLegacy ? 6 : 0;
 
   const handleSetPin = async () => {
-    setMessage("");
     setPinBusy(true);
     try {
       await setWithdrawalTpinApi(token, newPin, confirmNewPin);
       setNewPin("");
       setConfirmNewPin("");
       await refreshSecurity();
-      setMessage("Withdrawal TPIN saved. Use it every time you withdraw.");
+      showAlert("Withdrawal TPIN saved. Use it every time you withdraw.", "info");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not save TPIN");
+      showAlert(e instanceof Error ? e.message : "Could not save TPIN", "error");
     } finally {
       setPinBusy(false);
     }
   };
 
   const handleChangePin = async () => {
-    setMessage("");
     setPinBusy(true);
     try {
       await changeWithdrawalTpinApi(token, currentPin, changePin, changeConfirm);
@@ -108,9 +106,9 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
       setChangeConfirm("");
       setShowChange(false);
       await refreshSecurity();
-      setMessage("Withdrawal TPIN updated.");
+      showAlert("Withdrawal TPIN updated.", "info");
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not change TPIN");
+      showAlert(e instanceof Error ? e.message : "Could not change TPIN", "error");
     } finally {
       setPinBusy(false);
     }
@@ -118,39 +116,47 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setMessage("");
 
     if (!canWithdraw) {
-      setMessage("Create your 4-digit withdrawal TPIN above first (or use legacy authenticator if already enabled).");
+      showAlert(
+        "Create your 4-digit withdrawal TPIN above first (or use legacy authenticator if already enabled).",
+        "error"
+      );
       return;
     }
 
     const num = Number(amount);
     if (!Number.isFinite(num) || num < MIN_WITHDRAW_USDT) {
-      setMessage(`Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT (need at least ${formatInr(MIN_BALANCE_INR)} in wallet).`);
+      showAlert(
+        `Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT (need at least ${formatInr(MIN_BALANCE_INR)} in wallet).`,
+        "error"
+      );
       return;
     }
     const inrNeeded = previewInrFromUsdt(num);
     if (inrNeeded > balance + 1e-6) {
-      setMessage(
-        `Not enough balance. ${num} USDT needs ${formatInr(inrNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`
+      showAlert(
+        `Not enough balance. ${num} USDT needs ${formatInr(inrNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`,
+        "error"
       );
       return;
     }
     const trimmed = address.trim();
     if (!trimmed) {
-      setMessage("Enter your BEP20 USDT receive address (wallet starting with 0x…).");
+      showAlert("Enter your BEP20 USDT receive address (wallet starting with 0x…).", "error");
       return;
     }
     if (trimmed.includes("@")) {
-      setMessage(
-        "That looks like an email. Paste your on-chain wallet address (0x…, 42 characters) — not an email or phone number."
+      showAlert(
+        "That looks like an email. Paste your on-chain wallet address (0x…, 42 characters) — not an email or phone number.",
+        "error"
       );
       return;
     }
     if (!BEP20_ADDRESS_RE.test(trimmed)) {
-      setMessage(
-        "Enter a valid BEP20 address: exactly 42 characters — 0x followed by 40 hexadecimal digits (a–f, 0–9)."
+      showAlert(
+        "Enter a valid BEP20 address: exactly 42 characters — 0x followed by 40 hexadecimal digits (a–f, 0–9).",
+        "error"
       );
       return;
     }
@@ -162,10 +168,11 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           ? true
           : false;
     if (!ok) {
-      setMessage(
+      showAlert(
         pinSet
           ? "Enter your 4-digit withdrawal TPIN."
-          : "Enter the 6-digit code from your authenticator app."
+          : "Enter the 6-digit code from your authenticator app.",
+        "error"
       );
       return;
     }
@@ -174,8 +181,9 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
     try {
       const res = await submitWithdrawalRequest(token, num, trimmed, code);
       const debited = res.inrDebited ?? inrNeeded;
-      setMessage(
-        `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`
+      showAlert(
+        `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`,
+        "info"
       );
       setAmount("");
       setAddress("");
@@ -184,7 +192,7 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
       const r = await loadMyWithdrawals(token);
       setWithdrawals(r.withdrawals);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Request failed");
+      showAlert(err instanceof Error ? err.message : "Request failed", "error");
     } finally {
       setBusy(false);
     }
@@ -392,7 +400,6 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           </fieldset>
         </form>
 
-        {message ? <p className="funds-message">{message}</p> : null}
 
         {withdrawals.length > 0 ? (
           <div className="funds-history">

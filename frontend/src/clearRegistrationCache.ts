@@ -11,7 +11,8 @@ export async function clearCachesAfterRegistration(): Promise<void> {
       const k = window.localStorage.key(i);
       if (
         k &&
-        (k.startsWith("updownfx") ||
+        (k.startsWith("iqfxpro") ||
+          k.startsWith("updownfx") ||
           k.startsWith("tradeing") ||
           k.toLowerCase().includes("trading"))
       ) {

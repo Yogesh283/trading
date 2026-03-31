@@ -3,7 +3,7 @@
 .auth-phone-npm {
   width: 100%;
   /* Override library :root defaults without touching global theme */
-  --PhoneInput-color--focus: #00e676;
+  --PhoneInput-color--focus: #eab308;
   --PhoneInputInternationalIconPhone-opacity: 0.9;
   --PhoneInputInternationalIconGlobe-opacity: 0.75;
   --PhoneInputCountrySelect-marginRight: 0;
@@ -17,7 +17,7 @@
   --PhoneInputCountryFlag-height: 22px;
   --PhoneInputCountryFlag-borderWidth: 1px;
   --PhoneInputCountryFlag-borderColor: rgba(255, 255, 255, 0.22);
-  --PhoneInputCountryFlag-borderColor--focus: rgba(0, 230, 118, 0.75);
+  --PhoneInputCountryFlag-borderColor--focus: rgba(234, 179, 8, 0.75);
   --PhoneInputCountryFlag-backgroundColor--loading: rgba(30, 34, 44, 0.6);
 }
 
@@ -46,9 +46,9 @@
 }
 
 .auth-phone-npm .PhoneInput:focus-within {
-  border-color: rgba(0, 230, 118, 0.55);
+  border-color: rgba(234, 179, 8, 0.55);
   box-shadow:
-    0 0 0 3px rgba(0, 230, 118, 0.14),
+    0 0 0 3px rgba(234, 179, 8, 0.14),
     0 12px 32px rgba(0, 0, 0, 0.35);
   background: rgba(6, 8, 12, 0.72);
 }

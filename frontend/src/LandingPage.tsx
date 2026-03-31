@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import "./landing.css";
 import { APP_NAME, APK_DOWNLOAD_URL } from "./appBrand";
+import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
-import GlobalRefreshButton from "./GlobalRefreshButton";
-import { brandBanner1, brandBanner2, brandBanner3, brandHeroVideo, brandLogo } from "./brandUrls";
+import { brandApkIcon, brandBanner2, brandBanner3, brandLogo } from "./brandUrls";
 
 const PILL_ITEMS = [
-  "Up / Down binary trades",
+  "Forex & metals markets",
   "Modern platform",
   "Android APK",
   "Useful features",
@@ -16,7 +16,16 @@ const PILL_ITEMS = [
   "Trusted experience"
 ];
 
-function ApkDownloadLink({ className, children }: { className: string; children: ReactNode }) {
+function ApkDownloadLink({
+  className,
+  children,
+  showBrandIcon = true
+}: {
+  className: string;
+  children: ReactNode;
+  /** When false, use your own icon (e.g. drawer row with branded slot). */
+  showBrandIcon?: boolean;
+}) {
   const external = /^https?:\/\//i.test(APK_DOWNLOAD_URL);
   return (
     <a
@@ -24,8 +33,103 @@ function ApkDownloadLink({ className, children }: { className: string; children:
       className={className}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
     >
+      {showBrandIcon ? (
+        <img src={brandApkIcon} alt="" width={22} height={22} className="landing-apk-btn-ico" />
+      ) : null}
       {children}
     </a>
+  );
+}
+
+const DI = "landing-drawer-ico";
+
+function IcoTrading() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 19h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M7 15l3-7 4 5 3-9 4 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IcoAbout() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IcoHelp() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M9.5 9.5a2.5 2.5 0 014.35 1.55c0 1.63-1.57 1.88-1.85 3.45H10"
+        stroke="currentColor"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="17" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IcoDemo() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 10l4 2.5-4 2.5V10z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IcoReviews() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 2.5l2.8 5.7 6.3.9-4.6 4.5 1.1 6.3L12 17.9l-5.6 3 1.1-6.3L3 9.1l6.3-.9L12 2.5z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IcoSignIn() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M15 3h4v18h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M11 12H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M6 9l-3 3 3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IcoRegister() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="8" r="3.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M4 20v-1a5 5 0 015-5h1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M19 15v6M16 18h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IcoTryFree() {
+  return (
+    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 3l1.9 3.9L18 9l-4.1 1.1L12 14l-1.9-3.9L6 9l4.1-1.1L12 3z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M5 21h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity={0.35} />
+    </svg>
   );
 }
 
@@ -38,7 +142,7 @@ const DEMO_TILES = [
   },
   {
     title: "Learn before you risk",
-    desc: "Practice binary-style timing: choose direction, stake, and see the result when the candle closes.",
+    desc: "Practice timed trades: choose direction, stake, and see the result when the candle closes.",
     cta: "Log in for demo",
     action: "demo" as const
   },
@@ -102,31 +206,6 @@ type Props = {
 export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
-  const cinematicVideoRef = useRef<HTMLVideoElement>(null);
-  const [cinematicPlaying, setCinematicPlaying] = useState(false);
-
-  const playCinematicVideo = useCallback(async () => {
-    const el = cinematicVideoRef.current;
-    if (!el) return;
-    try {
-      el.muted = true;
-      el.currentTime = 0;
-      await el.play();
-      setCinematicPlaying(true);
-    } catch {
-      setCinematicPlaying(false);
-    }
-  }, []);
-
-  /** After the video ends, pause and reset; only Play restarts playback. */
-  const handleCinematicEnded = useCallback(() => {
-    setCinematicPlaying(false);
-    const el = cinematicVideoRef.current;
-    if (el) {
-      el.pause();
-      el.currentTime = 0;
-    }
-  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -165,7 +244,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
           <div className="landing-nav-slot landing-nav-slot--brand">
             <span className="landing-brand">
               <BrandLogo size={40} className="landing-brand-logo" />
-              <span className="landing-brand-text">{APP_NAME}</span>
+              <ProductWordmark className="landing-brand-text" size="compact" />
             </span>
           </div>
           <div className="landing-nav-slot landing-nav-slot--center landing-nav-desktop">
@@ -201,12 +280,6 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
                 Try for free
               </button>
             </div>
-            <GlobalRefreshButton
-              className="global-refresh-fab--sm"
-              title="Reload page"
-              aria-label="Refresh page"
-              onClick={() => window.location.reload()}
-            />
             <button
               type="button"
               className="landing-menu-btn"
@@ -245,30 +318,61 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
                 </button>
               </div>
               <div className="landing-drawer-links">
-                <button type="button" onClick={() => { scrollTo("ot-platform"); }}>
-                  Trading
+                <button type="button" className="landing-drawer-item" onClick={() => scrollTo("ot-platform")}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoTrading />
+                  </span>
+                  <span className="landing-drawer-item__txt">Trading</span>
                 </button>
-                <ApkDownloadLink className="landing-drawer-link">Download App</ApkDownloadLink>
-                <button type="button" onClick={() => go(onAbout)}>
-                  About
+                <ApkDownloadLink className="landing-drawer-item" showBrandIcon={false}>
+                  <>
+                    <span className="landing-drawer-item__ico" aria-hidden>
+                      <img src={brandApkIcon} alt="" width={22} height={22} className="landing-drawer-ico" />
+                    </span>
+                    <span className="landing-drawer-item__txt">Download App</span>
+                  </>
+                </ApkDownloadLink>
+                <button type="button" className="landing-drawer-item" onClick={() => go(onAbout)}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoAbout />
+                  </span>
+                  <span className="landing-drawer-item__txt">About</span>
                 </button>
-                <button type="button" onClick={() => { scrollTo("ot-help"); }}>
-                  Help
+                <button type="button" className="landing-drawer-item" onClick={() => scrollTo("ot-help")}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoHelp />
+                  </span>
+                  <span className="landing-drawer-item__txt">Help</span>
                 </button>
-                <button type="button" onClick={() => { scrollTo("ot-demo-grid"); }}>
-                  Explore demo
+                <button type="button" className="landing-drawer-item" onClick={() => scrollTo("ot-demo-grid")}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoDemo />
+                  </span>
+                  <span className="landing-drawer-item__txt">Explore demo</span>
                 </button>
-                <button type="button" onClick={() => { scrollTo("ot-reviews"); }}>
-                  Reviews
+                <button type="button" className="landing-drawer-item" onClick={() => scrollTo("ot-reviews")}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoReviews />
+                  </span>
+                  <span className="landing-drawer-item__txt">Reviews</span>
                 </button>
-                <button type="button" className="landing-cta-highlight landing-cta-highlight--login" onClick={() => go(onLogin)}>
-                  Sign in
+                <button type="button" className="landing-drawer-item" onClick={() => go(onLogin)}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoSignIn />
+                  </span>
+                  <span className="landing-drawer-item__txt">Sign in</span>
                 </button>
-                <button type="button" className="landing-cta-highlight landing-cta-highlight--register" onClick={() => go(onRegister)}>
-                  Register
+                <button type="button" className="landing-drawer-item" onClick={() => go(onRegister)}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoRegister />
+                  </span>
+                  <span className="landing-drawer-item__txt">Register</span>
                 </button>
-                <button type="button" className="landing-cta-highlight landing-cta-highlight--start" onClick={() => go(onTryDemo)}>
-                  Try for free
+                <button type="button" className="landing-drawer-item" onClick={() => go(onTryDemo)}>
+                  <span className="landing-drawer-item__ico" aria-hidden>
+                    <IcoTryFree />
+                  </span>
+                  <span className="landing-drawer-item__txt">Try for free</span>
                 </button>
               </div>
             </nav>
@@ -280,18 +384,15 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
       <section className="landing-ot-hero" aria-label="Intro">
         <div className="landing-ot-hero-glow" aria-hidden />
         <div className="landing-ot-hero-inner">
-          <p className="landing-ot-hero-label landing-ot-hero-label--with-logo">
-            <img src={brandLogo} alt="" width={28} height={28} className="landing-ot-hero-logo" decoding="async" />
-            <span>Forex charts · binary-style Up / Down</span>
-          </p>
+         
           <h1 className="landing-ot-hero-title">
-            Predict direction
+            Trade with clarity
             <br />
-            <span className="landing-ot-hero-accent">Up or Down — timed trades</span>
+            <span className="landing-ot-hero-accent">Charts, timing, and control</span>
           </h1>
           <p className="landing-ot-hero-sub">
-            Choose <strong>Up</strong> if you think price will finish above entry when time runs out, or{" "}
-            <strong>Down</strong> if you expect it below. Practice free on demo; go live when you are ready.
+            Follow live-style candles on forex and metals, size your trades, and use demo to practice before funding your
+            live wallet.
           </p>
           <div className="landing-ot-hero-cta">
             <button type="button" className="landing-ot-btn-main" onClick={onTryDemo}>
@@ -300,39 +401,10 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
             <button type="button" className="landing-ot-btn-ghost" onClick={() => scrollTo("landing-features")}>
               Learn more
             </button>
-            <ApkDownloadLink className="landing-ot-btn-ghost">Download Android APK</ApkDownloadLink>
+            <ApkDownloadLink className="landing-ot-btn-ghost landing-ot-btn-apk-highlight">
+              Download Android APK
+            </ApkDownloadLink>
           </div>
-        </div>
-      </section>
-
-      {/* Cinematic — brand video v.mp4; tap Play to start (poster until then) */}
-      <section className="landing-ot-cinematic" aria-label="Trading workspace">
-        <div className="landing-ot-cinematic-inner">
-          <video
-            ref={cinematicVideoRef}
-            className="landing-ot-cinematic-img landing-ot-cinematic-video"
-            muted
-            playsInline
-            poster={brandBanner1}
-            preload="metadata"
-            aria-label="Trading platform preview video"
-            onPlay={() => setCinematicPlaying(true)}
-            onEnded={handleCinematicEnded}
-          >
-            <source src={brandHeroVideo} type="video/mp4" />
-          </video>
-          {!cinematicPlaying ? (
-            <div className="landing-cinematic-play-overlay">
-              <button
-                type="button"
-                className="landing-cinematic-play-btn"
-                onClick={() => void playCinematicVideo()}
-                aria-label="Play preview video"
-              >
-                <span className="landing-cinematic-play-triangle" aria-hidden />
-              </button>
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -340,7 +412,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
       <section className="landing-demo-block landing-demo-block--near-top" id="landing-demo-block">
         <div className="landing-demo-inner landing-demo-inner--brand">
           <div className="landing-demo-copy">
-            <h2>Demo account — practice Up &amp; Down</h2>
+            <h2>Demo account — practice first</h2>
             <p>
               Log in or register first, then use the <strong>Demo</strong> toggle in the app for virtual money. When you
               are ready, fund your live wallet.
@@ -400,46 +472,10 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
         <div className="landing-ot-band-inner">
           <h2 className="landing-ot-band-title">Designed for traders who want clarity</h2>
           <p className="landing-ot-band-text">
-            {APP_NAME} pairs clear candlestick charts with simple <strong>Up / Down</strong> decisions and a visible
-            countdown. Learn the flow on demo — same buttons and timing on live.
+            {APP_NAME} pairs candlestick charts with a focused trading flow and clear timing. Learn on demo — the same
+            interface for live when you fund.
           </p>
         </div>
-      </section>
-
-      {/* Binary Up / Down — how it connects to the product */}
-      <section className="landing-ot-binary" id="ot-binary" aria-labelledby="landing-binary-heading">
-        <h2 id="landing-binary-heading" className="landing-ot-h2 landing-ot-center">
-          How binary-style Up / Down works here
-        </h2>
-        <p className="landing-ot-center-text landing-ot-binary-lead">
-          Not sure about complex orders? Here you only connect your view on price to two actions — aligned with the
-          in-app <strong>Up</strong> and <strong>Down</strong> trade buttons.
-        </p>
-        <div className="landing-ot-binary-steps">
-          <article className="landing-ot-binary-card">
-            <span className="landing-ot-binary-step">1</span>
-            <h3>Pick the market</h3>
-            <p>Select a forex pair and timeframe. The chart shows live-style ticks and candles.</p>
-          </article>
-          <article className="landing-ot-binary-card">
-            <span className="landing-ot-binary-step">2</span>
-            <h3>Tap Up or Down</h3>
-            <p>
-              <span className="landing-ot-binary-tag landing-ot-binary-tag--up">Up</span> — you expect the price at
-              close to be <strong>above</strong> your entry.{" "}
-              <span className="landing-ot-binary-tag landing-ot-binary-tag--down">Down</span> — you expect it{" "}
-              <strong>below</strong>.
-            </p>
-          </article>
-          <article className="landing-ot-binary-card">
-            <span className="landing-ot-binary-step">3</span>
-            <h3>Timer decides</h3>
-            <p>When the countdown hits zero, the platform compares price to your entry — win or loss is settled by the rules shown in the app (e.g. payout multiple on wins).</p>
-          </article>
-        </div>
-        <p className="landing-ot-binary-foot">
-          Trading carries risk; you can lose your stake. Use demo to understand Up / Down and timing before depositing.
-        </p>
       </section>
 
       {/* Platform + mock device */}
@@ -448,7 +484,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
           <h2 className="landing-ot-h2">Modern trading platform</h2>
           <p className="landing-ot-lead">Your financial decisions start here — charts, markets, and orders in one view.</p>
           <ul className="landing-ot-checks">
-            <li>Binary-style <strong>Up / Down</strong> on forex pairs — amount, direction, and expiry in one flow</li>
+            <li>
+              <strong>Directional trades</strong> on forex pairs — amount, direction, and time horizon in one flow
+            </li>
             <li>Web app — responsive on phone and desktop</li>
             <li>Demo balance to practice without signup friction; live wallet after register</li>
           </ul>
@@ -584,7 +622,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
             { icon: "🎓", title: "Learning center", desc: "Grow skills at your pace" },
             { icon: "🛡️", title: "Demo first", desc: "Virtual funds, refillable" },
             { icon: "⚡", title: "Easy start", desc: "Register in minutes" },
-            { icon: "⇅", title: "Up / Down trades", desc: "Binary-style direction + timer on forex candles" },
+            { icon: "⇅", title: "Timed trades", desc: "Clear direction and countdown on forex candles" },
             { icon: "💳", title: "Live wallet", desc: "Deposit when you are ready" }
           ].map((f) => (
             <div key={f.title} className="landing-feature-card">
@@ -601,8 +639,8 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
           <img src={brandLogo} width={44} height={44} alt={APP_NAME} className="landing-footer-logo-mark" decoding="async" />
         </div>
         <p>
-          {APP_NAME} — forex-style charts with binary Up / Down trades. Markets are risky; you may lose your stake.
-          Practice on demo first — not financial advice.
+          {APP_NAME} — forex-style charts and short-horizon trading. Markets are risky; you may lose your stake. Practice
+          on demo first — not financial advice.
         </p>
         <p className="landing-footer-about">
           <button type="button" className="landing-footer-about-link" onClick={onAbout}>

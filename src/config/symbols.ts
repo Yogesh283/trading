@@ -2,7 +2,7 @@
 export const FOREX_PAIRS = [
   /** When live spot fails briefly, sim stays near real gold (not ~4400). */
   { symbol: "XAUUSD", name: "Gold / US Dollar", base: 4550 },
-  { symbol: "EURUSD", name: "Euro / US Dollar", base: 1.085 },
+  { symbol: "GBPAUD", name: "British Pound / Australian Dollar", base: 1.94 },
   { symbol: "GBPUSD", name: "British Pound / US Dollar", base: 1.265 },
   { symbol: "USDJPY", name: "US Dollar / Japanese Yen", base: 149.5 },
   { symbol: "USDCHF", name: "US Dollar / Swiss Franc", base: 0.885 },

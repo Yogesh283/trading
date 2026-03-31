@@ -1,7 +1,7 @@
 /**
  * Monthly investment ROI (1st UTC only): principal × admin ROI % + 5-level on yield.
  * Crontab example (1st 00:10 UTC):
- *   10 0 1 * * cd /path/to/updownfx && npx tsx scripts/investment-cron.ts
+ *   10 0 1 * * cd /path/to/iqfxpro && npx tsx scripts/investment-cron.ts
  */
 import { initAppDb } from "../src/db/appDb";
 import { runInvestmentMonthlyYield } from "../src/services/investmentStore";

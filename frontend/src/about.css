@@ -52,7 +52,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: var(--ot-green, #00e676);
+  color: var(--ot-gold, #eab308);
   margin: 0 0 0.5rem;
 }
 
@@ -69,6 +69,10 @@
   color: #e2e8f0;
   line-height: 1.65;
   font-size: 1.02rem;
+  text-align: justify;
+  text-align-last: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .about-lead strong {
@@ -104,6 +108,10 @@
 
 .about-list li {
   margin-bottom: 0.5rem;
+  text-align: justify;
+  text-align-last: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .about-list--compact li {
@@ -115,7 +123,7 @@
   background: rgba(0, 0, 0, 0.35);
   padding: 0.1em 0.35em;
   border-radius: 4px;
-  color: #86efac;
+  color: #fcd34d;
 }
 
 .about-income-intro {
@@ -123,6 +131,10 @@
   color: #b8c4ce;
   font-size: 0.92rem;
   line-height: 1.55;
+  text-align: justify;
+  text-align-last: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .about-income-intro strong {

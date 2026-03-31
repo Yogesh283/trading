@@ -17,6 +17,8 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
   .app-shell.app-mobile-trade {
     padding-left: 8px;
     padding-right: 8px;
+    /* Flush content under body safe-area; avoids a visible strip above the home header / dark block */
+    padding-top: 0;
   }
 }
 
@@ -80,68 +82,68 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
 }
 
 /*
- * Demo wallet (mobile trade): soft mint/green accent on dock + header.
+ * Demo wallet (mobile trade): gold accent on dock + header.
  * Live keeps the block above (cyan / theme) unchanged.
  */
 .app-mobile-trade[data-dock="theme"][data-account-wallet="demo"] {
-  --dock-top-edge: 1px solid rgba(74, 222, 128, 0.22);
-  --dock-label: #86efac;
-  --dock-label-hover: #bbf7d0;
-  --dock-label-active: #ecfdf5;
-  --dock-trade-text: #4ade80;
-  --dock-trade-text-active: #86efac;
-  --dock-indicator: #22c55e;
+  --dock-top-edge: 1px solid rgba(234, 179, 8, 0.22);
+  --dock-label: #fde68a;
+  --dock-label-hover: #fef3c7;
+  --dock-label-active: #fffbeb;
+  --dock-trade-text: #eab308;
+  --dock-trade-text-active: #facc15;
+  --dock-indicator: #eab308;
   --dock-indicator-ring: var(--dock-bg);
-  --dock-fab-border: #4ade80;
-  --dock-fab-border-active: #86efac;
-  --dock-fab-shadow: inset 0 1px #ffffff24, inset 0 -2px 8px #0000008c, 0 0 0 1px rgba(74, 222, 128, 0.4),
-    0 0 22px rgba(74, 222, 128, 0.35), 0 10px 18px -8px #0000006b, 0 4px 12px -4px #00000045;
-  --dock-fab-shadow-hover: inset 0 1px #ffffff2a, 0 0 30px rgba(74, 222, 128, 0.45), 0 12px 20px -8px #00000055,
+  --dock-fab-border: #eab308;
+  --dock-fab-border-active: #facc15;
+  --dock-fab-shadow: inset 0 1px #ffffff24, inset 0 -2px 8px #0000008c, 0 0 0 1px rgba(234, 179, 8, 0.4),
+    0 0 22px rgba(234, 179, 8, 0.35), 0 10px 18px -8px #0000006b, 0 4px 12px -4px #00000045;
+  --dock-fab-shadow-hover: inset 0 1px #ffffff2a, 0 0 30px rgba(234, 179, 8, 0.45), 0 12px 20px -8px #00000055,
     0 5px 14px -4px #00000040;
-  --dock-fab-shadow-active: inset 0 1px #ffffff26, 0 0 0 3px rgba(74, 222, 128, 0.45), 0 0 26px rgba(34, 197, 94, 0.35),
+  --dock-fab-shadow-active: inset 0 1px #ffffff26, 0 0 0 3px rgba(234, 179, 8, 0.45), 0 0 26px rgba(234, 179, 8, 0.35),
     0 10px 18px -8px #00000055;
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .app-main-nav {
   background: linear-gradient(
     165deg,
-    rgba(16, 28, 22, 0.97) 0%,
-    rgba(8, 18, 14, 0.98) 48%,
-    rgba(6, 14, 10, 0.99) 100%
+    rgba(36, 28, 14, 0.97) 0%,
+    rgba(24, 18, 10, 0.98) 48%,
+    rgba(18, 14, 8, 0.99) 100%
   );
-  border: 1px solid rgba(74, 222, 128, 0.22);
+  border: 1px solid rgba(250, 204, 21, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
     0 4px 8px rgba(0, 0, 0, 0.2),
     0 18px 40px rgba(0, 0, 0, 0.45),
-    0 0 56px -18px rgba(74, 222, 128, 0.14);
+    0 0 56px -18px rgba(250, 204, 21, 0.14);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .app-main-nav::before {
-  background: linear-gradient(90deg, transparent, rgba(134, 239, 172, 0.4), rgba(74, 222, 128, 0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(253, 230, 138, 0.4), rgba(250, 204, 21, 0.25), transparent);
 }
 
 /* Demo tint on chart bar — only when not using reference “trading” top row layout */
 .app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar:not(.mobile-chart-topbar--trading) {
-  background: linear-gradient(165deg, rgba(14, 28, 22, 0.98) 0%, rgba(6, 14, 12, 0.99) 100%);
-  border-color: rgba(74, 222, 128, 0.22);
+  background: linear-gradient(165deg, rgba(32, 26, 12, 0.98) 0%, rgba(22, 16, 10, 0.99) 100%);
+  border-color: rgba(250, 204, 21, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.05),
     0 2px 8px rgba(0, 0, 0, 0.2),
     0 8px 28px rgba(0, 0, 0, 0.35),
-    0 0 40px -12px rgba(74, 222, 128, 0.1);
+    0 0 40px -12px rgba(250, 204, 21, 0.1);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar:not(.mobile-chart-topbar--trading)::before {
-  background: linear-gradient(90deg, transparent, rgba(134, 239, 172, 0.42), transparent);
+  background: linear-gradient(90deg, transparent, rgba(253, 230, 138, 0.42), transparent);
 }
 
-/* Demo: mint wash behind trade stack (live keeps default dark / cyan) */
+/* Demo: warm gold wash behind trade stack (live keeps default dark / cyan) */
 .app-mobile-trade[data-account-wallet="demo"] .mobile-trade-root {
   background:
-    radial-gradient(ellipse 120% 85% at 50% -25%, rgba(34, 197, 94, 0.1), transparent 55%),
-    radial-gradient(ellipse 75% 55% at 100% 35%, rgba(16, 185, 129, 0.07), transparent 50%),
-    radial-gradient(ellipse 60% 45% at 0% 80%, rgba(52, 211, 153, 0.05), transparent 45%);
+    radial-gradient(ellipse 120% 85% at 50% -25%, rgba(234, 179, 8, 0.1), transparent 55%),
+    radial-gradient(ellipse 75% 55% at 100% 35%, rgba(245, 158, 11, 0.07), transparent 50%),
+    radial-gradient(ellipse 60% 45% at 0% 80%, rgba(250, 204, 21, 0.05), transparent 45%);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-chart-wrap {
@@ -153,54 +155,54 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) {
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .tv-chart-mobile.chart-card .tv-chart-toolbar {
-  border-bottom-color: rgba(74, 222, 128, 0.24);
-  background: linear-gradient(180deg, #121a16 0%, #0d1512 55%, #0a100e 100%);
+  border-bottom-color: rgba(250, 204, 21, 0.24);
+  background: linear-gradient(180deg, #1a160f 0%, #12100c 55%, #0e0c08 100%);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-list-panel {
-  border-color: rgba(74, 222, 128, 0.2);
-  background: rgba(6, 16, 12, 0.96);
+  border-color: rgba(250, 204, 21, 0.2);
+  background: rgba(28, 22, 12, 0.96);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-chip {
-  border-color: rgba(74, 222, 128, 0.22);
+  border-color: rgba(250, 204, 21, 0.22);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-chip:hover,
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-chip:focus-visible {
-  border-color: rgba(52, 211, 153, 0.42);
-  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(250, 204, 21, 0.42);
+  background: rgba(250, 204, 21, 0.08);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-chip.active {
-  border-color: #34d399;
-  background: rgba(52, 211, 153, 0.16);
-  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.28);
+  border-color: #f59e0b;
+  background: rgba(250, 204, 21, 0.16);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.28);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-asset-chips::-webkit-scrollbar-thumb {
-  background: rgba(74, 222, 128, 0.38);
+  background: rgba(250, 204, 21, 0.38);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-tf-pill {
-  border-color: rgba(74, 222, 128, 0.38);
+  border-color: rgba(250, 204, 21, 0.38);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-tf-dropdown button.active {
-  background: rgba(34, 197, 94, 0.22);
-  color: #86efac;
+  background: rgba(234, 179, 8, 0.22);
+  color: #fcd34d;
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-tb-icon {
-  border-color: rgba(74, 222, 128, 0.22);
+  border-color: rgba(250, 204, 21, 0.22);
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-trade-dock {
   background: linear-gradient(180deg, #070f0c 0%, #030806 100%);
-  border-color: rgba(74, 222, 128, 0.18);
+  border-color: rgba(250, 204, 21, 0.18);
   box-shadow:
     0 -8px 32px rgba(0, 0, 0, 0.35),
-    0 -1px 0 rgba(74, 222, 128, 0.08);
+    0 -1px 0 rgba(250, 204, 21, 0.08);
 }
 
 /* Deposit / withdraw / invest / referral — keep CTA above fixed dock after login */
@@ -244,7 +246,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .app-mobile-trade .app-nav-brand {
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .app-mobile-trade .app-nav-balance-pill {
@@ -285,7 +287,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   margin-top: 1px;
 }
 
-/* Full “UpDown FX” wordmark — do not clip with ellipsis (balances may shrink first) */
+/* Top product mark row — do not clip with ellipsis (balances may shrink first) */
 .app-mobile-trade .app-nav-brand-block {
   flex: 0 0 auto;
   min-width: min-content;
@@ -322,7 +324,20 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   padding-top: max(6px, env(safe-area-inset-top, 0px));
 }
 
-/* Row 1: profile + balance + Demo/Real + neon wallet (reference: dark charcoal bar) */
+/* Own row so Up/Down/FX never gets flex-squeezed to zero inside `.mobile-trading-page-nav` */
+.mobile-nav-wordmark-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2px 4px 6px;
+  min-height: 28px;
+}
+
+.mobile-nav-wordmark-row .mobile-tpn-wordmark {
+  font-size: 18px;
+}
+
+/* Row: profile + balance + refresh + wallet (reference: dark charcoal bar) */
 .mobile-trading-page-nav {
   position: relative;
   display: flex;
@@ -378,6 +393,15 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 .mobile-tpn-profile-ring svg {
   width: 16px;
   height: 16px;
+}
+
+/* Wordmark in mobile top area (see `.mobile-nav-wordmark-row`) */
+.mobile-tpn-wordmark {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  min-width: min-content;
+  max-width: 100%;
+  overflow: visible;
 }
 
 .mobile-tpn-profile-dot {
@@ -485,7 +509,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-dropdown {
-  border-color: rgba(74, 222, 128, 0.22);
+  border-color: rgba(250, 204, 21, 0.22);
 }
 
 .mobile-tpn-dropdown button {
@@ -516,8 +540,8 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-tpn-dropdown button.active {
-  background: rgba(74, 222, 128, 0.16);
-  color: #86efac;
+  background: rgba(250, 204, 21, 0.16);
+  color: #fcd34d;
 }
 
 .mobile-tpn-dd-amt {
@@ -530,7 +554,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   margin-top: 6px;
   padding-top: 10px;
   border-top: 1px solid rgba(148, 163, 184, 0.22);
-  color: #86efac;
+  color: #fcd34d;
   font-size: 13px;
 }
 
@@ -556,13 +580,13 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   padding: 0;
   border: none;
   border-radius: 10px;
-  background: linear-gradient(165deg, #4ade80 0%, #22c55e 38%, #16a34a 100%);
+  background: linear-gradient(165deg, #fde047 0%, #eab308 38%, #b45309 100%);
   color: #0a0a0a;
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 0 0 1px rgba(21, 128, 61, 0.35),
-    0 3px 12px rgba(34, 197, 94, 0.38),
+    0 3px 12px rgba(234, 179, 8, 0.38),
     0 1px 3px rgba(0, 0, 0, 0.35);
   -webkit-tap-highlight-color: transparent;
 }
@@ -1427,7 +1451,8 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
+  gap: 8px;
+  padding: 6px 12px;
   border-radius: 10px;
   border: none;
   background: rgba(12, 16, 24, 0.92);
@@ -1436,16 +1461,41 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   touch-action: manipulation;
 }
 
+.mobile-dock-apk-ico {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.mobile-dock-apk-link--update {
+  color: #fef08a;
+  background: rgba(234, 179, 8, 0.14);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.35), 0 2px 14px rgba(0, 0, 0, 0.4);
+  animation: mobile-dock-apk-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes mobile-dock-apk-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.35), 0 2px 14px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.45), 0 2px 18px rgba(234, 179, 8, 0.2);
+  }
+}
+
 .mobile-dock-apk-link:active {
   opacity: 0.88;
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-dock-apk-link {
-  color: var(--dock-label, #86efac);
+  color: var(--dock-label, #fcd34d);
 }
 
 html.cap-native .mobile-dock-apk-row {
-  display: none;
+  display: flex;
 }
 
 .mobile-bottom-dock {
@@ -1503,14 +1553,14 @@ html.cap-native .mobile-dock-apk-row {
 .app-mobile-trade[data-account-wallet="demo"] .mobile-bottom-dock {
   background: linear-gradient(
     165deg,
-    rgba(16, 28, 22, 0.98) 0%,
-    rgba(8, 18, 14, 0.99) 48%,
-    rgba(6, 14, 10, 0.995) 100%
+    rgba(36, 28, 14, 0.98) 0%,
+    rgba(24, 18, 10, 0.99) 48%,
+    rgba(18, 14, 8, 0.995) 100%
   );
   box-shadow:
     var(--dock-shadow-up),
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 52px -18px rgba(74, 222, 128, 0.14);
+    0 0 52px -18px rgba(250, 204, 21, 0.14);
 }
 
 /* Stack owns `position: fixed`; nav is relative inside it (must follow `.mobile-bottom-dock` rules above). */
@@ -1805,6 +1855,323 @@ html.cap-native .mobile-dock-apk-row {
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.35);
 }
 
+/* Olymp-style dock — accent = black chips / nudges (Balance / Quantity / X-mult) */
+.mobile-trade-dock--yellow {
+  --olymp-yellow: #111111;
+  padding-top: 12px;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Reference mobile panel: #121212 card, balance + quantity + total + outline Up/Down */
+.mobile-trade-dock--panel-ref {
+  background: #121212 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+  margin-top: 8px;
+  padding: 14px 12px !important;
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 0px) + 10px) !important;
+}
+
+.mobile-trade-dock--panel-ref .mobile-olymp-tf-hint {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.mobile-trade-dock--panel-ref .mobile-olymp-chip--active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(234, 179, 8, 0.45) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.mobile-stepper-pill--qty-bar {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 0;
+  background: #2a3142;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-trade-dock--panel-ref .mobile-stepper-pill--qty-bar .mobile-stepper-inr-input {
+  font-size: 22px;
+  max-width: 120px;
+  text-align: center;
+}
+
+.mobile-trade-dock--panel-ref .mobile-olymp-mult-row {
+  margin-top: 8px;
+}
+
+.mobile-trade-dock--panel-ref .mobile-olymp-total-row {
+  margin-bottom: 12px;
+}
+
+.mobile-trade-dock--panel-ref .mobile-timeout-strip {
+  margin: 0 0 2px;
+  background: rgba(22, 40, 68, 0.85);
+  border: 1px solid rgba(65, 105, 155, 0.38);
+  border-radius: 12px;
+}
+
+.mobile-trade-updown--outline .mobile-trade-dir--outline-up,
+.mobile-trade-updown--outline .mobile-trade-dir--outline-down {
+  justify-content: center;
+  gap: 8px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.mobile-olymp-tf-hint {
+  font-size: 11px;
+  margin: 0 0 10px;
+  text-align: center;
+  color: #8b90a0;
+  line-height: 1.35;
+}
+
+.mobile-olymp-tf-hint strong {
+  color: #c8cdd5;
+  font-weight: 700;
+}
+
+.mobile-olymp-section {
+  margin-bottom: 12px;
+}
+
+.mobile-olymp-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e8eaed;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+/* One line 1 … 1000 — same compression idea as X-mult row */
+.mobile-olymp-balance-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-olymp-chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 7px 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #25252b;
+  color: #e8eaed;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.mobile-olymp-chip--active {
+  background: var(--olymp-yellow, #111);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  text-shadow: none;
+}
+
+.mobile-olymp-chip:active {
+  filter: brightness(1.05);
+}
+
+.mobile-olymp-qty-pill {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  border-radius: 12px;
+  background: #2a3142;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.mobile-olymp-nudge {
+  flex: 0 0 48px;
+  border: none;
+  background: var(--olymp-yellow, #111);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  text-shadow: none;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+}
+
+.mobile-olymp-nudge:active {
+  filter: brightness(0.92);
+}
+
+.mobile-olymp-qty-mid {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.mobile-olymp-qty-input {
+  width: 100%;
+  max-width: 120px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  padding: 8px 4px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.mobile-olymp-qty-input:focus {
+  outline: none;
+}
+
+.mobile-olymp-qty-input::-webkit-outer-spin-button,
+.mobile-olymp-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Single compressed row: X1 … X100 on one line (narrow phones share width evenly). */
+.mobile-olymp-mult-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-olymp-mult-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 7px 1px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #25252b;
+  color: #e8eaed;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.mobile-olymp-mult-btn--active {
+  background: var(--olymp-yellow, #111);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  text-shadow: none;
+}
+
+.mobile-olymp-total-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mobile-olymp-total {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #e8eaed;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.mobile-olymp-expiry-corner {
+  width: 46px !important;
+  min-height: auto !important;
+  align-self: stretch;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: #c8cdd5 !important;
+}
+
+.mobile-trade-updown--outline {
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+}
+
+.mobile-trade-dir--outline-up,
+.mobile-trade-dir--outline-down {
+  border-radius: 14px;
+}
+
+/* Solid green / red fills, white label + arrow, centered row */
+.mobile-trade-dir--outline-up {
+  background: #0ecb81 !important;
+  border: 2px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 18px rgba(14, 203, 129, 0.4);
+}
+
+.mobile-trade-dir--outline-down {
+  background: #f6465d !important;
+  border: 2px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 4px 18px rgba(246, 70, 93, 0.38);
+}
+
+.mobile-trade-dir--outline-up:active,
+.mobile-trade-dir--outline-down:active {
+  filter: brightness(1.08);
+}
+
+.mobile-trade-dir--outline-up .mobile-trade-dir-label,
+.mobile-trade-dir--outline-up .mobile-trade-dir-arrow {
+  color: #ffffff !important;
+}
+
+.mobile-trade-dir--outline-down .mobile-trade-dir-label,
+.mobile-trade-dir--outline-down .mobile-trade-dir-arrow {
+  color: #ffffff !important;
+}
+
+.mobile-trade-dir--outline-up:disabled,
+.mobile-trade-dir--outline-down:disabled {
+  filter: grayscale(0.25) brightness(0.72);
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.mobile-trade-dir-arrow--outline {
+  opacity: 1;
+  font-weight: 900;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-trade-dock--yellow {
+  border-color: rgba(250, 204, 21, 0.22);
+  --olymp-yellow: #111111;
+}
+
 /* Olymp-style row: duration + stake steppers */
 .mobile-trade-steppers {
   display: grid;
@@ -1955,8 +2322,8 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-trade-dir {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: center;
+  gap: 10px;
   min-height: 52px;
   padding: 12px 16px;
   border: none;
@@ -1989,7 +2356,7 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-trade-dir--up {
-  background: linear-gradient(180deg, #00a86b 0%, #0ecb81 100%);
+  background: linear-gradient(180deg, #0aa66a 0%, #0ecb81 100%);
   box-shadow: 0 4px 16px rgba(14, 203, 129, 0.32);
 }
 
@@ -2158,7 +2525,11 @@ html.cap-native .mobile-dock-apk-row {
 }
 
 .mobile-cta.cta-buy {
-  background: linear-gradient(180deg, var(--candle-bull-dark, rgb(35 180 95)) 0%, var(--candle-bull, rgb(44 218 117)) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--candle-bull-dark, rgb(35 180 95)) 0%,
+    var(--candle-bull, rgb(44 218 117)) 100%
+  );
   color: #fff;
 }
 
@@ -2461,4 +2832,1181 @@ html.cap-native .mobile-dock-apk-row {
 .mobile-hist-meta--settled strong {
   color: #8ab4f8;
   font-weight: 700;
+}
+
+/* —— Main bottom tabs: Home · Markets · Trading · Promotion · Offers (flat reference strip) —— */
+.app-mobile-trade .mobile-bottom-dock.mobile-bottom-dock--main-tabs,
+.mobile-bottom-dock.mobile-bottom-dock--main-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: flex-end;
+}
+
+.app-mobile-trade .mobile-bottom-dock-stack .mobile-bottom-dock.mobile-bottom-dock--main-tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: flex-end;
+}
+
+.app-mobile-trade .mobile-bottom-dock.mobile-bottom-dock--main-tabs,
+.app-mobile-trade[data-account-wallet="demo"] .mobile-bottom-dock.mobile-bottom-dock--main-tabs {
+  background: #121212;
+  border: none;
+  border-radius: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs {
+  --dock-label: rgba(255, 255, 255, 0.58);
+  --dock-label-hover: rgba(255, 255, 255, 0.72);
+  --dock-label-active: #eab308;
+  --dock-indicator: transparent;
+  --dock-indicator-ring: transparent;
+  --dock-icon-filter-inactive: none;
+  --dock-icon-filter-active: none;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-bottom-dock--main-tabs {
+  --dock-label: rgba(255, 255, 255, 0.58);
+  --dock-label-hover: rgba(255, 255, 255, 0.72);
+  --dock-label-active: #eab308;
+  --dock-indicator: transparent;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell:not(.active) {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+/* Jo tab select hai → yellow label + full-colour icon (currentColor), jab tak doosra tab na kholein */
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell.active {
+  color: #eab308;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading)
+  .mobile-dock-icon-slot {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  background: rgba(234, 179, 8, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(234, 179, 8, 0.45),
+    0 3px 14px rgba(234, 179, 8, 0.18);
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading)
+  .mobile-dock-label {
+  font-weight: 800;
+  color: #eab308;
+  text-shadow: 0 0 14px rgba(234, 179, 8, 0.32);
+  margin-top: 1px;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):hover,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):focus-visible {
+  color: #facc15;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):hover
+  .mobile-dock-icon-slot,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):focus-visible
+  .mobile-dock-icon-slot {
+  background: rgba(234, 179, 8, 0.24);
+  box-shadow:
+    inset 0 0 0 1px rgba(250, 204, 21, 0.55),
+    0 4px 18px rgba(234, 179, 8, 0.22);
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):hover
+  .mobile-dock-label,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):focus-visible
+  .mobile-dock-label {
+  color: #facc15;
+}
+
+/* Trading active: thoda bada gol highlight */
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading {
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading
+  .mobile-dock-icon-slot {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 50%;
+  background: rgba(234, 179, 8, 0.22);
+  box-shadow:
+    inset 0 0 0 2px rgba(234, 179, 8, 0.55),
+    0 4px 18px rgba(234, 179, 8, 0.22);
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading
+  .mobile-dock-label {
+  font-weight: 800;
+  color: #eab308;
+  text-shadow: 0 0 18px rgba(234, 179, 8, 0.35);
+  margin-top: 1px;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:hover,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:focus-visible {
+  color: #facc15;
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:hover
+  .mobile-dock-icon-slot,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:focus-visible
+  .mobile-dock-icon-slot {
+  background: rgba(234, 179, 8, 0.3);
+  box-shadow:
+    inset 0 0 0 2px rgba(250, 204, 21, 0.65),
+    0 6px 22px rgba(234, 179, 8, 0.28);
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:hover
+  .mobile-dock-label,
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:focus-visible
+  .mobile-dock-label {
+  color: #facc15;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell:not(.active) .mobile-dock-fg-icon {
+  opacity: 1;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell.active .mobile-dock-fg-icon {
+  opacity: 1;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-label {
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-size: 10px;
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell.active .mobile-dock-icon-slot::after {
+  display: none;
+}
+
+/* Bottom nav: har option pe tap → clear gold colour flash (icon + label currentColor) */
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell {
+  transition:
+    color 0.12s ease,
+    transform 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
+  -webkit-tap-highlight-color: rgba(234, 179, 8, 0.35);
+}
+
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell:active {
+  transform: scale(0.93);
+  background: rgba(234, 179, 8, 0.2);
+  color: #fef9c3;
+  box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.35);
+}
+
+/* Trading — selected: row stays clean; press colour sirf gol icon pe */
+.app-mobile-trade .mobile-bottom-dock--main-tabs .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:active {
+  background: transparent;
+  color: #fffbeb;
+  box-shadow: none;
+  transform: scale(0.97);
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:active
+  .mobile-dock-icon-slot {
+  transform: scale(0.92);
+  background: rgba(234, 179, 8, 0.42);
+  box-shadow:
+    inset 0 0 0 2px rgba(254, 243, 199, 0.55),
+    0 4px 20px rgba(234, 179, 8, 0.35);
+  transition: transform 0.1s ease, background 0.1s ease, box-shadow 0.1s ease;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active.mobile-dock-tab--trading:active
+  .mobile-dock-label {
+  color: #fffbeb;
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):active {
+  background: transparent;
+  color: #fffbeb;
+  box-shadow: none;
+  transform: scale(0.96);
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):active
+  .mobile-dock-icon-slot {
+  transform: scale(0.94);
+}
+
+.app-mobile-trade
+  .mobile-bottom-dock--main-tabs
+  .mobile-dock-item.mobile-dock-cell.active:not(.mobile-dock-tab--trading):active
+  .mobile-dock-label {
+  color: #fffbeb;
+}
+
+/* Home / Offers / Assets full-width pages (mobile + desktop) */
+.mobile-dash-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+  min-height: min(70vh, 520px);
+  color: #e8ecf4;
+}
+
+.mobile-dash-page__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mobile-dash-page__eyebrow {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.mobile-dash-page__title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #f8fafc;
+}
+
+.mobile-dash-page__muted {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(184, 197, 217, 0.88);
+}
+
+.mobile-dash-balance-card {
+  margin-top: 4px;
+  padding: 16px 14px;
+  border-radius: 16px;
+  background: linear-gradient(155deg, rgba(30, 34, 44, 0.95) 0%, rgba(14, 16, 22, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.mobile-dash-balance-card__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(184, 197, 217, 0.85);
+  margin-bottom: 6px;
+}
+
+.mobile-dash-balance-card__amt {
+  display: block;
+  font-size: 1.65rem;
+  font-weight: 750;
+  color: #f8fafc;
+  margin-bottom: 12px;
+}
+
+.mobile-dash-balance-card__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 8px 0 0;
+  margin-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-dash-balance-card__row + .mobile-dash-balance-card__row {
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.mobile-dash-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.mobile-dash-actions--stack {
+  flex-direction: column;
+}
+
+.mobile-dash-btn {
+  flex: 1;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.mobile-dash-btn:active {
+  transform: scale(0.98);
+}
+
+.mobile-dash-btn--primary {
+  background: linear-gradient(180deg, #eab308 0%, #b45309 100%);
+  color: #f8fafc;
+  box-shadow: 0 8px 22px rgba(234, 179, 8, 0.28);
+}
+
+.mobile-dash-btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f1f5f9;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-dash-btn--ghost {
+  flex: none;
+  background: transparent;
+  color: #8ab4f8;
+  border: 1px solid rgba(138, 180, 248, 0.35);
+}
+
+/* Assets: Deposit = green, Withdraw = red (trading cue) */
+.mobile-dash-page--assets .mobile-dash-btn--primary {
+  background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+  color: #f0fdf4;
+  box-shadow: 0 8px 22px rgba(34, 197, 94, 0.3);
+  border: none;
+}
+
+.mobile-dash-page--assets .mobile-dash-btn--secondary {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fecaca;
+  border: 2px solid #ef4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.15);
+}
+
+.mobile-dash-offer-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-dash-offer-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(22, 26, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-dash-offer-card__title {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 6px;
+  color: #f1f5f9;
+}
+
+.mobile-dash-offer-card__desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(184, 197, 217, 0.9);
+}
+
+/* —— Offers tab: reference layout (#000 page, #1A1C1E cards, #EAB308 accent) —— */
+.app-mobile-trade[data-dashboard-section="offers"],
+.app-mobile-trade[data-dashboard-section="referral"] {
+  background-color: #000000;
+}
+
+.mobile-dash-page--offers {
+  background: #000000;
+  color: #f8fafc;
+}
+
+.mobile-dash-page--offers .mobile-dash-page__inner {
+  gap: 16px;
+}
+
+.mobile-dash-page--offers .mobile-dash-page__title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+}
+
+.mobile-dash-page--offers .mobile-dash-page__muted {
+  font-size: 14px;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: #1a1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-card__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-card__desc {
+  color: rgba(226, 232, 240, 0.95);
+  font-size: 14px;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-card--invest .mobile-dash-offer-card__title {
+  color: #eab308;
+  font-weight: 750;
+  margin-bottom: 12px;
+}
+
+.mobile-dash-offer-card--invest .mobile-dash-offer-card__title {
+  color: #eab308;
+}
+
+.mobile-dash-offer-invest__summary {
+  margin: 0 0 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+
+.mobile-dash-offer-invest__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mobile-dash-offer-invest__cell > strong {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.mobile-dash-offer-invest__value {
+  display: block;
+  font-size: 15px;
+  font-weight: 650;
+  color: #ffffff;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.mobile-dash-offer-invest__lock {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.2);
+  border: 1px solid rgba(248, 113, 113, 0.22);
+}
+
+.mobile-dash-offer-invest__lock--ok {
+  color: #4ade80;
+  background: rgba(22, 101, 52, 0.22);
+  border: 1px solid rgba(74, 222, 128, 0.28);
+}
+
+.mobile-dash-offer-invest__lock-eta {
+  color: rgba(254, 202, 202, 0.95);
+}
+
+.mobile-dash-offer-invest__actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.mobile-dash-offer-invest__actions:last-of-type {
+  margin-bottom: 0;
+}
+
+.mobile-dash-offer-invest__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.mobile-dash-offer-invest__field > span:first-child {
+  letter-spacing: 0.01em;
+}
+
+.mobile-dash-offer-invest__field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0d0d0f;
+  color: #f8fafc;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.mobile-dash-offer-invest__field input::placeholder {
+  color: rgba(148, 163, 184, 0.55);
+}
+
+.mobile-dash-offer-invest__field input:focus {
+  outline: none;
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.15);
+}
+
+.mobile-dash-offer-invest__field input:disabled {
+  opacity: 0.5;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__add-btn.mobile-dash-btn {
+  flex: 0 0 auto;
+  min-width: 92px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #eab308;
+  color: #ffffff;
+  font-weight: 750;
+  box-shadow: none;
+  border: none;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__add-btn.mobile-dash-btn:active:not(:disabled) {
+  background: #ca8a04;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__add-btn.mobile-dash-btn:disabled {
+  opacity: 0.55;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__withdraw-btn.mobile-dash-btn {
+  flex: 0 0 auto;
+  min-width: 92px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: #2a2d32;
+  color: #f8fafc;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__withdraw-btn.mobile-dash-btn:active:not(:disabled) {
+  background: #363a40;
+}
+
+.mobile-dash-page--offers .mobile-dash-offer-invest__withdraw-btn.mobile-dash-btn:disabled {
+  opacity: 0.45;
+}
+
+.mobile-dash-offer-invest__hint {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(148, 163, 184, 0.88);
+}
+
+.mobile-dash-assets-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.mobile-dash-asset-tile {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(18, 22, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mobile-dash-asset-tile--active {
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.12);
+}
+
+.mobile-dash-asset-tile__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(184, 197, 217, 0.85);
+  margin-bottom: 6px;
+}
+
+.mobile-dash-asset-tile__val {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: #f8fafc;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-asset-tile--active {
+  border-color: rgba(253, 230, 138, 0.45);
+  box-shadow: 0 0 0 1px rgba(253, 230, 138, 0.12);
+}
+
+/* Home hub (EQ-style): hide duplicate wallet strip — balance is in the page card */
+.app-mobile-trade[data-dashboard-section="home"] .mobile-wallet-nav-wrap {
+  display: none;
+}
+
+.mobile-dash-home {
+  max-width: none;
+  padding: 0 12px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #121212;
+  min-height: 55vh;
+  margin: 0 -8px;
+  width: calc(100% + 16px);
+}
+
+@media (min-width: 769px) {
+  .mobile-dash-home {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 560px;
+    border-radius: 0;
+  }
+}
+
+.mobile-dash-home__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 10px 2px 0;
+}
+
+.mobile-dash-home__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-dash-home__logo {
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.mobile-dash-home__brand-name {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.mobile-dash-home__brand-name.product-wordmark {
+  flex-shrink: 1;
+}
+
+.mobile-dash-home__profile-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+
+.mobile-dash-home__profile-btn:active {
+  opacity: 0.88;
+}
+
+.mobile-dash-home__wallet {
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: linear-gradient(165deg, rgba(28, 28, 28, 0.98) 0%, rgba(14, 14, 14, 0.99) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 16px;
+}
+
+.mobile-dash-home__wallet-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(180, 190, 205, 0.85);
+  margin-bottom: 12px;
+}
+
+.mobile-dash-home__wallet-block {
+  margin-bottom: 12px;
+  padding: 12px 12px 14px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mobile-dash-home__wallet-block--live {
+  border-color: rgba(234, 179, 8, 0.28);
+  background: rgba(234, 179, 8, 0.06);
+}
+
+.mobile-dash-home__wallet-block-head {
+  margin-bottom: 6px;
+}
+
+.mobile-dash-home__wallet-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fde047;
+}
+
+.mobile-dash-home__wallet-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+
+.mobile-dash-home__wallet-line-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(200, 210, 225, 0.92);
+}
+
+.mobile-dash-home__wallet-line-val {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #f1f5f9;
+}
+
+.mobile-dash-home__wallet-active-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(180, 190, 205, 0.9);
+}
+
+.mobile-dash-home__wallet-active-note strong {
+  color: #e2e8f0;
+}
+
+.mobile-dash-home__wallet-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.mobile-dash-home__wallet-amt {
+  font-size: 2rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.mobile-dash-home__wallet-inr {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.06em;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-home__wallet-block--live {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-home__wallet-tag {
+  color: #fcd34d;
+}
+
+.mobile-dash-home__fund-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mobile-dash-home__fund-btn {
+  margin: 0;
+  padding: 14px 12px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  border: 2px solid transparent;
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+
+.mobile-dash-home__fund-btn:active {
+  transform: scale(0.98);
+}
+
+.mobile-dash-home__fund-btn--deposit {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.22);
+}
+
+.mobile-dash-home__fund-btn--deposit:active {
+  filter: brightness(1.08);
+}
+
+.mobile-dash-home__fund-btn--withdraw {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.22);
+}
+
+.mobile-dash-home__fund-btn--withdraw:active {
+  filter: brightness(1.08);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-home__fund-btn--deposit {
+  border-color: #4ade80;
+  color: #86efac;
+  background: rgba(74, 222, 128, 0.12);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.22);
+}
+
+.mobile-dash-home__quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.mobile-dash-home__quick-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 104px;
+  padding: 14px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(22, 22, 22, 0.95);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.mobile-dash-home__quick-tile:active {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.45);
+  color: #fde047;
+}
+
+.mobile-dash-home__qicon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.mobile-dash-home__trending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+.mobile-dash-home__trending-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fde047;
+  letter-spacing: 0.02em;
+}
+
+.mobile-dash-home__fire {
+  width: 22px;
+  height: 22px;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.mobile-dash-home__table-wrap {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(18, 18, 18, 0.92);
+  overflow: hidden;
+}
+
+.mobile-dash-home__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.mobile-dash-home__table thead {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mobile-dash-home__table th {
+  text-align: left;
+  padding: 10px 10px;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(180, 190, 205, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mobile-dash-home__th-price,
+.mobile-dash-home__td-price {
+  text-align: right;
+}
+
+.mobile-dash-home__th-actions,
+.mobile-dash-home__td-actions {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.mobile-dash-home__table td {
+  padding: 12px 10px;
+  color: #e8ecf4;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.mobile-dash-home__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mobile-dash-home__td-name {
+  font-weight: 650;
+}
+
+.mobile-dash-home__td-price {
+  font-variant-numeric: tabular-nums;
+  color: rgba(220, 228, 240, 0.95);
+}
+
+.mobile-dash-home__td-price--up {
+  color: var(--candle-bull, #0ecb81);
+}
+
+.mobile-dash-home__td-price--down {
+  color: var(--candle-bear, #f6465d);
+}
+
+.mobile-dash-home__trade-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: inherit;
+  background: linear-gradient(180deg, #eab308 0%, #b45309 100%);
+  color: #f8fafc;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-dash-home__trade-btn--up {
+  background: linear-gradient(
+    180deg,
+    var(--candle-bull-dark, #0aa66a) 0%,
+    var(--candle-bull, #0ecb81) 100%
+  );
+  border-color: rgba(14, 203, 129, 0.5);
+  color: #fff;
+}
+
+.mobile-dash-home__trade-btn--down {
+  background: linear-gradient(
+    180deg,
+    var(--candle-bear-dark, #d9304e) 0%,
+    var(--candle-bear, #f6465d) 100%
+  );
+  border-color: rgba(246, 70, 93, 0.5);
+  color: #fff;
+}
+
+.mobile-dash-home__trade-btn:active {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-home__quick-tile:active {
+  border-color: rgba(253, 230, 138, 0.5);
+  color: #fcd34d;
+}
+
+.app-mobile-trade[data-account-wallet="demo"] .mobile-dash-home__trending-title {
+  color: #fcd34d;
+}
+
+/* —— Profile (menu) —— */
+.profile-page__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.profile-page__card {
+  margin-top: 16px;
+  padding: 16px 14px;
+  border-radius: 14px;
+  background: rgba(22, 26, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.profile-page__card-title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.profile-page__dl {
+  margin: 0;
+}
+
+.profile-page__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  align-items: start;
+}
+
+.profile-page__row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.profile-page__row:first-of-type {
+  padding-top: 0;
+}
+
+.profile-page__row dt {
+  margin: 0;
+  color: rgba(180, 190, 205, 0.92);
+  font-weight: 600;
+}
+
+.profile-page__row dd {
+  margin: 0;
+  color: #f1f5f9;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
 }

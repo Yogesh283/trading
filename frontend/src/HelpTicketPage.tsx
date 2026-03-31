@@ -2,32 +2,31 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createSupportTicket, loadSupportTickets, type SupportTicket } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import { useGlobalAlert } from "./GlobalAlertContext";
 
 type Props = {
   token: string;
 };
 
 export default function HelpTicketPage({ token }: Props) {
+  const { showAlert } = useGlobalAlert();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState("");
 
   const refresh = useCallback(async () => {
-    setError("");
     try {
       const list = await loadSupportTickets(token);
       setTickets(list);
     } catch (e) {
       setTickets([]);
-      setError(e instanceof Error ? e.message : "Load failed");
+      showAlert(e instanceof Error ? e.message : "Load failed", "error");
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, showAlert]);
 
   useEffect(() => {
     void refresh();
@@ -35,17 +34,15 @@ export default function HelpTicketPage({ token }: Props) {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSuccess("");
-    setError("");
     setSubmitting(true);
     try {
       const t = await createSupportTicket(token, subject.trim(), body.trim());
       setTickets((prev) => [t, ...prev]);
       setSubject("");
       setBody("");
-      setSuccess(`Ticket created: ${t.id}. Our team will review it.`);
+      showAlert(`Ticket created: ${t.id}. Our team will review it.`, "info");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create ticket");
+      showAlert(err instanceof Error ? err.message : "Could not create ticket", "error");
     } finally {
       setSubmitting(false);
     }
@@ -61,9 +58,6 @@ export default function HelpTicketPage({ token }: Props) {
         <p className="funds-network">
           Create a support ticket with your question or issue. You will receive a ticket ID — keep it for reference.
         </p>
-
-        {error ? <p className="referral-error">{error}</p> : null}
-        {success ? <p className="referral-copy-toast">{success}</p> : null}
 
         <form className="help-ticket-form" onSubmit={onSubmit}>
           <label className="help-ticket-label">

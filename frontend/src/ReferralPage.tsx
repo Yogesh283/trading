@@ -3,6 +3,7 @@ import { loadReferralSummary, type ReferralSummary } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import { formatInr } from "./fundsConfig";
+import { useGlobalAlert } from "./GlobalAlertContext";
 
 type Props = {
   token: string;
@@ -17,20 +18,22 @@ function buildReferralLink(code: string): string {
 }
 
 export default function ReferralPage({ token }: Props) {
+  const { showAlert } = useGlobalAlert();
   const [data, setData] = useState<ReferralSummary | null>(null);
-  const [error, setError] = useState("");
-  const [copyMsg, setCopyMsg] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    setError("");
+    setSummaryLoading(true);
     try {
       const s = await loadReferralSummary(token);
       setData(s);
     } catch (e) {
       setData(null);
-      setError(e instanceof Error ? e.message : "Load failed");
+      showAlert(e instanceof Error ? e.message : "Load failed", "error");
+    } finally {
+      setSummaryLoading(false);
     }
-  }, [token]);
+  }, [token, showAlert]);
 
   useEffect(() => {
     void refresh();
@@ -42,11 +45,9 @@ export default function ReferralPage({ token }: Props) {
     if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
-      setCopyMsg("Copied!");
-      window.setTimeout(() => setCopyMsg(""), 2000);
+      showAlert("Copied!", "info");
     } catch {
-      setCopyMsg("Copy failed — select & copy manually");
-      window.setTimeout(() => setCopyMsg(""), 3000);
+      showAlert("Copy failed — select & copy manually", "error");
     }
   };
 
@@ -54,11 +55,9 @@ export default function ReferralPage({ token }: Props) {
     if (!data?.selfReferralCode || data.selfReferralCode === "—") return;
     try {
       await navigator.clipboard.writeText(data.selfReferralCode);
-      setCopyMsg("Code copied!");
-      window.setTimeout(() => setCopyMsg(""), 2000);
+      showAlert("Code copied!", "info");
     } catch {
-      setCopyMsg("Copy failed");
-      window.setTimeout(() => setCopyMsg(""), 2000);
+      showAlert("Copy failed", "error");
     }
   };
 
@@ -70,9 +69,6 @@ export default function ReferralPage({ token }: Props) {
           <h1>Promotion</h1>
         </div>
         <p className="funds-network">Share your link. Friends who register join your team — see their activity below.</p>
-
-        {error ? <p className="referral-error">{error}</p> : null}
-        {copyMsg ? <p className="referral-copy-toast">{copyMsg}</p> : null}
 
         {data ? (
           <>
@@ -127,7 +123,7 @@ export default function ReferralPage({ token }: Props) {
                 </div>
                 <ul className="referral-total-earn-breakdown">
                   <li>
-                    <span className="referral-total-earn-src">Trading (binary)</span>
+                    <span className="referral-total-earn-src">Trading</span>
                     <span className="referral-total-earn-amt">{formatInr(data.bettingCommissionInr ?? 0)}</span>
                   </li>
                   <li>
@@ -158,7 +154,7 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th title="Total credited to your live wallet from this level (binary + staking)">
+                      <th title="Total credited to your live wallet from this level (trading + staking)">
                         You received (INR)
                       </th>
                     </tr>
@@ -291,7 +287,7 @@ export default function ReferralPage({ token }: Props) {
               </div>
             </section>
           </>
-        ) : !error ? (
+        ) : summaryLoading ? (
           <p className="muted">Loading…</p>
         ) : null}
       </div>

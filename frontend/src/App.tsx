@@ -34,6 +34,7 @@ import {
   AccountSnapshot,
   AuthUser,
   TIMEFRAME_OPTIONS,
+  type AuthDatabaseInfo,
   type ChartTimeframeSec,
   coerceTradeTimeframeSec,
   addDemoFunds,
@@ -60,28 +61,36 @@ import DepositPage from "./DepositPage";
 import LandingPage from "./LandingPage";
 import SplashScreen from "./SplashScreen";
 import WithdrawalPage from "./WithdrawalPage";
-import InvestmentPage from "./InvestmentPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
 import HelpTicketPage from "./HelpTicketPage";
-import { APP_NAME, APK_DOWNLOAD_URL, SESSION_STORAGE_KEY, USER_ACCOUNT_WALLET_STORAGE_KEY } from "./appBrand";
+import { MobileAssetsPage, MobileHomePage, MobileOffersPage } from "./MobileDashboardPages";
+import {
+  APP_NAME,
+  APK_DOWNLOAD_URL,
+  APK_FILENAME,
+  SESSION_STORAGE_KEY,
+  USER_ACCOUNT_WALLET_STORAGE_KEY
+} from "./appBrand";
+import { brandApkIcon } from "./brandUrls";
+import { fetchAndroidAppInfo, getNativeAndroidVersionCode } from "./androidAppUpdate";
 import { AuthPhoneField } from "./AuthPhoneField";
 import { iso2ForPhoneCountryCode } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
+import { useGlobalAlert } from "./GlobalAlertContext";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
-  DockIconDeposit,
+  DockIconHome,
   DockIconMarkets,
-  DockIconReferral,
+  DockIconPromotionDiamond,
+  DockIconTag,
   DockIconTradeBars,
-  DockIconWithdraw,
+  DockIconWalletTab,
   DrawerIconAbout,
   DrawerIconDeposit,
-  DrawerIconDownload,
   DrawerIconHelp,
   DrawerIconHistory,
-  DrawerIconInvestment,
   DrawerIconMarkets,
   DrawerIconPromotion,
   DrawerIconRefresh,
@@ -112,9 +121,29 @@ type AuthView = "login" | "register";
 
 type PublicScreen = "landing" | "auth" | "about";
 
-type DashboardSection = "trading" | "deposit" | "withdrawal" | "investment" | "referral" | "about" | "help";
+type DashboardSection =
+  | "home"
+  | "trading"
+  | "deposit"
+  | "withdrawal"
+  | "referral"
+  | "offers"
+  | "assets"
+  | "about"
+  | "help";
 
 const SPLASH_MS = 2000;
+
+function formatAuthDatabaseDetail(db: AuthDatabaseInfo | undefined): string | undefined {
+  if (!db) return undefined;
+  if (db.kind === "mysql") {
+    return `Data is stored in MySQL database "${db.database ?? '?'}" (view in phpMyAdmin).`;
+  }
+  if (db.kind === "sqlite") {
+    return `Data is stored in SQLite: ${db.file ?? "data/app.db"} (not visible in phpMyAdmin unless you import that file).`;
+  }
+  return undefined;
+}
 
 /** Fallback until /api/markets loads (matches server FOREX_SYMBOLS). */
 const FOREX_SYMBOLS_DEFAULT = [
@@ -244,6 +273,7 @@ function formatTradeCloseCell(trade: Trade): string {
 }
 
 export default function App() {
+  const { showAlert } = useGlobalAlert();
   const [markets, setMarkets] = useState<MarketTick[]>([]);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -283,11 +313,9 @@ export default function App() {
     setChartTimeframe(tf);
     setBinaryTimeframe(tf);
   };
-  const [message, setMessage] = useState("");
   const [authView, setAuthView] = useState<AuthView>("login");
   const [session, setSession] = useState<SessionState | null>(null);
   const [authBusy, setAuthBusy] = useState(false);
-  const [authMessage, setAuthMessage] = useState("");
   const [booting, setBooting] = useState(true);
   const [splashReady, setSplashReady] = useState(false);
   const [publicScreen, setPublicScreen] = useState<PublicScreen>("landing");
@@ -300,6 +328,7 @@ export default function App() {
     referralCode: ""
   });
   const [dashboardSection, setDashboardSection] = useState<DashboardSection>("trading");
+  const mobileDashToHomeOnceRef = useRef(false);
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [mainNavOpen, setMainNavOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
@@ -348,6 +377,12 @@ export default function App() {
   const [demoTopUpBusy, setDemoTopUpBusy] = useState(false);
   const [demoFundsSuccessPopup, setDemoFundsSuccessPopup] = useState<null | { added: number; balance: number }>(null);
   const demoFundsPopupTimeoutRef = useRef<number | null>(null);
+  const [postAuthWelcome, setPostAuthWelcome] = useState<
+    null | { kind: "login" | "register"; name: string; userId: string; detail?: string }
+  >(null);
+  const [androidAppInfo, setAndroidAppInfo] = useState<Awaited<ReturnType<typeof fetchAndroidAppInfo>>>(null);
+  const [nativeAndroidVersionCode, setNativeAndroidVersionCode] = useState<number | null>(null);
+  const [isCapNativeClient, setIsCapNativeClient] = useState(false);
   /** After binary timeout — win/loss popup for demo and live (same modal shell). */
   const [binarySettlePopup, setBinarySettlePopup] = useState<
     null | { text: string; amountHighlight: string; pnl: number }
@@ -370,6 +405,10 @@ export default function App() {
       demoFundsPopupTimeoutRef.current = null;
     }
     setDemoFundsSuccessPopup(null);
+  }, []);
+
+  const dismissPostAuthWelcome = useCallback(() => {
+    setPostAuthWelcome(null);
   }, []);
 
   const dismissBinarySettlePopup = useCallback(() => {
@@ -424,6 +463,53 @@ export default function App() {
   }, [binarySettlePopup, dismissBinarySettlePopup]);
 
   useEffect(() => {
+    if (!postAuthWelcome) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismissPostAuthWelcome();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [postAuthWelcome, dismissPostAuthWelcome]);
+
+  useEffect(() => {
+    setIsCapNativeClient(
+      typeof document !== "undefined" && document.documentElement.classList.contains("cap-native")
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!session || !isPhone) return;
+    let cancelled = false;
+    void (async () => {
+      const [info, nativeCode] = await Promise.all([fetchAndroidAppInfo(), getNativeAndroidVersionCode()]);
+      if (cancelled) return;
+      setAndroidAppInfo(info);
+      setNativeAndroidVersionCode(nativeCode);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, isPhone]);
+
+  useEffect(() => {
+    if (!session || !isPhone) return;
+    const recheck = () => {
+      void fetchAndroidAppInfo().then((info) => {
+        setAndroidAppInfo(info);
+      });
+      void getNativeAndroidVersionCode().then((c) => {
+        setNativeAndroidVersionCode(c);
+      });
+    };
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("pageshow", recheck);
+    return () => {
+      document.removeEventListener("visibilitychange", recheck);
+      window.removeEventListener("pageshow", recheck);
+    };
+  }, [session, isPhone]);
+
+  useEffect(() => {
     if (!session) return;
     const id = window.setInterval(() => setTimerTick((n) => n + 1), 1000);
     const syncNow = () => {
@@ -449,6 +535,16 @@ export default function App() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  useEffect(() => {
+    if (!session || !isPhone) {
+      mobileDashToHomeOnceRef.current = false;
+      return;
+    }
+    if (mobileDashToHomeOnceRef.current) return;
+    mobileDashToHomeOnceRef.current = true;
+    setDashboardSection("home");
+  }, [session, isPhone]);
 
   useEffect(() => {
     if (!assetPickerOpen && !mainNavOpen) return;
@@ -848,15 +944,14 @@ export default function App() {
 
   const handleGlobalRefresh = useCallback(() => {
     void refreshRef.current().catch(() => undefined);
-    setMessage("Data refreshed.");
-  }, []);
+    showAlert("Data refreshed.", "info");
+  }, [showAlert]);
 
   const handleAddDemoFunds = useCallback(async () => {
     if (!session?.token) {
       return;
     }
     setDemoTopUpBusy(true);
-    setMessage("");
     try {
       const out = await addDemoFunds(session.token);
       await refreshRef.current(accountWallet, { skipMarketTicks: true });
@@ -869,11 +964,11 @@ export default function App() {
         demoFundsPopupTimeoutRef.current = null;
       }, 5000);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Could not add demo funds.");
+      showAlert(e instanceof Error ? e.message : "Could not add demo funds.", "error");
     } finally {
       setDemoTopUpBusy(false);
     }
-  }, [session, accountWallet]);
+  }, [session, accountWallet, showAlert]);
 
   useEffect(() => {
     if (!walletActivityOpen || !session) {
@@ -887,7 +982,9 @@ export default function App() {
   }, [walletActivityOpen, session]);
 
   useEffect(() => {
-    void refresh().catch((error) => setMessage(error instanceof Error ? error.message : "Load failed"));
+    void refresh().catch((error) =>
+      showAlert(error instanceof Error ? error.message : "Load failed", "error")
+    );
 
     const wsUrl = getBackendWsUrl(session ? { token: session.token, wallet: accountWallet } : undefined);
 
@@ -1001,7 +1098,7 @@ export default function App() {
         ws.close();
       }
     };
-  }, [session, sessionToken, accountWallet]);
+  }, [session, sessionToken, accountWallet, showAlert]);
 
   const chartSeries = history[symbol] ?? [];
   const spotTickMove = lastTickMove(chartSeries);
@@ -1113,20 +1210,19 @@ export default function App() {
     direction: "up" | "down",
     opts?: { stake?: number }
   ) => {
-    setMessage("");
     if (!session) {
-      setMessage("Log in to place trades.");
+      showAlert("Log in to place trades.", "error");
       return;
     }
     if (accountWallet !== "demo") return;
     const base = Number(quantity);
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter a valid amount.");
+      showAlert("Enter a valid amount.", "error");
       return;
     }
     if (xauWeekendOrdersBlocked) {
-      setMessage("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.");
+      showAlert("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.", "error");
       return;
     }
     try {
@@ -1142,12 +1238,13 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      setMessage(
-        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
+      showAlert(
+        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`,
+        "info"
       );
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Order failed");
+      showAlert(error instanceof Error ? error.message : "Order failed", "error");
     }
   };
 
@@ -1155,16 +1252,15 @@ export default function App() {
     direction: "up" | "down",
     opts?: { stake?: number }
   ) => {
-    setMessage("");
     if (!session || accountWallet !== "live") return;
     const base = Number(quantity);
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter a valid amount.");
+      showAlert("Enter a valid amount.", "error");
       return;
     }
     if (xauWeekendOrdersBlocked) {
-      setMessage("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.");
+      showAlert("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.", "error");
       return;
     }
     try {
@@ -1179,12 +1275,13 @@ export default function App() {
       );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
-      setMessage(
-        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`
+      showAlert(
+        `${direction === "up" ? "↑ Up" : "↓ Down"} · ${formatForexPair(symbol)} · ${formatInr(amount)} — trade placed`,
+        "info"
       );
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Order failed");
+      showAlert(error instanceof Error ? error.message : "Order failed", "error");
     }
   };
 
@@ -1192,7 +1289,7 @@ export default function App() {
   const placeMobileBinary = (direction: "up" | "down") => {
     const base = Number(quantity);
     if (!Number.isFinite(base) || base <= 0) {
-      setMessage("Enter amount.");
+      showAlert("Enter amount.", "error");
       return;
     }
     const stake = Math.max(1, Math.floor(base * mobileMultiplier));
@@ -1226,15 +1323,25 @@ export default function App() {
       } else {
         setQuantity(String(Math.max(1, raw)));
       }
-      setMessage("");
     },
     [quantity, accountWallet, dualBalances.demo, dualBalances.live]
+  );
+
+  const setBalancePreset = useCallback(
+    (n: number) => {
+      let v = Math.max(1, Math.floor(n));
+      const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
+      if (bal != null && Number.isFinite(bal) && bal > 0) {
+        v = Math.min(v, Math.max(1, Math.floor(bal)));
+      }
+      setQuantity(String(v));
+    },
+    [accountWallet, dualBalances.demo, dualBalances.live]
   );
 
   const handleAuth = async (event: FormEvent) => {
     event.preventDefault();
     setAuthBusy(true);
-    setAuthMessage("");
 
     try {
       if (authView === "login") {
@@ -1248,7 +1355,12 @@ export default function App() {
           token: response.token,
           user: response.user
         });
-        setAuthMessage(`Welcome back, ${response.user.name}`);
+        setPostAuthWelcome({
+          kind: "login",
+          name: response.user.name,
+          userId: response.user.id,
+          detail: formatAuthDatabaseDetail(response.database)
+        });
         return;
       }
 
@@ -1267,17 +1379,14 @@ export default function App() {
         token: response.token,
         user: response.user
       });
-      const dbHint =
-        response.database?.kind === "mysql"
-          ? ` Data saved in MySQL database “${response.database.database ?? "?"}” (open this DB in phpMyAdmin).`
-          : response.database?.kind === "sqlite"
-            ? ` Data saved in SQLite file: ${response.database.file ?? "data/app.db"} (not visible in phpMyAdmin unless you import that file).`
-            : "";
-      setAuthMessage(
-        `Account created — User ID ${response.user.id}. Log in with +${registerForm.countryCode} ${registerForm.phone} and your password.${dbHint}`
-      );
+      setPostAuthWelcome({
+        kind: "register",
+        name: response.user.name,
+        userId: response.user.id,
+        detail: formatAuthDatabaseDetail(response.database)
+      });
     } catch (error) {
-      setAuthMessage(error instanceof Error ? error.message : "Authentication failed");
+      showAlert(error instanceof Error ? error.message : "Authentication failed", "error");
     } finally {
       setAuthBusy(false);
     }
@@ -1287,17 +1396,22 @@ export default function App() {
   const openAuthForDemo = () => {
     setAuthView("login");
     setPublicScreen("auth");
-    setAuthMessage("Log in or register, then use the Demo / Live toggle in the app to practice with virtual funds.");
+    showAlert(
+      "Log in or register, then use the Demo / Live toggle in the app to practice with virtual funds.",
+      "info"
+    );
   };
 
   const logout = () => {
+    mobileDashToHomeOnceRef.current = false;
+    setPostAuthWelcome(null);
+    setAndroidAppInfo(null);
+    setNativeAndroidVersionCode(null);
     setSession(null);
     setDualBalances({ demo: null, live: null });
     setTrades([]);
     setAccount(null);
     setHistory({});
-    setMessage("");
-    setAuthMessage("");
     setPublicScreen("landing");
   };
 
@@ -1310,6 +1424,44 @@ export default function App() {
       return u;
     }
   }, []);
+
+  const apkFileDownloadName = useMemo(() => {
+    if (/^https?:\/\//i.test(APK_DOWNLOAD_URL.trim())) return undefined;
+    return APK_FILENAME;
+  }, []);
+
+  const showApkUpdateBadge =
+    Boolean(androidAppInfo?.apkReady) &&
+    isCapNativeClient &&
+    nativeAndroidVersionCode != null &&
+    androidAppInfo != null &&
+    androidAppInfo.versionCode > nativeAndroidVersionCode;
+
+  const mobileApkRowLabel = (() => {
+    if (!androidAppInfo) {
+      return isCapNativeClient ? "App update" : "Download APK";
+    }
+    if (!androidAppInfo.apkReady) {
+      return "APK not on server";
+    }
+    if (isCapNativeClient && nativeAndroidVersionCode != null) {
+      if (androidAppInfo.versionCode > nativeAndroidVersionCode) {
+        return `Update to v${androidAppInfo.versionName}`;
+      }
+      return `Latest v${androidAppInfo.versionName} — tap to reinstall`;
+    }
+    return "Download APK";
+  })();
+
+  const drawerApkLabel = (() => {
+    if (showApkUpdateBadge) {
+      return `Update app (v${androidAppInfo?.versionName ?? "?"})`;
+    }
+    if (isCapNativeClient && androidAppInfo?.apkReady) {
+      return "App update / reinstall";
+    }
+    return "Download APK";
+  })();
 
   if (!splashReady || booting) {
     return <SplashScreen />;
@@ -1352,14 +1504,11 @@ export default function App() {
     return (
       <AuthScreen
         authBusy={authBusy}
-        authMessage={authMessage}
         authView={authView}
         account={account}
         loginForm={loginForm}
         markets={markets}
         onAuthSubmit={handleAuth}
-        onBackToLanding={() => setPublicScreen("landing")}
-        onNavigateToAbout={() => setPublicScreen("about")}
         onDemoAccess={openAuthForDemo}
         onLoginFormChange={setLoginForm}
         onRegisterFormChange={setRegisterForm}
@@ -1379,7 +1528,7 @@ export default function App() {
     <div
       className={`app-shell${session && isPhone ? " app-mobile-trade" : ""}${session && !isPhone ? " app-guest-desktop-dock" : ""}`}
       data-dock={session && isPhone ? "theme" : undefined}
-      data-account-wallet={session && isPhone ? accountWallet : undefined}
+      data-account-wallet={session ? accountWallet : undefined}
       data-dashboard-section={session && isPhone ? dashboardSection : undefined}
     >
       {!(session && isPhone) ? (
@@ -1465,13 +1614,6 @@ export default function App() {
               </button>
               <button
                 type="button"
-                className={dashboardSection === "investment" ? "active" : ""}
-                onClick={() => setDashboardSection("investment")}
-              >
-                Investment
-              </button>
-              <button
-                type="button"
                 className={dashboardSection === "referral" ? "active" : ""}
                 onClick={() => setDashboardSection("referral")}
               >
@@ -1515,8 +1657,9 @@ export default function App() {
               >
                 About
               </button>
-              <a className="app-nav-desktop-apk" href={apkDownloadHref} download>
-                Download APK
+              <a className="app-nav-desktop-apk" href={apkDownloadHref} download={apkFileDownloadName}>
+                <img src={brandApkIcon} alt="" width={20} height={20} className="app-nav-desktop-apk-ico" />
+                {drawerApkLabel}
               </a>
             </nav>
           ) : null}
@@ -1612,31 +1755,33 @@ export default function App() {
               <strong>{session.user.name}</strong>
               <span>{formatAuthUserContact(session.user)}</span>
             </div>
-            <div className="app-nav-drawer-wallet-row">
-              <span className="app-nav-drawer-wallet-label">Trading</span>
-              <div className="app-nav-account-toggle app-nav-account-toggle--drawer" role="group" aria-label="Trading account">
-                <button
-                  type="button"
-                  className={accountWallet === "demo" ? "on demo-on" : ""}
-                  onClick={() => {
-                    setUserAccountWallet("demo");
-                    void refresh("demo").catch(() => undefined);
-                    setMainNavOpen(false);
-                  }}
-                >
-                  Demo
-                </button>
-                <button
-                  type="button"
-                  className={accountWallet === "live" ? "on live-on" : ""}
-                  onClick={() => {
-                    setUserAccountWallet("live");
-                    void refresh("live").catch(() => undefined);
-                    setMainNavOpen(false);
-                  }}
-                >
-                  Live
-                </button>
+            <div className="app-nav-drawer-wallet-row app-nav-drawer-trading-block">
+              <div className="app-nav-drawer-trading-row">
+                <span className="app-nav-drawer-wallet-label">Trading</span>
+                <div className="app-nav-account-toggle app-nav-account-toggle--drawer" role="group" aria-label="Trading account">
+                  <button
+                    type="button"
+                    className={accountWallet === "demo" ? "on demo-on" : ""}
+                    onClick={() => {
+                      setUserAccountWallet("demo");
+                      void refresh("demo").catch(() => undefined);
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Demo
+                  </button>
+                  <button
+                    type="button"
+                    className={accountWallet === "live" ? "on live-on" : ""}
+                    onClick={() => {
+                      setUserAccountWallet("live");
+                      void refresh("live").catch(() => undefined);
+                      setMainNavOpen(false);
+                    }}
+                  >
+                    Live
+                  </button>
+                </div>
               </div>
             </div>
             <div className="app-nav-drawer-demo-topup">
@@ -1649,7 +1794,12 @@ export default function App() {
                   void handleAddDemoFunds();
                 }}
               >
-                Add demo funds (+{formatInr(DEFAULT_DEMO_BALANCE_INR)} default)
+                <span className="app-nav-drawer-demo-topup-lines">
+                  <span className="app-nav-drawer-demo-topup-line1">Add demo funds</span>
+                  <span className="app-nav-drawer-demo-topup-line2">
+                    (+{formatInr(DEFAULT_DEMO_BALANCE_INR)} default)
+                  </span>
+                </span>
               </button>
             </div>
             <div className="app-nav-drawer-links">
@@ -1697,16 +1847,6 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setDashboardSection("investment");
-                  setMainNavOpen(false);
-                }}
-              >
-                <DrawerIconInvestment />
-                <span>Investment</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
                   setDashboardSection("referral");
                   setMainNavOpen(false);
                 }}
@@ -1714,6 +1854,19 @@ export default function App() {
                 <DrawerIconPromotion />
                 <span>Promotion</span>
               </button>
+              {isPhone ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAssetPickerOpen(false);
+                    setDashboardSection("assets");
+                    setMainNavOpen(false);
+                  }}
+                >
+                  <DockIconWalletTab className="app-nav-drawer-icon" />
+                  <span>Assets</span>
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -1761,20 +1914,20 @@ export default function App() {
                 <span>About</span>
               </button>
               <a
-                className="app-nav-drawer-link"
+                className="app-nav-drawer-link app-nav-drawer-apk"
                 href={apkDownloadHref}
-                download
+                download={apkFileDownloadName}
                 onClick={() => setMainNavOpen(false)}
               >
-                <DrawerIconDownload />
-                <span>Download APK</span>
+                <img src={brandApkIcon} alt="" width={22} height={22} className="app-nav-drawer-apk-ico" />
+                <span>{drawerApkLabel}</span>
               </a>
               <button
                 type="button"
                 onClick={() => {
                   setMainNavOpen(false);
                   void refresh().catch(() => undefined);
-                  setMessage("Data refreshed.");
+                  showAlert("Data refreshed.", "info");
                 }}
               >
                 <DrawerIconRefresh />
@@ -1917,6 +2070,74 @@ export default function App() {
 
       {dashboardSection === "about" ? (
         <AboutPage embeddedInApp />
+      ) : dashboardSection === "home" ? (
+        <MobileHomePage
+          accountWallet={accountWallet}
+          demoBal={dualBalances.demo}
+          liveBal={dualBalances.live}
+          markets={markets}
+          tickHistory={history}
+          symbolList={forexSymbolList}
+          onOpenMenu={() => setMainNavOpen(true)}
+          onRefer2Earn={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("referral");
+          }}
+          onRewards={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("offers");
+          }}
+          onTrades={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("trading");
+            window.requestAnimationFrame(() =>
+              document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            );
+          }}
+          onSupport={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("help");
+          }}
+          onDeposit={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("deposit");
+          }}
+          onWithdraw={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("withdrawal");
+          }}
+          onTradeSymbol={(sym) => {
+            setSymbol(sym);
+            setAssetPickerOpen(false);
+            setDashboardSection("trading");
+            window.requestAnimationFrame(() =>
+              document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            );
+          }}
+        />
+      ) : dashboardSection === "offers" ? (
+        <MobileOffersPage
+          token={session.token}
+          referralCode={session.user.selfReferralCode}
+          demoBal={dualBalances.demo}
+          liveBal={dualBalances.live}
+          onInvestmentChanged={() => void refresh()}
+        />
+      ) : dashboardSection === "assets" ? (
+        <MobileAssetsPage
+          accountWallet={accountWallet}
+          demoBal={dualBalances.demo}
+          liveBal={dualBalances.live}
+          onDeposit={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("deposit");
+          }}
+          onWithdraw={() => {
+            setAssetPickerOpen(false);
+            setDashboardSection("withdrawal");
+          }}
+          onWalletActivity={() => setWalletActivityOpen(true)}
+        />
       ) : dashboardSection === "deposit" ? (
         <DepositPage
           token={session.token}
@@ -1926,11 +2147,6 @@ export default function App() {
         <WithdrawalPage
           token={session.token}
           balance={dualBalances.live ?? 0}
-          onSuccess={() => void refresh()}
-        />
-      ) : dashboardSection === "investment" ? (
-        <InvestmentPage
-          token={session.token}
           onSuccess={() => void refresh()}
         />
       ) : dashboardSection === "referral" ? (
@@ -2064,44 +2280,41 @@ export default function App() {
             />
           </section>
 
-          <div className="mobile-trade-dock">
-            <div className="mobile-trade-steppers">
-              <div className="mobile-stepper-pill" role="group" aria-label="Trade candle duration">
-                <button
-                  type="button"
-                  className="mobile-stepper-nudge"
-                  aria-label="Shorter timeframe"
-                  onClick={() => {
-                    const opts = TIMEFRAME_OPTIONS;
-                    const i = opts.findIndex((o) => o.value === binaryTimeframe);
-                    onChartTimeframeChange(opts[(i - 1 + opts.length) % opts.length]!.value);
-                  }}
-                >
-                  −
-                </button>
-                <span className="mobile-stepper-mid">{tfLabel(binaryTimeframe)}</span>
-                <button
-                  type="button"
-                  className="mobile-stepper-nudge"
-                  aria-label="Longer timeframe"
-                  onClick={() => {
-                    const opts = TIMEFRAME_OPTIONS;
-                    const i = opts.findIndex((o) => o.value === binaryTimeframe);
-                    onChartTimeframeChange(opts[(i + 1) % opts.length]!.value);
-                  }}
-                >
-                  +
-                </button>
+          <div className="mobile-trade-dock mobile-trade-dock--panel-ref">
+            <p className="mobile-olymp-tf-hint">
+              Chart timeframe: <strong>{tfLabel(binaryTimeframe)}</strong> — change above the chart.
+            </p>
+
+            <div className="mobile-olymp-section">
+              <div className="mobile-olymp-label">Balance</div>
+              <div className="mobile-olymp-balance-row" role="group" aria-label="Quick balance amount">
+                {([1, 5, 10, 100, 1000] as const).map((n) => {
+                  const active = Math.floor(Number(quantity) || 0) === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      className={`mobile-olymp-chip${active ? " mobile-olymp-chip--active" : ""}`}
+                      onClick={() => setBalancePreset(n)}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+
+            <div className="mobile-olymp-section">
+              <div className="mobile-olymp-label">Quantity</div>
               <div
-                className="mobile-stepper-pill mobile-stepper-pill--amount"
+                className="mobile-stepper-pill mobile-stepper-pill--amount mobile-stepper-pill--qty-bar"
                 role="group"
-                aria-label="Trading amount"
+                aria-label="Trading quantity"
               >
                 <button
                   type="button"
                   className="mobile-stepper-nudge"
-                  aria-label="Decrease trading amount"
+                  aria-label="Decrease quantity"
                   onClick={() => bumpMobileStake(-1)}
                 >
                   −
@@ -2121,73 +2334,49 @@ export default function App() {
                         setQuantity("");
                         return;
                       }
-                      const n = Number(v);
-                      if (Number.isFinite(n) && n >= 0) {
-                        setQuantity(String(Math.floor(n)));
+                      const num = Number(v);
+                      if (Number.isFinite(num) && num >= 0) {
+                        setQuantity(String(Math.floor(num)));
                       }
                     }}
                     onBlur={() => {
                       const n = Math.max(1, Math.floor(Number(quantity) || 0));
                       setQuantity(String(n));
                     }}
-                    aria-label="Trading amount in INR"
+                    aria-label="Quantity in INR"
                   />
-                  <span className="mobile-stepper-inr-suffix" aria-hidden>
-                    
-                  </span>
+                  <span className="mobile-stepper-inr-suffix" aria-hidden />
                 </label>
                 <button
                   type="button"
                   className="mobile-stepper-nudge"
-                  aria-label="Increase trading amount"
+                  aria-label="Increase quantity"
                   onClick={() => bumpMobileStake(1)}
                 >
                   +
                 </button>
               </div>
+              <div className="mobile-olymp-mult-row" role="group" aria-label="Multiply quantity">
+                {([1, 5, 10, 20, 50, 100] as const).map((mult) => (
+                  <button
+                    key={mult}
+                    type="button"
+                    className="mobile-olymp-mult-btn"
+                    onClick={() => applyStakeMultiplier(mult)}
+                  >
+                    X{mult}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div
-              className="mobile-stake-pct-row"
-              role="group"
-              aria-label="Multiply entered amount: 2x, 3x, 5x, 10x"
-            >
-              {([2, 3, 5, 10] as const).map((mult) => (
-                <button
-                  key={mult}
-                  type="button"
-                  className="mobile-stake-pct-btn"
-                  onClick={() => applyStakeMultiplier(mult)}
-                >
-                  {mult}x
-                </button>
-              ))}
-            </div>
-
-            <div className="mobile-trade-updown" role="group" aria-label="Place binary trade">
+            <div className="mobile-olymp-total-row">
+              <div className="mobile-olymp-total">
+                Total amount <strong>{fmtWallet(Math.max(1, Math.floor(Number(quantity) || 0) * mobileMultiplier))}</strong>
+              </div>
               <button
                 type="button"
-                className={`mobile-trade-dir mobile-trade-dir--down${
-                  binaryCreatedFlash === "down" ? " binary-created-flash" : ""
-                }`}
-                disabled={xauWeekendOrdersBlocked}
-                title={
-                  xauWeekendOrdersBlocked
-                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
-                    : undefined
-                }
-                onClick={() => placeMobileBinary("down")}
-              >
-                <span className="mobile-trade-dir-label">
-                  {binaryCreatedFlash === "down" ? "Down · OK" : "Down"}
-                </span>
-                <span className="mobile-trade-dir-arrow" aria-hidden>
-                  ↓
-                </span>
-              </button>
-              <button
-                type="button"
-                className="mobile-trade-expiry-btn"
+                className="mobile-trade-expiry-btn mobile-olymp-expiry-corner"
                 aria-label="Jump to countdown and open trades"
                 onClick={() =>
                   mobileBinaryExpiryRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
@@ -2205,9 +2394,12 @@ export default function App() {
                   />
                 </svg>
               </button>
+            </div>
+
+            <div className="mobile-trade-updown mobile-trade-updown--outline" role="group" aria-label="Place timed up or down trade">
               <button
                 type="button"
-                className={`mobile-trade-dir mobile-trade-dir--up${
+                className={`mobile-trade-dir mobile-trade-dir--up mobile-trade-dir--outline-up${
                   binaryCreatedFlash === "up" ? " binary-created-flash" : ""
                 }`}
                 disabled={xauWeekendOrdersBlocked}
@@ -2221,8 +2413,28 @@ export default function App() {
                 <span className="mobile-trade-dir-label">
                   {binaryCreatedFlash === "up" ? "Up · OK" : "Up"}
                 </span>
-                <span className="mobile-trade-dir-arrow" aria-hidden>
+                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
                   ↑
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`mobile-trade-dir mobile-trade-dir--down mobile-trade-dir--outline-down${
+                  binaryCreatedFlash === "down" ? " binary-created-flash" : ""
+                }`}
+                disabled={xauWeekendOrdersBlocked}
+                title={
+                  xauWeekendOrdersBlocked
+                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    : undefined
+                }
+                onClick={() => placeMobileBinary("down")}
+              >
+                <span className="mobile-trade-dir-label">
+                  {binaryCreatedFlash === "down" ? "Down · OK" : "Down"}
+                </span>
+                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
+                  ↓
                 </span>
               </button>
             </div>
@@ -2248,7 +2460,6 @@ export default function App() {
               ) : null}
             </div>
 
-            {message ? <p className="message mobile-trade-msg">{message}</p> : null}
           </div>
 
           <section className="mobile-more-panel mobile-account-history-panel" id="app-mobile-account">
@@ -2381,14 +2592,14 @@ export default function App() {
                 className="link-inline"
                 onClick={() => {
                   void navigator.clipboard.writeText(session.user.selfReferralCode);
-                  setMessage("Promotion code copied.");
+                  showAlert("Promotion code copied.", "info");
                 }}
               >
                 Copy
               </button>
               <p style={{ margin: "0.35rem 0 0", fontSize: "0.95rem" }}>
                 Share link: add <code>?ref={session.user.selfReferralCode}</code> to the site URL. When your team
-                places live binary bets, you earn <strong>0.1%</strong> of trading amount per level up to{" "}
+                trades live, you earn <strong>0.1%</strong> of trading amount per level up to{" "}
                 <strong>5 levels</strong> (wallet credit: level income).
               </p>
             </div>
@@ -2653,7 +2864,7 @@ export default function App() {
                   <span
                     title={
                       trade.direction === "up" || trade.direction === "down"
-                        ? `Binary: ${trade.direction === "up" ? "Up" : "Down"} @ ${formatFxPrice(trade.symbol, trade.entryPrice)}`
+                        ? `Trade: ${trade.direction === "up" ? "Up" : "Down"} @ ${formatFxPrice(trade.symbol, trade.entryPrice)}`
                         : undefined
                     }
                   >
@@ -2709,7 +2920,7 @@ export default function App() {
         </section>
       </main>
       {session && !isPhone ? (
-        <div className="desktop-demo-trade-bar" data-tick={timerTick}>
+        <div className="desktop-demo-trade-bar" data-account-wallet={accountWallet} data-tick={timerTick}>
           <div className="desktop-demo-trade-inner">
             <div className="desktop-demo-block desktop-demo-pair-block">
               <span className="desktop-demo-label">Pair</span>
@@ -2815,7 +3026,7 @@ export default function App() {
               onClick={() => {
                 const base = Number(quantity);
                 if (!Number.isFinite(base) || base <= 0) {
-                  setMessage("Enter amount.");
+                  showAlert("Enter amount.", "error");
                   return;
                 }
                 const stake = Math.max(1, Math.floor(base * mobileMultiplier));
@@ -2859,7 +3070,6 @@ export default function App() {
               ))}
             </div>
           ) : null}
-          {message ? <p className="desktop-demo-bar-msg">{message}</p> : null}
         </div>
       ) : null}
       </>
@@ -2934,61 +3144,41 @@ export default function App() {
         <div className="mobile-bottom-dock-stack">
           <div className="mobile-dock-apk-row">
             <a
-              className="mobile-dock-apk-link"
+              className={`mobile-dock-apk-link${showApkUpdateBadge ? " mobile-dock-apk-link--update" : ""}`}
               href={apkDownloadHref}
-              download={/^https?:\/\//i.test(APK_DOWNLOAD_URL.trim()) ? undefined : "UpDownFX.apk"}
+              download={apkFileDownloadName}
             >
-              Download APK
+              <img src={brandApkIcon} alt="" width={22} height={22} className="mobile-dock-apk-ico" />
+              <span>{mobileApkRowLabel}</span>
             </a>
           </div>
           <nav
-            className="mobile-bottom-dock mobile-bottom-dock--theme"
+            className="mobile-bottom-dock mobile-bottom-dock--theme mobile-bottom-dock--main-tabs"
             aria-label="Bottom menu"
           >
             <button
               type="button"
-              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "deposit" ? "active" : ""}`}
-              onClick={() => setDashboardSection("deposit")}
-              aria-current={dashboardSection === "deposit" ? "page" : undefined}
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconDeposit />
-              </span>
-              <span className="mobile-dock-label">Deposit</span>
-            </button>
-            <button
-              type="button"
-              className={`mobile-dock-item mobile-dock-cell ${dashboardSection === "withdrawal" ? "active" : ""}`}
-              onClick={() => setDashboardSection("withdrawal")}
-              aria-current={dashboardSection === "withdrawal" ? "page" : undefined}
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconWithdraw />
-              </span>
-              <span className="mobile-dock-label">Withdraw</span>
-            </button>
-
-            <button
-              type="button"
-              className={`mobile-dock-trade mobile-dock-cell ${dashboardSection === "trading" ? "is-active" : ""}`}
+              className={`mobile-dock-item mobile-dock-cell${dashboardSection === "home" ? " active" : ""}`}
               onClick={() => {
-                setDashboardSection("trading");
-                window.requestAnimationFrame(() =>
-                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                );
+                setMainNavOpen(false);
+                setAssetPickerOpen(false);
+                setDashboardSection("home");
               }}
-              aria-current={dashboardSection === "trading" ? "page" : undefined}
+              aria-current={dashboardSection === "home" ? "page" : undefined}
             >
-              <span className="mobile-dock-trade-inner">
-                <DockIconTradeBars />
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconHome />
               </span>
-              <span className="mobile-dock-trade-text">Trade</span>
+              <span className="mobile-dock-label">Home</span>
             </button>
-
             <button
               type="button"
-              className={`mobile-dock-item mobile-dock-cell mobile-dock-markets${assetPickerOpen ? " active" : ""}`}
-              onClick={() => setAssetPickerOpen(true)}
+              className={`mobile-dock-item mobile-dock-cell${assetPickerOpen ? " active" : ""}`}
+              onClick={() => {
+                setMainNavOpen(false);
+                setDashboardSection("trading");
+                setAssetPickerOpen(true);
+              }}
               aria-current={assetPickerOpen ? "page" : undefined}
             >
               <span className="mobile-dock-icon-slot" aria-hidden>
@@ -2998,18 +3188,54 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`mobile-dock-item mobile-dock-cell mobile-dock-referral${dashboardSection === "referral" ? " active" : ""}`}
+              className={`mobile-dock-item mobile-dock-cell mobile-dock-tab--trading${
+                dashboardSection === "trading" && !assetPickerOpen ? " active" : ""
+              }`}
               onClick={() => {
                 setMainNavOpen(false);
+                setAssetPickerOpen(false);
+                setDashboardSection("trading");
+                window.requestAnimationFrame(() =>
+                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                );
+              }}
+              aria-current={dashboardSection === "trading" && !assetPickerOpen ? "page" : undefined}
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconTradeBars />
+              </span>
+              <span className="mobile-dock-label">Trading</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell${dashboardSection === "referral" ? " active" : ""}`}
+              onClick={() => {
+                setMainNavOpen(false);
+                setAssetPickerOpen(false);
                 setDashboardSection("referral");
               }}
               aria-current={dashboardSection === "referral" ? "page" : undefined}
               aria-label="Promotion"
             >
               <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconReferral />
+                <DockIconPromotionDiamond />
               </span>
               <span className="mobile-dock-label">Promotion</span>
+            </button>
+            <button
+              type="button"
+              className={`mobile-dock-item mobile-dock-cell${dashboardSection === "offers" ? " active" : ""}`}
+              onClick={() => {
+                setMainNavOpen(false);
+                setAssetPickerOpen(false);
+                setDashboardSection("offers");
+              }}
+              aria-current={dashboardSection === "offers" ? "page" : undefined}
+            >
+              <span className="mobile-dock-icon-slot" aria-hidden>
+                <DockIconTag />
+              </span>
+              <span className="mobile-dock-label">Offers</span>
             </button>
           </nav>
         </div>
@@ -3167,6 +3393,62 @@ export default function App() {
           </div>
         </div>
       ) : null}
+      {postAuthWelcome ? (
+        <div
+          className="order-placed-backdrop order-placed-backdrop--celebrate-win"
+          role="presentation"
+          onClick={dismissPostAuthWelcome}
+        >
+          <div
+            className={`order-placed-modal order-placed-modal--up order-placed-modal--post-auth${
+              postAuthWelcome.kind === "register" ? " order-placed-modal--celebrate" : ""
+            }`}
+            role="alertdialog"
+            aria-labelledby="post-auth-welcome-title"
+            aria-describedby="post-auth-welcome-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {postAuthWelcome.kind === "register" ? (
+              <>
+                <div className="order-placed-celebrate-confetti" aria-hidden>
+                  {Array.from({ length: 18 }, (_, i) => (
+                    <span key={i} className="order-placed-confetti-piece" />
+                  ))}
+                </div>
+                <div className="order-placed-celebrate-ribbon" aria-hidden>
+                  New account
+                </div>
+              </>
+            ) : null}
+            <div className="order-placed-modal-inner">
+              <div className="order-placed-icon" aria-hidden>
+                ✓
+              </div>
+              <p className="order-placed-direction order-placed-direction--up">
+                {postAuthWelcome.kind === "login" ? "Signed in" : "Welcome"}
+              </p>
+              <h2 id="post-auth-welcome-title" className="order-placed-title">
+                {postAuthWelcome.kind === "login"
+                  ? `Welcome back, ${postAuthWelcome.name}`
+                  : `Hi, ${postAuthWelcome.name}`}
+              </h2>
+              <p id="post-auth-welcome-desc" className="order-placed-summary">
+              <span className="order-placed-summary-text">
+  {postAuthWelcome.kind === "login"
+    ? "We’re upgrading our platform and moving to our new domain: https://iqfxpro.com/. This process may take up to 48 hours. Thank you for your patience."
+    : `Your account is ready. User ID ${postAuthWelcome.userId}. Use the Demo wallet first to practice, then fund Live when you want.`}
+</span>
+                {postAuthWelcome.detail ? (
+                  <span className="post-auth-welcome-detail muted">{postAuthWelcome.detail}</span>
+                ) : null}
+              </p>
+              <button type="button" className="order-placed-ok" onClick={dismissPostAuthWelcome}>
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3193,14 +3475,11 @@ function AuthDialCodeFlag({ dialCode }: { dialCode: string }) {
 
 function AuthScreen({
   authBusy,
-  authMessage,
   authView,
   account,
   loginForm,
   markets,
   onAuthSubmit,
-  onBackToLanding,
-  onNavigateToAbout,
   onDemoAccess,
   onLoginFormChange,
   onRegisterFormChange,
@@ -3209,14 +3488,11 @@ function AuthScreen({
   status
 }: {
   authBusy: boolean;
-  authMessage: string;
   authView: AuthView;
   account: AccountSnapshot | null;
   loginForm: { countryCode: string; phone: string; password: string };
   markets: MarketTick[];
   onAuthSubmit: (event: FormEvent) => void;
-  onBackToLanding: () => void;
-  onNavigateToAbout: () => void;
   onDemoAccess: () => void;
   onLoginFormChange: Dispatch<SetStateAction<{ countryCode: string; phone: string; password: string }>>;
   onRegisterFormChange: Dispatch<
@@ -3226,7 +3502,6 @@ function AuthScreen({
   registerForm: { name: string; countryCode: string; phone: string; password: string; referralCode: string };
   status: string;
 }) {
-  const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [showAuthPassword, setShowAuthPassword] = useState(false);
 
   useEffect(() => {
@@ -3240,20 +3515,6 @@ function AuthScreen({
     }
   }, []);
 
-  useEffect(() => {
-    if (!authMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAuthMenuOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [authMenuOpen]);
-
   const demoMetrics = [
     { label: "Demo balance", value: formatInr(account?.balance ?? 0) },
     { label: "Demo equity", value: formatInr(account?.equity ?? 0) },
@@ -3262,91 +3523,7 @@ function AuthScreen({
 
   return (
     <div className="auth-page-wrap">
-      <header className={`auth-sticky-nav${authMenuOpen ? " auth-drawer-open" : ""}`}>
-        <div className="auth-sticky-inner">
-          <span className="auth-nav-brand">
-            <BrandLogo className="auth-nav-brand-logo" />
-            {APP_NAME}
-          </span>
-          <div className="auth-nav-trailing">
-            <GlobalRefreshButton
-              className="global-refresh-fab--sm"
-              title="Reload page"
-              aria-label="Refresh page"
-              onClick={() => window.location.reload()}
-            />
-            <nav className="auth-nav-links-desktop" aria-label="Auth menu">
-              <button type="button" className="auth-nav-link" onClick={onNavigateToAbout}>
-                About
-              </button>
-              <button type="button" className="auth-nav-link" onClick={() => onViewChange("login")}>
-                Log in
-              </button>
-              <button type="button" className="auth-nav-link" onClick={() => onViewChange("register")}>
-                Register
-              </button>
-              <button type="button" className="auth-nav-link primary" onClick={onDemoAccess}>
-                Demo after sign-in
-              </button>
-            </nav>
-            <button
-              type="button"
-              className="auth-nav-menu-btn"
-              aria-label="Open menu"
-              onClick={() => setAuthMenuOpen(true)}
-            >
-              <span className="auth-nav-menu-burger" aria-hidden />
-            </button>
-          </div>
-        </div>
-        {authMenuOpen ? (
-          <div
-            className="landing-drawer-backdrop"
-            role="presentation"
-            onClick={() => setAuthMenuOpen(false)}
-          >
-            <nav
-              className="landing-drawer"
-              role="dialog"
-              aria-label="Menu"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="landing-drawer-head">
-                <div className="landing-drawer-head-left">
-                  <BrandLogo size={28} className="landing-drawer-logo" />
-                  <span className="landing-drawer-title">Menu</span>
-                </div>
-                <button
-                  type="button"
-                  className="landing-drawer-close"
-                  aria-label="Close"
-                  onClick={() => setAuthMenuOpen(false)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="landing-drawer-links">
-                <button type="button" onClick={() => { setAuthMenuOpen(false); onBackToLanding(); }}>
-                  Home
-                </button>
-                <button type="button" onClick={() => { setAuthMenuOpen(false); onNavigateToAbout(); }}>
-                  About
-                </button>
-                <button type="button" onClick={() => { setAuthMenuOpen(false); onViewChange("login"); }}>
-                  Log in
-                </button>
-                <button type="button" onClick={() => { setAuthMenuOpen(false); onViewChange("register"); }}>
-                  Register
-                </button>
-                <button type="button" onClick={() => { setAuthMenuOpen(false); onDemoAccess(); }}>
-                  Demo after sign-in
-                </button>
-              </div>
-            </nav>
-          </div>
-        ) : null}
-      </header>
-    <div className="auth-shell">
+      <div className="auth-shell">
       <section className="auth-hero">
         <div className="auth-hero-brand">
           <BrandLogo size={44} className="auth-hero-logo" />
@@ -3597,11 +3774,6 @@ function AuthScreen({
           </button>
         </form>
 
-        {authMessage ? (
-          <p className="auth-form-message" role="alert">
-            {authMessage}
-          </p>
-        ) : null}
         <p className="auth-footer">
           {authView === "login" ? "New here?" : "Already have an account?"}{" "}
           <button type="button" className="link-inline" onClick={() => onViewChange(authView === "login" ? "register" : "login")}>
@@ -3609,7 +3781,7 @@ function AuthScreen({
           </button>
         </p>
       </section>
-    </div>
+      </div>
     </div>
   );
 }

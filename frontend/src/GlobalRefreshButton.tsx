@@ -6,7 +6,7 @@ type Props = {
   "aria-label"?: string;
 };
 
-/** Circular refresh control (green, top-right style) — use with `global-refresh-fab` / `global-refresh-fab--sm` in CSS. */
+/** Circular refresh control (accent, top-right style) — use with `global-refresh-fab` / `global-refresh-fab--sm` in CSS. */
 export default function GlobalRefreshButton({
   onClick,
   className = "",

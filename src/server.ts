@@ -144,6 +144,9 @@ function resolveAndroidApkPath(): string | null {
     logger.warn({ APK_FILE_PATH: explicit }, "APK_FILE_PATH set but file not found");
   }
   const candidates = [
+    path.join(projectRoot, "releases", "Iqfxpro.apk"),
+    path.join(frontendDist, "downloads", "Iqfxpro.apk"),
+    path.join(projectRoot, "frontend", "public", "downloads", "Iqfxpro.apk"),
     path.join(projectRoot, "releases", "UpDownFX.apk"),
     path.join(frontendDist, "downloads", "UpDownFX.apk"),
     path.join(projectRoot, "frontend", "public", "downloads", "UpDownFX.apk")
@@ -165,19 +168,20 @@ const ANDROID_APK_PATHS = new Set([
   "/api/system/android-apk",
   "/api/mobile-app",
   "/api/android-app.apk",
+  "/downloads/Iqfxpro.apk",
   "/downloads/UpDownFX.apk"
 ]);
 
 const ANDROID_APK_MISSING_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head><body style="font-family:system-ui;padding:1.5rem;max-width:36rem">
 <h1>APK file missing on server</h1>
 <p>Chrome shows &quot;File wasn&apos;t available on site&quot; when the APK is not on disk or the URL returns HTML/404.</p>
-<p>Put <strong>UpDownFX.apk</strong> here (pick one):</p>
+<p>Put <strong>Iqfxpro.apk</strong> here (pick one):</p>
 <ul>
-<li><strong>Best on VPS:</strong> <code>releases/UpDownFX.apk</code> next to the app folder (same level as <code>package.json</code>), then <code>pm2 restart</code></li>
+<li><strong>Best on VPS:</strong> <code>releases/Iqfxpro.apk</code> next to the app folder (same level as <code>package.json</code>), then <code>pm2 restart</code></li>
 <li>Or <code>APK_FILE_PATH</code> in <code>.env</code> → full path to the APK</li>
-<li>Or PC: <code>npm run copy-apk</code> then <code>npm run build:all</code> and deploy so <code>frontend/dist/downloads/UpDownFX.apk</code> exists</li>
+<li>Or PC: <code>npm run copy-apk</code> then <code>npm run build:all</code> and deploy so <code>frontend/dist/downloads/Iqfxpro.apk</code> exists</li>
 </ul>
-<p>Working URLs (after file exists): <code>/api/system/android-apk</code> (recommended) · <code>/api/android-app.apk</code> · <code>/downloads/UpDownFX.apk</code> · <code>/api/mobile-app</code></p>
+<p>Working URLs (after file exists): <code>/api/system/android-apk</code> (recommended) · <code>/api/android-app.apk</code> · <code>/downloads/Iqfxpro.apk</code> · <code>/api/mobile-app</code></p>
 <p>Check: <code>GET /api/health</code> → <code>apkReady: true</code></p>
 <p>If you see Express &quot;Cannot GET&quot; (tiny 404): run <code>npm run build</code> on the server and <code>pm2 restart</code> — old <code>dist/server.js</code> won&apos;t have APK routes.</p>
 </body></html>`;
@@ -196,9 +200,9 @@ function sendAndroidApkOr404(res: ServerResponse): void {
   const resolved = path.resolve(file);
   res.writeHead(200, {
     "Content-Type": "application/vnd.android.package-archive",
-    "Content-Disposition": 'attachment; filename="UpDownFX.apk"',
+    "Content-Disposition": 'attachment; filename="Iqfxpro.apk"',
     "Cache-Control": "no-store",
-    "X-Served-By": "updownfx-raw"
+    "X-Served-By": "iqfxpro-raw"
   });
   const stream = fs.createReadStream(resolved);
   stream.on("error", (err) => {
@@ -275,7 +279,7 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && pathOnly === "/api/ping") {
     res.writeHead(200, {
       "Content-Type": "text/plain; charset=utf-8",
-      "X-Served-By": "updownfx-raw"
+      "X-Served-By": "iqfxpro-raw"
     });
     res.end("pong");
     return;
@@ -283,15 +287,17 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && pathOnly === "/api/health") {
     const body = JSON.stringify({
       ok: true,
-      service: "updownfx",
+      service: "iqfxpro",
       symbols: FOREX_SYMBOLS,
       forexPairs: FOREX_SYMBOLS.length,
-      apkReady: Boolean(resolveAndroidApkPath())
+      apkReady: Boolean(resolveAndroidApkPath()),
+      androidAppVersionCode: env.ANDROID_APP_VERSION_CODE,
+      androidAppVersionName: env.ANDROID_APP_VERSION_NAME
     });
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
-      "X-Served-By": "updownfx-raw"
+      "X-Served-By": "iqfxpro-raw"
     });
     res.end(body);
     return;
@@ -343,6 +349,16 @@ app.get("/api/system/database", (_req, res) => {
   res.json(getDatabaseInfo());
 });
 
+/** JSON for in-app “Update APK” — compare `versionCode` to Capacitor `App.getInfo().build`. */
+app.get("/api/system/android-app-info", (_req, res) => {
+  res.json({
+    versionCode: env.ANDROID_APP_VERSION_CODE,
+    versionName: env.ANDROID_APP_VERSION_NAME,
+    downloadUrl: "/api/system/android-apk",
+    apkReady: Boolean(resolveAndroidApkPath())
+  });
+});
+
 /** Mobile browsers sometimes open `/api/system` (truncated); send them to the real APK URL. */
 app.get("/api/system", (_req, res) => {
   res.redirect(302, "/api/system/android-apk");
@@ -356,9 +372,9 @@ function sendAndroidApkViaExpress(res: express.Response): void {
     return;
   }
   const resolved = path.resolve(file);
-  res.setHeader("Content-Disposition", 'attachment; filename="UpDownFX.apk"');
+  res.setHeader("Content-Disposition", 'attachment; filename="Iqfxpro.apk"');
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader("X-Served-By", "updownfx-express");
+  res.setHeader("X-Served-By", "iqfxpro-express");
   res.type("application/vnd.android.package-archive");
   res.sendFile(resolved, (err) => {
     if (err) {
@@ -2534,7 +2550,7 @@ export async function startServer(): Promise<http.Server> {
         logger.info({ apkPath }, "Android APK download: file found (GET /api/system/android-apk)");
       } else {
         logger.warn(
-          "Android APK missing — Download APK will fail until releases/UpDownFX.apk or APK_FILE_PATH is set (see GET /api/health apkReady)"
+          "Android APK missing — Download APK will fail until releases/Iqfxpro.apk or APK_FILE_PATH is set (see GET /api/health apkReady)"
         );
       }
       logger.info(

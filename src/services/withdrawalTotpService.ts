@@ -1,7 +1,7 @@
 import { generateSecret, generateURI, verifySync } from "otplib";
 import { dbGet, dbRun, initAppDb, isMysqlMode } from "../db/appDb";
 
-const APP_ISSUER = "UpDownFX";
+const APP_ISSUER = "IQFX Pro";
 
 export type WithdrawalTotpStatus = {
   enabled: boolean;

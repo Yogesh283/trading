@@ -9,7 +9,7 @@
 
 ### Mobile register → `users` table (phpMyAdmin “empty”?)
 
-- **`.env` mein `MYSQL_DATABASE=...` set hai** → users **MySQL** mein jaate hain → phpMyAdmin mein **usi database** (jaise `tradeing`) kholo; columns **`phone_country_code`**, **`phone_local`** mein mobile signup dikhega. Synthetic email: `{id}@m.updownfx.local`.
+- **`.env` mein `MYSQL_DATABASE=...` set hai** → users **MySQL** mein jaate hain → phpMyAdmin mein **usi database** (jaise `tradeing`) kholo; columns **`phone_country_code`**, **`phone_local`** mein mobile signup dikhega. Synthetic email: `{id}@m.iqfxpro.local`.
 - **`MYSQL_DATABASE` khali / unset** → users **`data/app.db` (SQLite)** mein jaate hain → phpMyAdmin mein **nahi** dikhenge jab tak aap MySQL use nahi kar rahe. Check: browser/open `GET /api/system/database` ya register ke baad success message par DB hint.
 - Admin panel **Users** list ab **Phone CC** + **Phone** columns dikhata hai.
 
@@ -157,9 +157,9 @@ pm2 restart updowanfx
 **Chart local sahi, live par purani candles nahi:** Placeholder **`APNA-DOMAIN` copy-paste mat karo** — **apna asli hostname** likho (browser jaisa URL, jaise `updowanfx.com` ya `www.updowanfx.com`).
 ```bash
 # Public HTTPS (apna domain):
-curl -sS "https://updowanfx.com/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5" | head -c 200
+curl -sS "https://updowanfx.com/api/markets/candles?symbol=GBPAUD&timeframe=60&limit=5" | head -c 200
 # Seedha Node (VPS par — DNS/SSL issue ho to ye pehle check karo; port .env / PM2 se match karo, default 3000):
-curl -sS "http://127.0.0.1:3000/api/markets/candles?symbol=EURUSD&timeframe=60&limit=5" | head -c 200
+curl -sS "http://127.0.0.1:3000/api/markets/candles?symbol=GBPAUD&timeframe=60&limit=5" | head -c 200
 ```
 Jawab **`{"candles":`** se shuru hona chahiye. **`{"candles":[]}`** = API theek hai, lekin DB mein abhi **koi bar save nahi** (naya server, ya seed/off failed). phpMyAdmin: `SELECT COUNT(*) FROM chart_candles;` — `pm2 logs` mein `chart_candles` errors dekho. **Turant history** ke liye `.env` mein optional **`TRADERMADE_KEY`** / **`ALPHA_VANTAGE_API_KEY`** (server start pe seed chalega). Bina keys: kuch **minute** chalao taake buckets close hon aur ticks DB mein likhein. **`www`** par `curl` se **301** aaye to `curl -L` use karo ya hamesha apex domain (`updowanfx.com`) test karo. Agar **HTML** (`<!DOCTYPE`) aaye to **`location /api/`** Node proxy **`location /` se pehle** hona chahiye. Cloudflare par **`/api` ko “Cache Everything” mat** do. Same-origin par `frontend/.env` mein **`VITE_API_URL` khali** rakho.
 
@@ -212,11 +212,11 @@ APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.confi
 | URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
 | Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
 | Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | PC: Studio se APK build → **`npm run apk:sync`** → `releases/UpDownFX.apk` bane; SFTP se VPS **`.../releases/UpDownFX.apk`**. Server: **`pm2 restart`**. (Ya `.env` **`APK_FILE_PATH=/home/.../UpDownFX.apk`**.) Link: **`GET /api/system/android-apk`**. |
+| **Site par “Download APK”** | PC: Studio se APK build → **`npm run apk:sync`** → `releases/Iqfxpro.apk` bane; SFTP se VPS **`.../releases/Iqfxpro.apk`**. Server: **`pm2 restart`**. (Ya `.env` **`APK_FILE_PATH=/home/.../Iqfxpro.apk`**.) Link: **`GET /api/system/android-apk`**. |
 | Download **`mobile-app.html`** / HTML instead of APK | **`/api/...` Node tak nahi ja raha** — static/SPA ne `index.html` de diya. **Fix:** Nginx mein **`location /api/`** → Node, **`location /` se pehle**. |
 | VPS par `curl` → **`Could not resolve host`** | Galat domain spelling (e.g. `updownanfx` vs **`updowanfx`**) ya server DNS — browser wala sahi domain use karo, ya test: `curl -I http://127.0.0.1:PORT/...` |
 | `curl -I http://127.0.0.1:3000/api/system/android-apk` → **404** + chhota HTML | **Purana `dist`** chal raha hai — server par: `grep android-apk dist/server.js` (kuch lines dikhni chahiye). Phir **`npm run build`**, **`npm run build:all`** (agar frontend bhi), **`pm2 restart`**. |
-| APK route live hai? | `curl -I http://127.0.0.1:PORT/api/ping` → header **`X-Served-By: updownfx-raw`**. Phir `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **`application/vnd.android.package-archive`** (file ho to) ya lamba HTML “APK file missing” (file na ho). |
+| APK route live hai? | `curl -I http://127.0.0.1:PORT/api/ping` → header **`X-Served-By: iqfxpro-raw`**. Phir `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **`application/vnd.android.package-archive`** (file ho to) ya lamba HTML “APK file missing” (file na ho). |
 
 **Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
 

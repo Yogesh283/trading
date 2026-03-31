@@ -9,6 +9,7 @@ import {
 } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import { useGlobalAlert } from "./GlobalAlertContext";
 import {
   appendDepositAmountToPageUrl,
   clearAutoDepositLocal,
@@ -71,10 +72,10 @@ function depositStatusLabel(status: string): string {
 }
 
 export default function DepositPage({ token, onSuccess }: Props) {
+  const { showAlert } = useGlobalAlert();
   const [amount, setAmount] = useState("50");
   const [deposits, setDeposits] = useState<DepositRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
   /** Mobile in-wallet browser: run USDT transfer once after inject + amount ready. */
   const autoDepositStartedRef = useRef(false);
   const [showMobileContinue, setShowMobileContinue] = useState(false);
@@ -137,7 +138,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
       eth?.removeListener?.("connect", onConn);
       eth?.removeListener?.("accountsChanged", onConn);
     };
-  }, [token, busy, message]);
+  }, [token, busy]);
 
   /** MetaMask WebView ≠ Chrome: use query + hash + localStorage; retry for slow loads. */
   useLayoutEffect(() => {
@@ -232,18 +233,20 @@ export default function DepositPage({ token, onSuccess }: Props) {
         stripAutoDepositFromUrl();
         setShowMobileContinue(false);
         if (submitted.pendingReview) {
-          setMessage(
+          showAlert(
             submitted.message ??
-              "Payment submitted for review. After an admin verifies your transaction on BscScan, your INR wallet will be credited."
+              "Payment submitted for review. After an admin verifies your transaction on BscScan, your INR wallet will be credited.",
+            "info"
           );
         } else if (submitted.creditedInr != null) {
           const inr = submitted.creditedInr;
-          setMessage(
+          showAlert(
             submitted.message ??
-              `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${submitted.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`
+              `Success: ${formatInr(inr)} added to trading wallet (${num} USDT on-chain, 1 USDT = ₹${submitted.inrPerUsdt ?? INR_PER_USDT}). Tx: ${txHash.slice(0, 14)}…`,
+            "info"
           );
         } else {
-          setMessage(submitted.message ?? "Deposit recorded — check your balance and history below.");
+          showAlert(submitted.message ?? "Deposit recorded — check your balance and history below.", "info");
         }
         await refreshDeposits();
         onSuccess?.();
@@ -251,7 +254,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
         setBusy(null);
       }
     },
-    [token, refreshDeposits, onSuccess, detectWalletIdFromInjected]
+    [token, refreshDeposits, onSuccess, detectWalletIdFromInjected, showAlert]
   );
 
   /**
@@ -280,7 +283,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
       if (!provider?.request) return;
 
       autoDepositStartedRef.current = true;
-      setMessage("Step 3/4: Confirm in wallet — USDT to platform address (amount pre-filled).");
+      showAlert("Step 3/4: Confirm in wallet — USDT to platform address (amount pre-filled).", "info");
 
       const wid = detectWalletIdFromInjected(provider);
       try {
@@ -291,13 +294,13 @@ export default function DepositPage({ token, onSuccess }: Props) {
         clearAutoDepositLocal();
         const msg = err instanceof Error ? err.message : String(err);
         if (msg.includes("user rejected") || msg.includes("4001")) {
-          setMessage("Cancelled. Open app below or tap “Retry USDT payment” to try again.");
+          showAlert("Cancelled. Open app below or tap “Retry USDT payment” to try again.", "info");
         } else {
-          setMessage(msg.slice(0, 220));
+          showAlert(msg.slice(0, 220), "error");
         }
       }
     },
-    [amount, executeDepositTransfer, detectWalletIdFromInjected]
+    [amount, executeDepositTransfer, detectWalletIdFromInjected, showAlert]
   );
 
   useEffect(() => {
@@ -341,15 +344,14 @@ export default function DepositPage({ token, onSuccess }: Props) {
 
   /** One flow: amount set → user taps here → wallet sign → `submitDepositTx` inside `executeDepositTransfer`. */
   const confirmDepositDirect = async () => {
-    setMessage("");
     const num = Number(amount);
     if (!Number.isFinite(num) || num < 1) {
-      setMessage("Minimum 1 USDT.");
+      showAlert("Minimum 1 USDT.", "error");
       return;
     }
     const injected = getFirstInjectedEthereumProvider();
     if (!injected) {
-      setMessage("No wallet on this page. On phone use “Open app” below; on desktop install MetaMask.");
+      showAlert("No wallet on this page. On phone use “Open app” below; on desktop install MetaMask.", "error");
       return;
     }
     const wid = detectWalletIdFromInjected(injected.provider);
@@ -358,18 +360,17 @@ export default function DepositPage({ token, onSuccess }: Props) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("user rejected") || msg.includes("4001")) {
-        setMessage("You cancelled in the wallet. Tap Confirm deposit again when ready.");
+        showAlert("You cancelled in the wallet. Tap Confirm deposit again when ready.", "info");
       } else {
-        setMessage(msg.slice(0, 200));
+        showAlert(msg.slice(0, 200), "error");
       }
     }
   };
 
   const generateQrPayment = async () => {
-    setMessage("");
     const num = Number(amount);
     if (!Number.isFinite(num) || num < 1) {
-      setMessage("Minimum 1 USDT.");
+      showAlert("Minimum 1 USDT.", "error");
       return;
     }
     setBusyQr(true);
@@ -384,11 +385,12 @@ export default function DepositPage({ token, onSuccess }: Props) {
       setQrAmountUsdt(String(num));
       setQrTxHash("");
       setQrFrom("");
-      setMessage(
-        "Scan the QR with your wallet, then enter amount, transaction hash, and your sending address."
+      showAlert(
+        "Scan the QR with your wallet, then enter amount, transaction hash, and your sending address.",
+        "info"
       );
     } catch (e) {
-      setMessage(e instanceof Error ? e.message.slice(0, 200) : "Failed to create deposit");
+      showAlert(e instanceof Error ? e.message.slice(0, 200) : "Failed to create deposit", "error");
       setQrPayment(null);
     } finally {
       setBusyQr(false);
@@ -401,47 +403,46 @@ export default function DepositPage({ token, onSuccess }: Props) {
     const from = qrFrom.trim();
     const amt = Number(qrAmountUsdt.trim().replace(",", "."));
     if (!Number.isFinite(amt) || amt < 1) {
-      setMessage("Enter the USDT amount you sent (minimum 1).");
+      showAlert("Enter the USDT amount you sent (minimum 1).", "error");
       return;
     }
     if (!hash.startsWith("0x") || hash.length < 10) {
-      setMessage("Enter full BSC transaction hash (0x…).");
+      showAlert("Enter full BSC transaction hash (0x…).", "error");
       return;
     }
     if (!from.startsWith("0x") || from.length < 42) {
-      setMessage("Enter the wallet address you sent from (0x…).");
+      showAlert("Enter the wallet address you sent from (0x…).", "error");
       return;
     }
     setBusyQr(true);
-    setMessage("");
     try {
       const submitted = await submitDepositTx(token, qrPayment.deposit.id, hash, from, amt);
       if (submitted.pendingReview) {
-        setMessage(
+        showAlert(
           submitted.message ??
-            "Submitted. An admin will verify on BscScan; your INR wallet updates after approval."
+            "Submitted. An admin will verify on BscScan; your INR wallet updates after approval.",
+          "info"
         );
         setQrPayment(null);
         setQrAmountUsdt("");
         setQrTxHash("");
         setQrFrom("");
       } else {
-        setMessage("Check your deposit list below for status.");
+        showAlert("Check your deposit list below for status.", "info");
       }
       await refreshDeposits();
       onSuccess?.();
     } catch (e) {
-      setMessage(e instanceof Error ? e.message.slice(0, 220) : "Submit failed");
+      showAlert(e instanceof Error ? e.message.slice(0, 220) : "Submit failed", "error");
     } finally {
       setBusyQr(false);
     }
   };
 
   const payWithWallet = async (walletId: WalletGatewayId, walletName: string) => {
-    setMessage("");
     const num = Number(amount);
     if (!Number.isFinite(num) || num < 1) {
-      setMessage("Minimum 1 USDT.");
+      showAlert("Minimum 1 USDT.", "error");
       return;
     }
 
@@ -464,8 +465,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
           getOpenInWalletDeepLink(walletId, pageWithAmount) ??
           getOpenInWalletDeepLink("metamask", pageWithAmount);
         if (deep) {
-          setMessage(
-            "Opening wallet app… Page will load with your amount; then the USDT send screen should open automatically — confirm there."
+          showAlert(
+            "Opening wallet app… Page will load with your amount; then the USDT send screen should open automatically — confirm there.",
+            "info"
           );
           window.setTimeout(() => {
             window.location.href = deep;
@@ -474,8 +476,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
         }
       }
       const opt = WALLET_OPTIONS.find((w) => w.id === walletId);
-      setMessage(
-        `${walletName} not detected. Install the app/extension, or on phone open this page inside MetaMask / Trust / Coinbase browser.`
+      showAlert(
+        `${walletName} not detected. Install the app/extension, or on phone open this page inside MetaMask / Trust / Coinbase browser.`,
+        "error"
       );
       if (opt?.installUrl) {
         window.open(opt.installUrl, "_blank", "noopener,noreferrer");
@@ -488,9 +491,9 @@ export default function DepositPage({ token, onSuccess }: Props) {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("user rejected") || msg.includes("4001")) {
-        setMessage("Transaction cancelled in wallet.");
+        showAlert("Transaction cancelled in wallet.", "info");
       } else {
-        setMessage(msg.slice(0, 200));
+        showAlert(msg.slice(0, 200), "error");
       }
     }
   };
@@ -509,31 +512,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
           <span className="funds-badge">BSC</span> Send USDT (BEP20) · trading wallet credits in{" "}
           <strong>INR</strong> (1 USDT = ₹{INR_PER_USDT})
         </p>
-
-        <ol className="deposit-flow-steps deposit-flow-steps-short" aria-label="Deposit steps">
-          <li>
-            <strong>Amount</strong> — USDT you will send from crypto wallet (we check balance before in-browser payment).
-          </li>
-          <li>
-            <strong>Pay</strong> —{" "}
-            {injectReady ? (
-              <>
-                <strong>Confirm deposit</strong> in wallet, <em>or</em> use <strong>QR / external wallet</strong> below.
-              </>
-            ) : isMobileDevice() ? (
-              <>
-                <strong>Open app</strong> + confirm, <em>or</em> pay via <strong>QR</strong> then submit tx hash.
-              </>
-            ) : (
-              <>Web3 wallet green button, <em>or</em> QR scan / any wallet then submit hash for admin approval.</>
-            )}
-          </li>
-          <li>
-            <strong>Credit</strong> — <strong>₹{INR_PER_USDT} per 1 USDT</strong>.{" "}
-            <strong>Confirm deposit</strong> (wallet in this page) adds INR to your trading wallet right after the
-            on-chain tx. <strong>QR / manual hash</strong> needs <strong>admin approval</strong> after BscScan check.
-          </li>
-        </ol>
 
         <label className="funds-amount-label">
           Amount (USDT)
@@ -564,10 +542,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
             >
               {busy ? "Waiting for wallet…" : "Confirm deposit"}
             </button>
-            <p className="deposit-direct-sub">
-              Sends USDT from your connected wallet; trading balance in <strong>INR</strong> updates automatically at{" "}
-              <strong>1 USDT = ₹{INR_PER_USDT}</strong> (no admin step for this path).
-            </p>
           </div>
         ) : isMobileDevice() ? (
           <p className="deposit-connect-first">
@@ -617,11 +591,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
 
         <div className="deposit-qr-section">
           <h2 className="funds-wallets-title">QR / external wallet</h2>
-          <p className="deposit-qr-24h-notice" role="status">
-            <strong>24-hour processing:</strong> After you submit your transaction details for a <strong>QR / external</strong>{" "}
-            deposit, crediting to your trading wallet can take up to <strong>24 hours</strong> while we verify on-chain and
-            approve. Use <strong>Refresh</strong> above to update your deposit list.
-          </p>
           {!qrPayment ? (
             <button
               type="button"
@@ -697,7 +666,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
                     setQrAmountUsdt("");
                     setQrTxHash("");
                     setQrFrom("");
-                    setMessage("");
                   }}
                 >
                   Cancel
@@ -706,8 +674,6 @@ export default function DepositPage({ token, onSuccess }: Props) {
             </div>
           )}
         </div>
-
-        {message ? <p className="funds-message funds-message-wide">{message}</p> : null}
 
         <div className="funds-warn">
           <strong>Network</strong>
