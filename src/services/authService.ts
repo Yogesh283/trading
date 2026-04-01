@@ -828,6 +828,79 @@ function countTotalDownline(userId: string, childrenByParentId: Map<string, stri
   return walk(userId);
 }
 
+/** BFS: every downline user with depth (1 = direct). */
+function collectDownlineWithDepth(
+  rootId: string,
+  childrenByParentId: Map<string, string[]>
+): Array<{ userId: string; depth: number }> {
+  const out: Array<{ userId: string; depth: number }> = [];
+  const queue: Array<{ id: string; depth: number }> = [];
+  for (const kid of childrenByParentId.get(rootId) ?? []) {
+    queue.push({ id: kid, depth: 1 });
+  }
+  while (queue.length > 0) {
+    const { id, depth } = queue.shift()!;
+    out.push({ userId: id, depth });
+    for (const k of childrenByParentId.get(id) ?? []) {
+      queue.push({ id: k, depth: depth + 1 });
+    }
+  }
+  return out;
+}
+
+const REFERRAL_USER_FETCH_CHUNK = 400;
+
+async function fetchUsersByIdsForReferralList(
+  ids: string[]
+): Promise<
+  Map<
+    string,
+    {
+      id: string | number;
+      name: string;
+      email: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
+      created_at: string;
+      self_referral_code: string | null;
+    }
+  >
+> {
+  const out = new Map<
+    string,
+    {
+      id: string | number;
+      name: string;
+      email: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
+      created_at: string;
+      self_referral_code: string | null;
+    }
+  >();
+  for (let i = 0; i < ids.length; i += REFERRAL_USER_FETCH_CHUNK) {
+    const part = ids.slice(i, i + REFERRAL_USER_FETCH_CHUNK);
+    if (part.length === 0) continue;
+    const ph = part.map(() => "?").join(", ");
+    const rows = await dbAll<{
+      id: string | number;
+      name: string;
+      email: string;
+      phone_country_code: string | null;
+      phone_local: string | null;
+      created_at: string;
+      self_referral_code: string | null;
+    }>(
+      `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users WHERE id IN (${ph})`,
+      part
+    );
+    for (const r of rows) {
+      out.set(String(r.id).trim(), r);
+    }
+  }
+  return out;
+}
+
 export type ReferralTeamMemberPublic = {
   id: string;
   name: string;
@@ -840,6 +913,8 @@ export type ReferralTeamMemberPublic = {
   liveWalletBalanceInr: number;
   /** Sum of credited on-chain deposits (USDT). */
   totalDepositedUsdt: number;
+  /** 1 = direct; 2+ = indirect (set on full downline list only). */
+  depth?: number;
 };
 
 async function loadWalletBalancesForUserIds(userIds: string[]): Promise<Map<string, number>> {
@@ -937,6 +1012,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   selfReferralCode: string;
   inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMemberPublic[];
+  /** Entire downline (all levels), newest-first within each depth. */
+  downlineTeam: ReferralTeamMemberPublic[];
   directCount: number;
   /** Direct referrals who joined today (IST). */
   directJoinedTodayCount: number;
@@ -945,7 +1022,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTotalLiveBalanceInr: number;
   /** Sum of credited USDT deposits across direct referrals only. */
   directTeamTotalDepositsUsdt: number;
-  /** Total referral commissions credited to your live wallet (betting + staking + investment ROI). */
+  /** All-time referral commissions credited to your live wallet (betting + staking + investment ROI). */
   totalReferralCommissionInr: number;
   /** From team members’ live binary stakes (`level_income`). */
   bettingCommissionInr: number;
@@ -997,8 +1074,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   const { startIso, endIso } = getIstDayUtcIsoBounds();
 
   const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
-    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ? GROUP BY txn_type`,
-    [uid, startIso, endIso]
+    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') GROUP BY txn_type`,
+    [uid]
   );
   let bettingCommissionInr = 0;
   let stakingCommissionInr = 0;
@@ -1025,8 +1102,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     reference_id: string | null;
     amount: number | string | null;
   }>(
-    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ?`,
-    [uid, startIso, endIso]
+    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi')`,
+    [uid]
   );
   const betRecvByLevel = new Map<number, number>();
   const stakeRecvByLevel = new Map<number, number>();
@@ -1069,35 +1146,23 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     }
   }
 
-  let directTeam: ReferralTeamMemberPublic[] = [];
-  /** How many direct referrals signed up today (IST) — for stats; list below is all-time. */
-  let directJoinedTodayCount = 0;
-  if (myCode) {
-    const directSql = isMysqlMode()
-      ? `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
-         WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
-         AND UPPER(TRIM(referral_code)) = UPPER(?)
-         ORDER BY created_at DESC
-         LIMIT 500`
-      : `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
-         WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
-         AND UPPER(TRIM(referral_code)) = UPPER(?)
-         ORDER BY created_at DESC
-         LIMIT 500`;
-    const directRows = await dbAll<{
-      id: string | number;
-      name: string;
-      email: string;
-      phone_country_code: string | null;
-      phone_local: string | null;
-      created_at: string;
-      self_referral_code: string | null;
-    }>(directSql, [myCode]);
-    directJoinedTodayCount = directRows.filter((r) => {
-      const ca = String(r.created_at ?? "");
-      return ca >= startIso && ca < endIso;
-    }).length;
-    directTeam = directRows.map((r) => ({
+  const graph = await dbAll<ReferralGraphRow>(
+    "SELECT id, self_referral_code, referral_code, created_at FROM users"
+  );
+  const childrenByParentId = buildReferralChildrenMap(graph);
+
+  const downlineOrder = collectDownlineWithDepth(uid, childrenByParentId);
+  const totalTeamCount = downlineOrder.length;
+  const downlineIds = downlineOrder.map((x) => x.userId);
+  const userRowById = await fetchUsersByIdsForReferralList(downlineIds);
+
+  let downlineTeam: ReferralTeamMemberPublic[] = [];
+  for (const { userId, depth } of downlineOrder) {
+    const r = userRowById.get(userId);
+    if (!r) {
+      continue;
+    }
+    downlineTeam.push({
       id: String(r.id),
       name: r.name,
       email: r.email,
@@ -1105,32 +1170,42 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       createdAt: r.created_at,
       selfReferralCode: String(r.self_referral_code ?? "").trim() || "—",
       liveWalletBalanceInr: 0,
-      totalDepositedUsdt: 0
-    }));
+      totalDepositedUsdt: 0,
+      depth
+    });
+  }
+  downlineTeam.sort((a, b) => {
+    const da = a.depth ?? 1;
+    const db = b.depth ?? 1;
+    if (da !== db) return da - db;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  let directJoinedTodayCount = 0;
+  for (const m of downlineTeam) {
+    if ((m.depth ?? 0) !== 1) continue;
+    const ca = String(m.createdAt ?? "");
+    if (ca >= startIso && ca < endIso) {
+      directJoinedTodayCount += 1;
+    }
   }
 
-  const graph = await dbAll<ReferralGraphRow>(
-    "SELECT id, self_referral_code, referral_code, created_at FROM users"
-  );
-  const childrenByParentId = buildReferralChildrenMap(graph);
-  const joinedAtByUserId = new Map<string, string>();
-  for (const r of graph) {
-    joinedAtByUserId.set(String(r.id), String(r.created_at ?? ""));
-  }
-  const totalTeamCount = countDownlineJoinedInWindow(uid, childrenByParentId, joinedAtByUserId, startIso, endIso);
-
-  const directIds = directTeam.map((m) => m.id);
-  const walletByDirect = await loadWalletBalancesForUserIds(directIds);
-  const depByDirect = await loadCreditedDepositTotalsForUserIds(directIds);
+  const walletByDownline = await loadWalletBalancesForUserIds(downlineIds);
+  const depByDownline = await loadCreditedDepositTotalsForUserIds(downlineIds);
   let directTotalLiveBalanceInr = 0;
   let directTeamTotalDepositsUsdt = 0;
-  directTeam = directTeam.map((m) => {
-    const liveWalletBalanceInr = walletByDirect.get(m.id) ?? 0;
-    const totalDepositedUsdt = depByDirect.get(m.id) ?? 0;
-    directTotalLiveBalanceInr += liveWalletBalanceInr;
-    directTeamTotalDepositsUsdt += totalDepositedUsdt;
+  downlineTeam = downlineTeam.map((m) => {
+    const liveWalletBalanceInr = walletByDownline.get(m.id) ?? 0;
+    const totalDepositedUsdt = depByDownline.get(m.id) ?? 0;
+    if ((m.depth ?? 0) === 1) {
+      directTotalLiveBalanceInr += liveWalletBalanceInr;
+      directTeamTotalDepositsUsdt += totalDepositedUsdt;
+    }
     return { ...m, liveWalletBalanceInr, totalDepositedUsdt };
   });
+  const directTeam: ReferralTeamMemberPublic[] = downlineTeam
+    .filter((m) => (m.depth ?? 0) === 1)
+    .map(({ depth: _d, ...rest }) => rest);
 
   const LEVEL_INCOME_EXAMPLE_STAKE_INR = 1000;
   const [refCfg, roiLevelRows] = await Promise.all([
@@ -1184,7 +1259,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     selfReferralCode: myCode || "—",
     inviter,
     directTeam,
-    /** All-time direct referral count (same as directTeam.length, capped at query limit). */
+    downlineTeam,
+    /** All-time direct referral count. */
     directCount: directTeam.length,
     /** Direct referrals whose account was created today (IST). */
     directJoinedTodayCount,

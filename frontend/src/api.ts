@@ -396,6 +396,8 @@ export interface ReferralTeamMember {
   selfReferralCode: string;
   liveWalletBalanceInr: number;
   totalDepositedUsdt: number;
+  /** 1 = your direct referral; deeper = indirect (full team list). */
+  depth?: number;
 }
 
 export interface BetStakeLevelScheduleRow {
@@ -422,17 +424,21 @@ export interface MonthlyRoiLevelScheduleRow {
 export interface ReferralSummary {
   selfReferralCode: string;
   inviter: { name: string; email: string; mobile: string } | null;
+  /** Direct referrals only (depth 1). */
   directTeam: ReferralTeamMember[];
-  /** All-time direct count (list capped at 500 on server). */
+  /** Full downline — every level under you (includes directs). */
+  downlineTeam?: ReferralTeamMember[];
+  /** All-time direct count. */
   directCount: number;
   /** Direct referrals who joined today (IST). */
   directJoinedTodayCount?: number;
+  /** All-time total downline size (all levels). */
   totalTeamCount: number;
   /** Sum of direct referrals’ live wallet (INR). */
   directTotalLiveBalanceInr: number;
   /** Sum of direct referrals’ credited deposits (USDT). */
   directTeamTotalDepositsUsdt: number;
-  /** Total commissions credited to your live wallet (betting + staking). */
+  /** All-time commissions credited to your live wallet (betting + staking + ROI upline). */
   totalReferralCommissionInr?: number;
   /** From referrals’ live binary stakes. */
   bettingCommissionInr?: number;

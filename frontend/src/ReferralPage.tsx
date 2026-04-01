@@ -69,8 +69,8 @@ export default function ReferralPage({ token }: Props) {
           <h1>Promotion</h1>
         </div>
         <p className="funds-network">
-          Share your link. Friends who register join your team. Earnings and level tables are <strong>today (IST)</strong>.
-          Your direct team table lists everyone who used your code (newest first).
+          Share your link. Friends who register join your team. Referral earnings and level income below are{" "}
+          <strong>all time</strong> (totals credited to your live wallet). Team lists show everyone in your network.
         </p>
 
         {data ? (
@@ -115,11 +115,11 @@ export default function ReferralPage({ token }: Props) {
 
             <section className="referral-section referral-section--total-earn" aria-labelledby="referral-total-earn-heading">
               <h2 className="referral-h2" id="referral-total-earn-heading">
-                Today’s earnings
+                Total referral earnings
               </h2>
               <div className="referral-total-earn-card">
                 <div className="referral-total-earn-hero">
-                  <span className="referral-total-earn-label">Today total (INR)</span>
+                  <span className="referral-total-earn-label">All time total (INR)</span>
                   <span className="referral-total-earn-value">
                     {formatInr(data.totalReferralCommissionInr ?? 0)}
                   </span>
@@ -157,8 +157,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th title="Credited to your live wallet from this level today (trading + staking)">
-                        Today (INR)
+                      <th title="Credited to your live wallet from this level (trading + staking), all time">
+                        All time (INR)
                       </th>
                     </tr>
                   </thead>
@@ -196,8 +196,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of gross monthly yield)</th>
-                      <th title="Credited to your live wallet from this level today (monthly ROI upline)">
-                        Today (INR)
+                      <th title="Credited to your live wallet from this level (monthly ROI upline), all time">
+                        All time (INR)
                       </th>
                     </tr>
                   </thead>
@@ -227,21 +227,25 @@ export default function ReferralPage({ token }: Props) {
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Team stats (today)</h2>
+              <h2 className="referral-h2">Team stats</h2>
               <div className="referral-stats">
                 <div className="referral-stat">
                   <span className="referral-stat-value">{data.directCount}</span>
-                  <span className="referral-stat-label">Direct joined today</span>
+                  <span className="referral-stat-label">Direct referrals (all time)</span>
                 </div>
                 <div className="referral-stat">
                   <span className="referral-stat-value">{data.totalTeamCount}</span>
-                  <span className="referral-stat-label">All levels joined today</span>
+                  <span className="referral-stat-label">Total team (all levels, all time)</span>
+                </div>
+                <div className="referral-stat">
+                  <span className="referral-stat-value">{data.directJoinedTodayCount ?? 0}</span>
+                  <span className="referral-stat-label">Direct joined today (IST)</span>
                 </div>
               </div>
             </section>
 
             <section className="referral-section">
-              <h2 className="referral-h2">Your team (direct, joined today)</h2>
+              <h2 className="referral-h2">Direct referrals</h2>
               <div className="referral-table-wrap">
                 <table className="referral-table">
                   <thead>
@@ -266,6 +270,61 @@ export default function ReferralPage({ token }: Props) {
                     ) : (
                       data.directTeam.map((m) => (
                         <tr key={m.id}>
+                          <td>{m.name}</td>
+                          <td className="referral-email referral-col-email">{m.email}</td>
+                          <td className="referral-mobile referral-col-mobile">{m.mobile}</td>
+                          <td className="referral-date">
+                            {new Date(m.createdAt).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric"
+                            })}
+                          </td>
+                          <td title="Live trading wallet (INR)">{formatInr(m.liveWalletBalanceInr ?? 0)}</td>
+                          <td title="Sum of credited on-chain deposits (USDT)">
+                            {(m.totalDepositedUsdt ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT
+                          </td>
+                          <td>
+                            <code className="referral-code-pill">{m.selfReferralCode}</code>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="referral-section">
+              <h2 className="referral-h2">Full team (all levels)</h2>
+              <p className="muted referral-team-hint">
+                Level 1 = direct; higher levels are indirect (your network under each invite).
+              </p>
+              <div className="referral-table-wrap">
+                <table className="referral-table">
+                  <thead>
+                    <tr>
+                      <th>Level</th>
+                      <th>Name</th>
+                      <th className="referral-col-email">Email</th>
+                      <th className="referral-col-mobile">Mobile</th>
+                      <th>Joined</th>
+                      <th>Live wallet</th>
+                      <th>Deposits</th>
+                      <th>Their code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(data.downlineTeam ?? data.directTeam).length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="referral-table-empty">
+                          No team members yet — share your promotion link to build your network.
+                        </td>
+                      </tr>
+                    ) : (
+                      (data.downlineTeam ?? data.directTeam).map((m) => (
+                        <tr key={`full-${m.id}`}>
+                          <td>{m.depth ?? 1}</td>
                           <td>{m.name}</td>
                           <td className="referral-email referral-col-email">{m.email}</td>
                           <td className="referral-mobile referral-col-mobile">{m.mobile}</td>
