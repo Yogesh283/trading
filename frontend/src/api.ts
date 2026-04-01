@@ -438,7 +438,7 @@ export interface ReferralSummary {
   directTotalLiveBalanceInr: number;
   /** Sum of direct referrals’ credited deposits (USDT). */
   directTeamTotalDepositsUsdt: number;
-  /** All-time commissions credited to your live wallet (betting + staking + ROI upline). */
+  /** Today (IST) commissions (promotion page level income block). */
   totalReferralCommissionInr?: number;
   /** From referrals’ live binary stakes. */
   bettingCommissionInr?: number;

@@ -1,5 +1,5 @@
 /** Must match server default `INR_PER_USDT` (see `src/config/funds.ts`). */
-export const INR_PER_USDT = 95;
+export const INR_PER_USDT = 100;
 
 /** Match `src/config/demo.ts` default for UI fallbacks before account loads. */
 export const DEFAULT_DEMO_BALANCE_INR = 10_000;

@@ -1022,13 +1022,13 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTotalLiveBalanceInr: number;
   /** Sum of credited USDT deposits across direct referrals only. */
   directTeamTotalDepositsUsdt: number;
-  /** All-time referral commissions credited to your live wallet (betting + staking + investment ROI). */
+  /** Today (IST) referral commissions credited to your live wallet (betting + staking + investment ROI). */
   totalReferralCommissionInr: number;
-  /** From team members’ live binary stakes (`level_income`). */
+  /** Today (IST), `level_income`. */
   bettingCommissionInr: number;
-  /** From team members’ staking / investment deposits (`level_income_staking`). */
+  /** Today (IST), `level_income_staking`. */
   stakingCommissionInr: number;
-  /** From team members’ monthly investment ROI payouts (`level_income_roi`). */
+  /** Today (IST), `level_income_roi`. */
   investmentRoiCommissionInr: number;
   referralProgramEnabled: boolean;
   /** Example stake used for “Income (example)” column on promotion page. */
@@ -1041,7 +1041,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     percentLabel: string;
     paysOut: boolean;
     exampleIncomeInr: number;
-    /** Live wallet total credited from this depth (binary + staking `level_income*`). */
+    /** Today (IST) credited from this depth (binary + staking `level_income*`). */
     receivedInr: number;
   }>;
   /** Per-upline % of gross monthly investment ROI when yield is distributed. */
@@ -1051,7 +1051,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     fractionOfGrossYield: number;
     percentLabel: string;
     paysOut: boolean;
-    /** Live wallet total credited from this depth (`level_income_roi`). */
+    /** Today (IST) credited from this depth (`level_income_roi`). */
     receivedInr: number;
   }>;
 }> {
@@ -1074,8 +1074,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   const { startIso, endIso } = getIstDayUtcIsoBounds();
 
   const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
-    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') GROUP BY txn_type`,
-    [uid]
+    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ? GROUP BY txn_type`,
+    [uid, startIso, endIso]
   );
   let bettingCommissionInr = 0;
   let stakingCommissionInr = 0;
@@ -1102,8 +1102,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     reference_id: string | null;
     amount: number | string | null;
   }>(
-    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi')`,
-    [uid]
+    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ?`,
+    [uid, startIso, endIso]
   );
   const betRecvByLevel = new Map<number, number>();
   const stakeRecvByLevel = new Map<number, number>();

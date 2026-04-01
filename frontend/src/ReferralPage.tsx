@@ -69,8 +69,8 @@ export default function ReferralPage({ token }: Props) {
           <h1>Promotion</h1>
         </div>
         <p className="funds-network">
-          Share your link. Friends who register join your team. Referral earnings and level income below are{" "}
-          <strong>all time</strong> (totals credited to your live wallet). Team lists show everyone in your network.
+          Share your link. Friends who register join your team. <strong>Level income</strong> and today’s commission totals
+          are <strong>today (IST)</strong> only. Team lists show your full network (all time).
         </p>
 
         {data ? (
@@ -115,11 +115,11 @@ export default function ReferralPage({ token }: Props) {
 
             <section className="referral-section referral-section--total-earn" aria-labelledby="referral-total-earn-heading">
               <h2 className="referral-h2" id="referral-total-earn-heading">
-                Total referral earnings
+                Today’s referral earnings
               </h2>
               <div className="referral-total-earn-card">
                 <div className="referral-total-earn-hero">
-                  <span className="referral-total-earn-label">All time total (INR)</span>
+                  <span className="referral-total-earn-label">Today total (INR, IST)</span>
                   <span className="referral-total-earn-value">
                     {formatInr(data.totalReferralCommissionInr ?? 0)}
                   </span>
@@ -157,8 +157,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th title="Credited to your live wallet from this level (trading + staking), all time">
-                        All time (INR)
+                      <th title="Credited to your live wallet from this level today (trading + staking), IST day">
+                        Today (INR)
                       </th>
                     </tr>
                   </thead>
@@ -196,8 +196,8 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of gross monthly yield)</th>
-                      <th title="Credited to your live wallet from this level (monthly ROI upline), all time">
-                        All time (INR)
+                      <th title="Credited to your live wallet from this level today (monthly ROI upline), IST day">
+                        Today (INR)
                       </th>
                     </tr>
                   </thead>
