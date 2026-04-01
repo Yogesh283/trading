@@ -1381,29 +1381,43 @@ function parseAdminListFilter(q: express.Request["query"]): Record<string, unkno
   }
 }
 
+function adminRowMatchesQuickSearch(r: Record<string, unknown>, needle: string): boolean {
+  const n = needle.toLowerCase();
+  for (const v of Object.values(r)) {
+    if (v == null) continue;
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+      if (String(v).toLowerCase().includes(n)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function applyAdminListRowFilter(
   resource: string,
   rows: Record<string, unknown>[],
   filter: Record<string, unknown>
 ): Record<string, unknown>[] {
-  if (Object.keys(filter).length === 0) {
-    return rows;
-  }
+  let out = rows;
   if (resource === "deposits" && typeof filter.status === "string" && filter.status.length > 0) {
-    return rows.filter((r) => String(r.status ?? "") === filter.status);
+    out = out.filter((r) => String(r.status ?? "") === filter.status);
   }
   if (resource === "withdrawals") {
     if (filter.status_pending_processing === true) {
-      return rows.filter((r) => {
+      out = out.filter((r) => {
         const s = String(r.status ?? "");
         return s === "pending" || s === "processing";
       });
-    }
-    if (typeof filter.status === "string" && filter.status.length > 0) {
-      return rows.filter((r) => String(r.status ?? "") === filter.status);
+    } else if (typeof filter.status === "string" && filter.status.length > 0) {
+      out = out.filter((r) => String(r.status ?? "") === filter.status);
     }
   }
-  return rows;
+  const q = typeof filter.q === "string" ? filter.q.trim() : "";
+  if (q.length > 0) {
+    out = out.filter((r) => adminRowMatchesQuickSearch(r, q));
+  }
+  return out;
 }
 
 function adminSafePathId(raw: unknown): string {

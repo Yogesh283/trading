@@ -26,6 +26,11 @@ import {
 import { adminApproveDeposit, adminSetWithdrawalStatus, type AdminWithdrawalStatus } from "../api";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
+/** Server: `filter.q` — substring match on any row field (name, mobile, user id, etc.). */
+const adminSearchFilter = [
+  <TextInput key="admin_q" source="q" label="Search (name, mobile, id, email…)" alwaysOn />
+];
+
 type DepositAdminRow = {
   id: string;
   status?: string;
@@ -112,7 +117,11 @@ const depositListFilters = [
 
 export function DepositList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={depositListFilters}>
+    <List
+      perPage={25}
+      sort={{ field: "created_at", order: "DESC" }}
+      filters={[...depositListFilters, ...adminSearchFilter]}
+    >
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
@@ -245,7 +254,7 @@ function WithdrawalStatusUpdate({ record }: { record: { id: string; status: stri
 
 export function WithdrawalList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
@@ -262,7 +271,7 @@ export function WithdrawalList() {
 
 export function UserList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick="edit" bulkActionButtons={false}>
         <EditButton />
         <TextField source="id" />
@@ -364,7 +373,7 @@ export function UserEdit() {
 
 export function WalletList() {
   return (
-    <List perPage={25} sort={{ field: "updated_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "updated_at", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick="edit" bulkActionButtons={false}>
         <EditButton />
         <TextField source="user_id" label="User id" />
@@ -395,7 +404,7 @@ export function WalletEdit() {
 
 export function TransactionList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="id" />
         <TextField source="user_id" label="User id" />
@@ -413,7 +422,7 @@ export function TransactionList() {
 
 export function UserInvestmentList() {
   return (
-    <List perPage={25} sort={{ field: "user_id", order: "ASC" }}>
+    <List perPage={25} sort={{ field: "user_id", order: "ASC" }} filters={adminSearchFilter}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="user_id" label="User id" />
         <TextField source="user_mobile" label="Mobile" emptyText="—" />
@@ -428,7 +437,7 @@ export function UserInvestmentList() {
 
 export function MarketTickList() {
   return (
-    <List perPage={50} sort={{ field: "timestamp", order: "DESC" }}>
+    <List perPage={50} sort={{ field: "timestamp", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick={false} bulkActionButtons={false}>
         <TextField source="symbol" />
         <NumberField source="price" options={{ maximumFractionDigits: 6 }} />
@@ -469,7 +478,7 @@ export function SupportTicketEdit() {
 /** Help / support tickets from users — list + read-only detail */
 export function SupportTicketList() {
   return (
-    <List perPage={25} sort={{ field: "created_at", order: "DESC" }}>
+    <List perPage={25} sort={{ field: "created_at", order: "DESC" }} filters={adminSearchFilter}>
       <Datagrid rowClick="edit" bulkActionButtons={false}>
         <EditButton />
         <ShowButton />

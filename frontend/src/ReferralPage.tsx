@@ -69,7 +69,8 @@ export default function ReferralPage({ token }: Props) {
           <h1>Promotion</h1>
         </div>
         <p className="funds-network">
-          Share your link. Friends who register join your team — figures below are <strong>today (IST)</strong> only.
+          Share your link. Friends who register join your team. Earnings and level tables are <strong>today (IST)</strong>.
+          Your direct team table lists everyone who used your code (newest first).
         </p>
 
         {data ? (
@@ -258,7 +259,8 @@ export default function ReferralPage({ token }: Props) {
                     {data.directTeam.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="referral-table-empty">
-                          No direct sign-ups today — share your promotion link; new joins will appear here.
+                          No direct referrals yet — share your promotion link; people who register with your code appear
+                          here.
                         </td>
                       </tr>
                     ) : (

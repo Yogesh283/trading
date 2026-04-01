@@ -14,10 +14,12 @@ export async function searchUsersForAdmin(query: string): Promise<UserSearchHit[
   const sql = isMysqlMode()
     ? `SELECT id, name, email, phone_country_code, phone_local FROM users
        WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR LOWER(CAST(id AS CHAR)) LIKE ?
+       OR LOWER(CONCAT(COALESCE(phone_country_code,''), COALESCE(phone_local,''))) LIKE ?
        ORDER BY created_at DESC
        LIMIT 25`
     : `SELECT id, name, email, phone_country_code, phone_local FROM users
        WHERE LOWER(email) LIKE ? OR LOWER(name) LIKE ? OR LOWER(CAST(id AS TEXT)) LIKE ?
+       OR LOWER(COALESCE(phone_country_code,'') || COALESCE(phone_local,'')) LIKE ?
        ORDER BY created_at DESC
        LIMIT 25`;
   const rows = await dbAll<{
@@ -26,7 +28,7 @@ export async function searchUsersForAdmin(query: string): Promise<UserSearchHit[
     email: string;
     phone_country_code: string | null;
     phone_local: string | null;
-  }>(sql, [like, like, like]);
+  }>(sql, [like, like, like, like]);
   return rows.map((r) => ({
     id: r.id,
     name: r.name,

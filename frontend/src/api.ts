@@ -423,7 +423,10 @@ export interface ReferralSummary {
   selfReferralCode: string;
   inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMember[];
+  /** All-time direct count (list capped at 500 on server). */
   directCount: number;
+  /** Direct referrals who joined today (IST). */
+  directJoinedTodayCount?: number;
   totalTeamCount: number;
   /** Sum of direct referrals’ live wallet (INR). */
   directTotalLiveBalanceInr: number;

@@ -938,6 +938,8 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMemberPublic[];
   directCount: number;
+  /** Direct referrals who joined today (IST). */
+  directJoinedTodayCount: number;
   totalTeamCount: number;
   /** Sum of live wallet (INR) across direct referrals only. */
   directTotalLiveBalanceInr: number;
@@ -1068,18 +1070,20 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   }
 
   let directTeam: ReferralTeamMemberPublic[] = [];
+  /** How many direct referrals signed up today (IST) — for stats; list below is all-time. */
+  let directJoinedTodayCount = 0;
   if (myCode) {
     const directSql = isMysqlMode()
       ? `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
-         AND created_at >= ? AND created_at < ?
-         ORDER BY created_at DESC`
+         ORDER BY created_at DESC
+         LIMIT 500`
       : `SELECT id, name, email, phone_country_code, phone_local, created_at, self_referral_code FROM users
          WHERE referral_code IS NOT NULL AND TRIM(referral_code) <> ''
          AND UPPER(TRIM(referral_code)) = UPPER(?)
-         AND created_at >= ? AND created_at < ?
-         ORDER BY created_at DESC`;
+         ORDER BY created_at DESC
+         LIMIT 500`;
     const directRows = await dbAll<{
       id: string | number;
       name: string;
@@ -1088,7 +1092,11 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       phone_local: string | null;
       created_at: string;
       self_referral_code: string | null;
-    }>(directSql, [myCode, startIso, endIso]);
+    }>(directSql, [myCode]);
+    directJoinedTodayCount = directRows.filter((r) => {
+      const ca = String(r.created_at ?? "");
+      return ca >= startIso && ca < endIso;
+    }).length;
     directTeam = directRows.map((r) => ({
       id: String(r.id),
       name: r.name,
@@ -1176,7 +1184,10 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     selfReferralCode: myCode || "—",
     inviter,
     directTeam,
+    /** All-time direct referral count (same as directTeam.length, capped at query limit). */
     directCount: directTeam.length,
+    /** Direct referrals whose account was created today (IST). */
+    directJoinedTodayCount,
     totalTeamCount,
     directTotalLiveBalanceInr,
     directTeamTotalDepositsUsdt,
