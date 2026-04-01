@@ -45,6 +45,11 @@ import {
   evictInMemoryAccountsForUser
 } from "./services/authService";
 import {
+  requestPasswordResetOtp,
+  resetPasswordByPhoneWithoutOtp,
+  resetPasswordWithOtp
+} from "./services/passwordResetService";
+import {
   createDepositIntent,
   getDepositById,
   listAllDeposits,
@@ -497,6 +502,45 @@ app.post("/api/auth/login", async (req, res) => {
           "Database unreachable. Start MySQL in XAMPP or remove MYSQL_* from .env to use local SQLite (data/app.db)."
       });
     }
+    return res.status(400).json({ message });
+  }
+});
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
+    const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
+    const result = await requestPasswordResetOtp({ countryCode, phone });
+    return res.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    return res.status(400).json({ message });
+  }
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
+    const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
+    const otp = String(req.body?.otp ?? "").trim();
+    const newPassword = String(req.body?.newPassword ?? "");
+    await resetPasswordWithOtp({ countryCode, phone, otp, newPassword });
+    return res.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Reset failed";
+    return res.status(400).json({ message });
+  }
+});
+
+app.post("/api/auth/reset-password-by-phone", async (req, res) => {
+  try {
+    const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
+    const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
+    const newPassword = String(req.body?.newPassword ?? "");
+    await resetPasswordByPhoneWithoutOtp({ countryCode, phone, newPassword });
+    return res.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Reset failed";
     return res.status(400).json({ message });
   }
 });

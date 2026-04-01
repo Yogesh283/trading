@@ -826,6 +826,45 @@ async function migrateSupportTickets(): Promise<void> {
   }
 }
 
+const PASSWORD_RESET_OTPS_SQLITE = `
+  CREATE TABLE IF NOT EXISTS password_reset_otps (
+    id TEXT PRIMARY KEY,
+    phone_country_code TEXT NOT NULL,
+    phone_local TEXT NOT NULL,
+    otp_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )
+`;
+
+const PASSWORD_RESET_OTPS_MYSQL = `
+  CREATE TABLE IF NOT EXISTS password_reset_otps (
+    id VARCHAR(64) NOT NULL PRIMARY KEY,
+    phone_country_code VARCHAR(8) NOT NULL,
+    phone_local VARCHAR(20) NOT NULL,
+    otp_hash VARCHAR(128) NOT NULL,
+    expires_at VARCHAR(64) NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    INDEX idx_password_reset_phone (phone_country_code, phone_local),
+    INDEX idx_password_reset_exp (expires_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
+async function migratePasswordResetOtps(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(PASSWORD_RESET_OTPS_MYSQL);
+  } else {
+    await dbRun(PASSWORD_RESET_OTPS_SQLITE);
+    try {
+      await dbRun(
+        "CREATE INDEX IF NOT EXISTS idx_password_reset_phone ON password_reset_otps(phone_country_code, phone_local)"
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 /** Master switch + per-level % of stake for MLM / referral (admin-editable). */
 async function migrateReferralLevelAndAppSettings(): Promise<void> {
   if (mysqlMode) {
@@ -1039,6 +1078,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersPassPlaintext();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
+        await migratePasswordResetOtps();
       } else {
         await runSqliteChain(getSqlite(), [
           ...SQLITE_PRAGMAS,
@@ -1063,6 +1103,7 @@ export function initAppDb(): Promise<void> {
         await migrateUsersPassPlaintext();
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
+        await migratePasswordResetOtps();
       }
     })();
   }

@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createSupportTicket, loadSupportTickets, type SupportTicket } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
+import { SUPPORT_EMAIL } from "./appBrand";
 import { useGlobalAlert } from "./GlobalAlertContext";
 
 type Props = {
@@ -56,7 +57,12 @@ export default function HelpTicketPage({ token }: Props) {
           <h1>Help &amp; support</h1>
         </div>
         <p className="funds-network">
-          Create a support ticket with your question or issue. You will receive a ticket ID — keep it for reference.
+          Create a support ticket with your question or issue. You will receive a ticket ID — keep it for reference. You
+          can also email{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="help-ticket-mail">
+            {SUPPORT_EMAIL}
+          </a>
+          .
         </p>
 
         <form className="help-ticket-form" onSubmit={onSubmit}>

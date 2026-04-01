@@ -1415,6 +1415,17 @@
   margin: 16px 0 24px;
 }
 
+.help-ticket-mail,
+.help-ticket-mail:visited {
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.help-ticket-mail:hover {
+  color: #bae6fd;
+}
+
 .help-ticket-label {
   display: flex;
   flex-direction: column;

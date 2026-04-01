@@ -1,22 +1,29 @@
 import "./landing.css";
 import "./about.css";
-import { APP_NAME } from "./appBrand";
+import { APP_NAME, SUPPORT_EMAIL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
 type Props =
   | {
       /** Inside dashboard (demo or live) */
       embeddedInApp: true;
+      onOpenTerms?: () => void;
+      onOpenPrivacy?: () => void;
     }
   | {
       embeddedInApp?: false;
       onLogin: () => void;
       onRegister: () => void;
       onTryDemo: () => void;
+      onOpenTerms?: () => void;
+      onOpenPrivacy?: () => void;
     };
 
 export default function AboutPage(props: Props) {
   const embeddedInApp = props.embeddedInApp === true;
+  const onOpenTerms = props.onOpenTerms;
+  const onOpenPrivacy = props.onOpenPrivacy;
+  const showLegalLinks = Boolean(onOpenTerms && onOpenPrivacy);
   return (
     <div
       className={`landing-page about-page landing-ot${embeddedInApp ? " about-page--embedded" : ""}`}
@@ -114,7 +121,24 @@ export default function AboutPage(props: Props) {
       </main>
 
       <footer className="about-footer">
+        {showLegalLinks ? (
+          <p className="about-footer-legal">
+            <button type="button" className="landing-footer-about-link" onClick={onOpenTerms}>
+              Terms &amp; Conditions
+            </button>
+            <span className="about-footer-legal-sep" aria-hidden>
+              ·
+            </span>
+            <button type="button" className="landing-footer-about-link" onClick={onOpenPrivacy}>
+              Privacy Policy
+            </button>
+          </p>
+        ) : null}
         <p>{APP_NAME} · Forex · Up / Down contracts · Demo &amp; live wallet</p>
+        <p className="about-footer-contact">
+          Contact:{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
       </footer>
     </div>
   );

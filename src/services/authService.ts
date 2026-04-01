@@ -549,6 +549,36 @@ export async function loginUser(input: {
   };
 }
 
+/** Set password for user matched by mobile (password reset after OTP). */
+export async function setPasswordForPhoneUser(
+  countryCode: string,
+  phoneLocal: string,
+  newPassword: string
+): Promise<void> {
+  await ready;
+  const cc = normalizePhoneCountryCode(countryCode);
+  const loc = normalizePhoneLocalDigits(phoneLocal);
+  if (!cc || !loc) {
+    throw new Error("Invalid country code or mobile number");
+  }
+  const pwd = String(newPassword ?? "").trim();
+  if (pwd.length < 6) {
+    throw new Error("Password must be at least 6 characters");
+  }
+  const user = await dbGet<{ id: string }>(
+    isMysqlMode()
+      ? "SELECT id FROM users WHERE phone_country_code = ? AND phone_local = ? LIMIT 1"
+      : "SELECT id FROM users WHERE phone_country_code = ? AND phone_local = ?",
+    [cc, loc]
+  );
+  if (!user) {
+    throw new Error("User not found");
+  }
+  const { salt, hash } = hashPassword(pwd);
+  await dbRun("UPDATE users SET password_hash = ?, password_salt = ? WHERE id = ?", [hash, salt, user.id]);
+  evictInMemoryAccountsForUser(user.id);
+}
+
 export async function getUserFromToken(token?: string | null) {
   if (!token) {
     return null;

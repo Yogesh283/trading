@@ -3,6 +3,8 @@ export const BRAND_GOLD = "#eab308";
 
 /** Product name — use everywhere in UI */
 export const APP_NAME = "IQFX Pro";
+/** Support / contact — mailto + copy only */
+export const SUPPORT_EMAIL = "support@iqfxpro.com";
 /** Two-colour wordmark segments (must match `APP_NAME`). */
 export const APP_NAME_MARK_PRIMARY = "IQFX";
 export const APP_NAME_MARK_SECONDARY = "Pro";

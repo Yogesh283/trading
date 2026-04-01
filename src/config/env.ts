@@ -136,7 +136,15 @@ const envSchema = z.object({
    * Clients in the APK compare this to `App.getInfo().build` to show “Update available” (GET /api/system/android-app-info).
    */
   ANDROID_APP_VERSION_CODE: z.string().optional(),
-  ANDROID_APP_VERSION_NAME: z.string().optional()
+  ANDROID_APP_VERSION_NAME: z.string().optional(),
+  /**
+   * Development / staging: `POST /api/auth/forgot-password` includes `debugOtp` in JSON so you can reset without SMS.
+   * Never enable in production.
+   */
+  FORGOT_PASSWORD_DEBUG_OTP: z
+    .string()
+    .optional()
+    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true")
 });
 
 const parsed = envSchema.parse(process.env);
@@ -161,5 +169,6 @@ export const env = {
   INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS,
   FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY),
   ANDROID_APP_VERSION_CODE: androidVersionCodeParsed,
-  ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0"
+  ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0",
+  FORGOT_PASSWORD_DEBUG_OTP: Boolean(parsed.FORGOT_PASSWORD_DEBUG_OTP)
 };

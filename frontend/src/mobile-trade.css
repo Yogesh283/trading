@@ -1915,6 +1915,12 @@ html.cap-native .mobile-dock-apk-row {
   margin-top: 8px;
 }
 
+/* Up/Down first in dock — space below before hint + balance */
+.mobile-trade-dock--panel-ref .mobile-trade-updown.mobile-trade-updown--outline {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
 .mobile-trade-dock--panel-ref .mobile-olymp-total-row {
   margin-bottom: 12px;
 }
@@ -2060,7 +2066,7 @@ html.cap-native .mobile-dock-apk-row {
   margin: 0;
 }
 
-/* Single compressed row: X1 … X100 on one line (narrow phones share width evenly). */
+/* Compressed row: 1x … 9x on one line (narrow phones share width evenly). */
 .mobile-olymp-mult-row {
   display: flex;
   flex-wrap: nowrap;

@@ -621,6 +621,21 @@ a.landing-link {
   text-align: center;
 }
 
+.landing-footer-contact {
+  margin-top: 12px !important;
+}
+
+.landing-footer-mail,
+.landing-footer-mail:visited {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.landing-footer-mail:hover {
+  color: #7dd3fc;
+}
+
 .landing-footer-about {
   margin-top: 14px !important;
 }
@@ -639,6 +654,20 @@ a.landing-link {
 
 .landing-footer-about-link:hover {
   color: #7dd3fc;
+}
+
+.landing-footer-legal-row {
+  margin-top: 10px !important;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.landing-footer-legal-dot {
+  color: rgba(148, 163, 184, 0.55);
+  user-select: none;
 }
 
 .landing-menu-btn {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import "./landing.css";
-import { APP_NAME, APK_DOWNLOAD_URL } from "./appBrand";
+import { APP_NAME, APK_DOWNLOAD_URL, SUPPORT_EMAIL } from "./appBrand";
 import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
 import { brandApkIcon, brandBanner2, brandBanner3, brandLogo } from "./brandUrls";
@@ -201,9 +201,11 @@ type Props = {
   onLogin: () => void;
   onRegister: () => void;
   onAbout: () => void;
+  onTerms: () => void;
+  onPrivacy: () => void;
 };
 
-export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }: Props) {
+export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPrivacy }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
 
@@ -642,9 +644,26 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout }:
           {APP_NAME} — forex-style charts and short-horizon trading. Markets are risky; you may lose your stake. Practice
           on demo first — not financial advice.
         </p>
+        <p className="landing-footer-contact">
+          Contact:{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="landing-footer-mail">
+            {SUPPORT_EMAIL}
+          </a>
+        </p>
         <p className="landing-footer-about">
           <button type="button" className="landing-footer-about-link" onClick={onAbout}>
             About this project
+          </button>
+        </p>
+        <p className="landing-footer-legal-row">
+          <button type="button" className="landing-footer-about-link" onClick={onTerms}>
+            Terms &amp; Conditions
+          </button>
+          <span className="landing-footer-legal-dot" aria-hidden>
+            ·
+          </span>
+          <button type="button" className="landing-footer-about-link" onClick={onPrivacy}>
+            Privacy Policy
           </button>
         </p>
       </footer>

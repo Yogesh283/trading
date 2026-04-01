@@ -31,7 +31,7 @@
   gap: 0.5rem;
   font-weight: 700;
   color: #ffffff;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 .about-top-logo {
@@ -49,7 +49,7 @@
 }
 
 .about-eyebrow {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--ot-gold, #eab308);
@@ -57,7 +57,7 @@
 }
 
 .about-title {
-  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-size: clamp(1.45rem, 4.2vw, 1.85rem);
   font-weight: 800;
   color: #ffffff;
   margin: 0 0 0.75rem;
@@ -67,12 +67,55 @@
 .about-lead {
   margin: 0;
   color: #e2e8f0;
-  line-height: 1.65;
-  font-size: 1.02rem;
+  line-height: 1.62;
+  font-size: 0.9rem;
   text-align: justify;
   text-align-last: left;
   hyphens: auto;
   -webkit-hyphens: auto;
+}
+
+.legal-doc-effective {
+  margin: 0.35rem 0 0;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  line-height: 1.48;
+}
+
+.legal-doc-effective strong {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.legal-doc-intro {
+  margin: 1rem 0 0;
+  color: #e2e8f0;
+  line-height: 1.62;
+  font-size: 0.9rem;
+}
+
+.about-footer-legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.75rem;
+}
+
+.about-footer-legal-sep {
+  color: rgba(148, 163, 184, 0.55);
+  user-select: none;
+}
+
+.about-footer-legal-current {
+  font-size: 0.85rem;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.about-footer-legal .landing-footer-about-link {
+  font-size: 0.85rem;
 }
 
 .about-lead strong {
@@ -90,7 +133,7 @@
 
 .about-block h2 {
   margin: 0 0 0.85rem;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: #ffffff;
 }
 
@@ -98,7 +141,8 @@
   margin: 0;
   padding-left: 1.2rem;
   color: #dce2e9;
-  line-height: 1.6;
+  line-height: 1.58;
+  font-size: 0.875rem;
 }
 
 .about-list strong {
@@ -129,8 +173,8 @@
 .about-income-intro {
   margin: 0 0 1rem;
   color: #b8c4ce;
-  font-size: 0.92rem;
-  line-height: 1.55;
+  font-size: 0.82rem;
+  line-height: 1.52;
   text-align: justify;
   text-align-last: left;
   hyphens: auto;
@@ -157,11 +201,26 @@
 
 .about-footer p {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: #9ca8b4;
   max-width: 36rem;
   margin-inline: auto;
   line-height: 1.5;
+}
+
+.about-footer-contact {
+  margin-top: 0.65rem !important;
+}
+
+.about-footer-contact a,
+.about-footer-contact a:visited {
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.about-footer-contact a:hover {
+  color: #bae6fd;
 }
 
 .about-footer code {

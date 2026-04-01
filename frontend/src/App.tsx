@@ -50,6 +50,7 @@ import {
   loginUser,
   MarketTick,
   registerUser,
+  resetPasswordByPhoneApi,
   Trade,
   type WalletLedgerRow
 } from "./api";
@@ -63,6 +64,7 @@ import SplashScreen from "./SplashScreen";
 import WithdrawalPage from "./WithdrawalPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
+import LegalInfoPage from "./LegalInfoPage";
 import HelpTicketPage from "./HelpTicketPage";
 import { MobileAssetsPage, MobileHomePage, MobileOffersPage } from "./MobileDashboardPages";
 import {
@@ -117,9 +119,9 @@ function formatAuthUserContact(u: AuthUser): string {
   return `User ID ${u.id}`;
 }
 
-type AuthView = "login" | "register";
+type AuthView = "login" | "register" | "forgot";
 
-type PublicScreen = "landing" | "auth" | "about";
+type PublicScreen = "landing" | "auth" | "about" | "terms" | "privacy";
 
 type DashboardSection =
   | "home"
@@ -130,6 +132,8 @@ type DashboardSection =
   | "offers"
   | "assets"
   | "about"
+  | "terms"
+  | "privacy"
   | "help";
 
 const SPLASH_MS = 2000;
@@ -336,7 +340,7 @@ export default function App() {
   const xauWeekendOrdersBlocked = isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow();
   const [mobileSide, setMobileSide] = useState<"buy" | "sell">("buy");
   const [mobileMultiplier] = useState(1); /* multiplier UI hidden — stake = amount */
-  /** Highlight X1…X100 after tap; cleared when balance chip, ±, or quantity field changes. */
+  /** Highlight 1x…9x after tap; cleared when balance chip, ±, or quantity field changes. */
   const [mobileStakeMultSelection, setMobileStakeMultSelection] = useState<number | null>(null);
   const [walletActivityOpen, setWalletActivityOpen] = useState(false);
   const [walletTxs, setWalletTxs] = useState<WalletLedgerRow[]>([]);
@@ -1302,7 +1306,7 @@ export default function App() {
   };
 
   /**
-   * Multiply current **amount field** by 2 / 3 / 5 / 10 (e.g. 1 → 5x → 5; 100 → 2x → 200).
+   * Multiply current **amount field** by 1–9 (e.g. 1 → 5x → 5; 100 → 2x → 200).
    * Capped by wallet balance when known.
    */
   const applyStakeMultiplier = useCallback(
@@ -1468,6 +1472,8 @@ export default function App() {
         <LandingPage
           onTryDemo={openAuthForDemo}
           onAbout={() => setPublicScreen("about")}
+          onTerms={() => setPublicScreen("terms")}
+          onPrivacy={() => setPublicScreen("privacy")}
           onLogin={() => {
             setAuthView("login");
             setPublicScreen("auth");
@@ -1492,6 +1498,48 @@ export default function App() {
             setPublicScreen("auth");
           }}
           onTryDemo={openAuthForDemo}
+          onOpenTerms={() => setPublicScreen("terms")}
+          onOpenPrivacy={() => setPublicScreen("privacy")}
+        />
+      );
+    }
+
+    if (publicScreen === "terms") {
+      return (
+        <LegalInfoPage
+          kind="terms"
+          onGoTerms={() => setPublicScreen("terms")}
+          onGoPrivacy={() => setPublicScreen("privacy")}
+          onGoAbout={() => setPublicScreen("about")}
+          onLogin={() => {
+            setAuthView("login");
+            setPublicScreen("auth");
+          }}
+          onRegister={() => {
+            setAuthView("register");
+            setPublicScreen("auth");
+          }}
+          onTryDemo={openAuthForDemo}
+        />
+      );
+    }
+
+    if (publicScreen === "privacy") {
+      return (
+        <LegalInfoPage
+          kind="privacy"
+          onGoTerms={() => setPublicScreen("terms")}
+          onGoPrivacy={() => setPublicScreen("privacy")}
+          onGoAbout={() => setPublicScreen("about")}
+          onLogin={() => {
+            setAuthView("login");
+            setPublicScreen("auth");
+          }}
+          onRegister={() => {
+            setAuthView("register");
+            setPublicScreen("auth");
+          }}
+          onTryDemo={openAuthForDemo}
         />
       );
     }
@@ -1506,9 +1554,13 @@ export default function App() {
         onAuthSubmit={handleAuth}
         onDemoAccess={openAuthForDemo}
         onLoginFormChange={setLoginForm}
+        onOpenPrivacy={() => setPublicScreen("privacy")}
+        onOpenTerms={() => setPublicScreen("terms")}
         onRegisterFormChange={setRegisterForm}
         onViewChange={setAuthView}
         registerForm={registerForm}
+        setAuthBusy={setAuthBusy}
+        showAlert={showAlert}
         status={status}
       />
     );
@@ -1651,6 +1703,20 @@ export default function App() {
                 onClick={() => setDashboardSection("about")}
               >
                 About
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "terms" ? "active" : ""}
+                onClick={() => setDashboardSection("terms")}
+              >
+                Terms
+              </button>
+              <button
+                type="button"
+                className={dashboardSection === "privacy" ? "active" : ""}
+                onClick={() => setDashboardSection("privacy")}
+              >
+                Privacy
               </button>
               <a className="app-nav-desktop-apk" href={apkDownloadHref} download={apkFileDownloadName}>
                 <img src={brandApkIcon} alt="" width={20} height={20} className="app-nav-desktop-apk-ico" />
@@ -1908,6 +1974,26 @@ export default function App() {
                 <DrawerIconAbout />
                 <span>About</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("terms");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconAbout />
+                <span>Terms</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDashboardSection("privacy");
+                  setMainNavOpen(false);
+                }}
+              >
+                <DrawerIconAbout />
+                <span>Privacy</span>
+              </button>
               <a
                 className="app-nav-drawer-link app-nav-drawer-apk"
                 href={apkDownloadHref}
@@ -2064,7 +2150,27 @@ export default function App() {
       ) : null}
 
       {dashboardSection === "about" ? (
-        <AboutPage embeddedInApp />
+        <AboutPage
+          embeddedInApp
+          onOpenTerms={() => setDashboardSection("terms")}
+          onOpenPrivacy={() => setDashboardSection("privacy")}
+        />
+      ) : dashboardSection === "terms" ? (
+        <LegalInfoPage
+          kind="terms"
+          embeddedInApp
+          onGoTerms={() => setDashboardSection("terms")}
+          onGoPrivacy={() => setDashboardSection("privacy")}
+          onGoAbout={() => setDashboardSection("about")}
+        />
+      ) : dashboardSection === "privacy" ? (
+        <LegalInfoPage
+          kind="privacy"
+          embeddedInApp
+          onGoTerms={() => setDashboardSection("terms")}
+          onGoPrivacy={() => setDashboardSection("privacy")}
+          onGoAbout={() => setDashboardSection("about")}
+        />
       ) : dashboardSection === "home" ? (
         <MobileHomePage
           accountWallet={accountWallet}
@@ -2276,6 +2382,49 @@ export default function App() {
           </section>
 
           <div className="mobile-trade-dock mobile-trade-dock--panel-ref">
+            <div className="mobile-trade-updown mobile-trade-updown--outline" role="group" aria-label="Place timed up or down trade">
+              <button
+                type="button"
+                className={`mobile-trade-dir mobile-trade-dir--up mobile-trade-dir--outline-up${
+                  binaryCreatedFlash === "up" ? " binary-created-flash" : ""
+                }`}
+                disabled={xauWeekendOrdersBlocked}
+                title={
+                  xauWeekendOrdersBlocked
+                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    : undefined
+                }
+                onClick={() => placeMobileBinary("up")}
+              >
+                <span className="mobile-trade-dir-label">
+                  {binaryCreatedFlash === "up" ? "Up · OK" : "Up"}
+                </span>
+                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
+                  ↑
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`mobile-trade-dir mobile-trade-dir--down mobile-trade-dir--outline-down${
+                  binaryCreatedFlash === "down" ? " binary-created-flash" : ""
+                }`}
+                disabled={xauWeekendOrdersBlocked}
+                title={
+                  xauWeekendOrdersBlocked
+                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    : undefined
+                }
+                onClick={() => placeMobileBinary("down")}
+              >
+                <span className="mobile-trade-dir-label">
+                  {binaryCreatedFlash === "down" ? "Down · OK" : "Down"}
+                </span>
+                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
+                  ↓
+                </span>
+              </button>
+            </div>
+
             <p className="mobile-olymp-tf-hint">
               Chart timeframe: <strong>{tfLabel(binaryTimeframe)}</strong> — change above the chart.
             </p>
@@ -2355,8 +2504,8 @@ export default function App() {
                   +
                 </button>
               </div>
-              <div className="mobile-olymp-mult-row" role="group" aria-label="Multiply quantity">
-                {([1, 5, 10, 20, 50, 100] as const).map((mult) => (
+              <div className="mobile-olymp-mult-row" role="group" aria-label="Multiply quantity by 1 through 9">
+                {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((mult) => (
                   <button
                     key={mult}
                     type="button"
@@ -2368,7 +2517,7 @@ export default function App() {
                       applyStakeMultiplier(mult);
                     }}
                   >
-                    X{mult}
+                    {mult}x
                   </button>
                 ))}
               </div>
@@ -2397,49 +2546,6 @@ export default function App() {
                     strokeLinejoin="round"
                   />
                 </svg>
-              </button>
-            </div>
-
-            <div className="mobile-trade-updown mobile-trade-updown--outline" role="group" aria-label="Place timed up or down trade">
-              <button
-                type="button"
-                className={`mobile-trade-dir mobile-trade-dir--up mobile-trade-dir--outline-up${
-                  binaryCreatedFlash === "up" ? " binary-created-flash" : ""
-                }`}
-                disabled={xauWeekendOrdersBlocked}
-                title={
-                  xauWeekendOrdersBlocked
-                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
-                    : undefined
-                }
-                onClick={() => placeMobileBinary("up")}
-              >
-                <span className="mobile-trade-dir-label">
-                  {binaryCreatedFlash === "up" ? "Up · OK" : "Up"}
-                </span>
-                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
-                  ↑
-                </span>
-              </button>
-              <button
-                type="button"
-                className={`mobile-trade-dir mobile-trade-dir--down mobile-trade-dir--outline-down${
-                  binaryCreatedFlash === "down" ? " binary-created-flash" : ""
-                }`}
-                disabled={xauWeekendOrdersBlocked}
-                title={
-                  xauWeekendOrdersBlocked
-                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
-                    : undefined
-                }
-                onClick={() => placeMobileBinary("down")}
-              >
-                <span className="mobile-trade-dir-label">
-                  {binaryCreatedFlash === "down" ? "Down · OK" : "Down"}
-                </span>
-                <span className="mobile-trade-dir-arrow mobile-trade-dir-arrow--outline" aria-hidden>
-                  ↓
-                </span>
               </button>
             </div>
 
@@ -3477,6 +3583,26 @@ function AuthDialCodeFlag({ dialCode }: { dialCode: string }) {
   );
 }
 
+function AuthLegalFooter({
+  onOpenTerms,
+  onOpenPrivacy
+}: {
+  onOpenTerms: () => void;
+  onOpenPrivacy: () => void;
+}) {
+  return (
+    <p className="auth-footer auth-footer--legal" role="navigation" aria-label="Legal information">
+      <button type="button" className="link-inline" onClick={onOpenTerms}>
+        Terms & Conditions
+      </button>
+      <span aria-hidden> · </span>
+      <button type="button" className="link-inline" onClick={onOpenPrivacy}>
+        Privacy Policy
+      </button>
+    </p>
+  );
+}
+
 function AuthScreen({
   authBusy,
   authView,
@@ -3486,9 +3612,13 @@ function AuthScreen({
   onAuthSubmit,
   onDemoAccess,
   onLoginFormChange,
+  onOpenPrivacy,
+  onOpenTerms,
   onRegisterFormChange,
   onViewChange,
   registerForm,
+  setAuthBusy,
+  showAlert,
   status
 }: {
   authBusy: boolean;
@@ -3499,17 +3629,30 @@ function AuthScreen({
   onAuthSubmit: (event: FormEvent) => void;
   onDemoAccess: () => void;
   onLoginFormChange: Dispatch<SetStateAction<{ countryCode: string; phone: string; password: string }>>;
+  onOpenPrivacy: () => void;
+  onOpenTerms: () => void;
   onRegisterFormChange: Dispatch<
     SetStateAction<{ name: string; countryCode: string; phone: string; password: string; referralCode: string }>
   >;
   onViewChange: Dispatch<SetStateAction<AuthView>>;
   registerForm: { name: string; countryCode: string; phone: string; password: string; referralCode: string };
+  setAuthBusy: Dispatch<SetStateAction<boolean>>;
+  showAlert: (message: string, variant?: "error" | "info") => void;
   status: string;
 }) {
   const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [forgotNewPass, setForgotNewPass] = useState("");
+  const [forgotConfirm, setForgotConfirm] = useState("");
 
   useEffect(() => {
     setShowAuthPassword(false);
+  }, [authView]);
+
+  useEffect(() => {
+    if (authView !== "forgot") {
+      setForgotNewPass("");
+      setForgotConfirm("");
+    }
   }, [authView]);
 
   useEffect(() => {
@@ -3518,6 +3661,28 @@ function AuthScreen({
       onRegisterFormChange((c) => ({ ...c, referralCode: ref.trim().toUpperCase() }));
     }
   }, []);
+
+  const handleForgotResetSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (forgotNewPass !== forgotConfirm) {
+      showAlert("Passwords do not match.", "error");
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await resetPasswordByPhoneApi({
+        countryCode: loginForm.countryCode,
+        phone: loginForm.phone,
+        newPassword: forgotNewPass
+      });
+      showAlert("Password updated. You can log in now.", "info");
+      onViewChange("login");
+    } catch (error) {
+      showAlert(error instanceof Error ? error.message : "Reset failed", "error");
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   const demoMetrics = [
     { label: "Demo balance", value: formatInr(account?.balance ?? 0) },
@@ -3581,209 +3746,378 @@ function AuthScreen({
       </section>
 
       <section className="auth-card" aria-labelledby="auth-card-title">
-        <div className="auth-card-head">
-          <div className="auth-card-logo-ring" aria-hidden>
-            <BrandLogo size={76} className="auth-card-logo" />
-          </div>
-          <h2 id="auth-card-title" className="auth-card-heading">
-            {authView === "login" ? "Welcome back" : "Create account"}
-          </h2>
-          <p className="auth-card-tagline">
-            {authView === "login"
-              ? `Sign in to continue on ${APP_NAME}`
-              : `Join ${APP_NAME} — demo & live trading`}
-          </p>
-        </div>
-
-        <div className="auth-tabs" role="tablist" aria-label="Login or register">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={authView === "login"}
-            className={authView === "login" ? "tab active" : "tab"}
-            onClick={() => onViewChange("login")}
-          >
-            Log in
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={authView === "register"}
-            className={authView === "register" ? "tab active" : "tab"}
-            onClick={() => onViewChange("register")}
-          >
-            Register
-          </button>
-        </div>
-
-        <form className="auth-form" onSubmit={onAuthSubmit}>
-          {authView === "register" ? (
-            <label>
-              Full name
-              <input
-                type="text"
-                value={registerForm.name}
-                onChange={(event) =>
-                  onRegisterFormChange((current) => ({
-                    ...current,
-                    name: event.target.value
-                  }))
-                }
-                placeholder="Your name"
-                autoComplete="name"
-              />
-            </label>
-          ) : null}
-
-          {authView === "register" ? (
-            <div className="auth-phone-combo" role="group" aria-label="Phone number">
-              <div className="auth-phone-combo-labels auth-phone-combo-labels--npm">
-                <span>Mobile number</span>
+        {authView === "forgot" ? (
+          <>
+            <div className="auth-card-head">
+              <div className="auth-card-logo-ring" aria-hidden>
+                <BrandLogo size={76} className="auth-card-logo" />
               </div>
-              <AuthPhoneField
-                countryCode={registerForm.countryCode}
-                phone={registerForm.phone}
-                disabled={authBusy}
-                onChange={(cc, nat) =>
-                  onRegisterFormChange((c) => ({ ...c, countryCode: cc, phone: nat }))
-                }
-              />
+              <h2 id="auth-card-title" className="auth-card-heading">
+                Reset password
+              </h2>
+              <p className="auth-card-tagline">
+                Enter your registered mobile number and a new password. No verification code is required.
+              </p>
             </div>
-          ) : (
-            <div className="auth-phone-combo" role="group" aria-label="Phone number">
-              <div className="auth-phone-combo-labels">
-                <span>Country code</span>
-                <span>Mobile number</span>
-              </div>
-              <div className="auth-phone-combo-inner">
-                <div className="auth-phone-cc-field">
-                  <AuthDialCodeFlag dialCode={loginForm.countryCode} />
-                  <input
-                    className="auth-phone-cc-input"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    value={loginForm.countryCode}
-                    onChange={(event) => {
-                      const v = event.target.value.replace(/\D/g, "").slice(0, 4);
-                      onLoginFormChange((c) => ({ ...c, countryCode: v }));
-                    }}
-                    placeholder="91"
-                    autoComplete="tel-country-code"
-                    aria-label="Country calling code e.g. 91 India, 92 Pakistan"
-                  />
-                </div>
-                <span className="auth-phone-combo-divider" aria-hidden />
-                <input
-                  className="auth-phone-num-input"
-                  type="tel"
-                  inputMode="numeric"
-                  value={loginForm.phone}
-                  onChange={(event) => {
-                    const v = event.target.value.replace(/\D/g, "").slice(0, 15);
-                    onLoginFormChange((c) => ({ ...c, phone: v }));
-                  }}
-                  placeholder="9876543210"
-                  autoComplete="tel-national"
-                  aria-label="Mobile number without country code"
-                />
-              </div>
-            </div>
-          )}
 
-          <label className="auth-field-password">
-            Password
-            <div className="auth-password-field">
-              <input
-                className="auth-password-input"
-                type={showAuthPassword ? "text" : "password"}
-                value={authView === "login" ? loginForm.password : registerForm.password}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (authView === "login") {
-                    onLoginFormChange((current) => ({ ...current, password: value }));
-                    return;
-                  }
-
-                  onRegisterFormChange((current) => ({ ...current, password: value }));
-                }}
-                placeholder="Enter your password"
-                autoComplete={authView === "login" ? "current-password" : "new-password"}
-              />
+            <div className="auth-tabs" role="tablist" aria-label="Back to login">
               <button
                 type="button"
-                className="auth-password-eye"
-                onClick={() => setShowAuthPassword((v) => !v)}
-                aria-pressed={showAuthPassword}
-                aria-label={showAuthPassword ? "Hide password" : "Show password"}
-                title={showAuthPassword ? "Hide password" : "Show password"}
+                role="tab"
+                aria-selected
+                className="tab active"
+                onClick={() => onViewChange("login")}
               >
-                {showAuthPassword ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="22"
-                    height="22"
-                    aria-hidden
-                    className="auth-password-eye-svg"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0 -11 -8 -11 -8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                ) : (
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="22"
-                    height="22"
-                    aria-hidden
-                    className="auth-password-eye-svg"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                )}
+                Back to login
               </button>
             </div>
-          </label>
 
-          {authView === "register" ? (
-            <label>
-              Promotion code <span className="muted">(optional)</span>
-              <input
-                type="text"
-                value={registerForm.referralCode}
-                onChange={(event) =>
-                  onRegisterFormChange((current) => ({
-                    ...current,
-                    referralCode: event.target.value.toUpperCase()
-                  }))
-                }
-                placeholder="Friend's code"
-                autoComplete="off"
-              />
-            </label>
-          ) : null}
+            <form className="auth-form" onSubmit={handleForgotResetSubmit}>
+              <div className="auth-phone-combo" role="group" aria-label="Phone number">
+                <div className="auth-phone-combo-labels">
+                  <span>Country code</span>
+                  <span>Mobile number</span>
+                </div>
+                <div className="auth-phone-combo-inner">
+                  <div className="auth-phone-cc-field">
+                    <AuthDialCodeFlag dialCode={loginForm.countryCode} />
+                    <input
+                      className="auth-phone-cc-input"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      value={loginForm.countryCode}
+                      onChange={(event) => {
+                        const v = event.target.value.replace(/\D/g, "").slice(0, 4);
+                        onLoginFormChange((c) => ({ ...c, countryCode: v }));
+                      }}
+                      placeholder="91"
+                      autoComplete="tel-country-code"
+                      aria-label="Country calling code e.g. 91 India, 92 Pakistan"
+                    />
+                  </div>
+                  <span className="auth-phone-combo-divider" aria-hidden />
+                  <input
+                    className="auth-phone-num-input"
+                    type="tel"
+                    inputMode="numeric"
+                    value={loginForm.phone}
+                    onChange={(event) => {
+                      const v = event.target.value.replace(/\D/g, "").slice(0, 15);
+                      onLoginFormChange((c) => ({ ...c, phone: v }));
+                    }}
+                    placeholder="9876543210"
+                    autoComplete="tel-national"
+                    aria-label="Mobile number without country code"
+                  />
+                </div>
+              </div>
+              <label className="auth-field-password">
+                New password
+                <div className="auth-password-field">
+                  <input
+                    className="auth-password-input"
+                    type={showAuthPassword ? "text" : "password"}
+                    value={forgotNewPass}
+                    onChange={(event) => setForgotNewPass(event.target.value)}
+                    placeholder="At least 6 characters"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="auth-password-eye"
+                    onClick={() => setShowAuthPassword((v) => !v)}
+                    aria-pressed={showAuthPassword}
+                    aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                    title={showAuthPassword ? "Hide password" : "Show password"}
+                  >
+                    {showAuthPassword ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="22"
+                        height="22"
+                        aria-hidden
+                        className="auth-password-eye-svg"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0 -11 -8 -11 -8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="22"
+                        height="22"
+                        aria-hidden
+                        className="auth-password-eye-svg"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </label>
+              <label className="auth-field-password">
+                Confirm new password
+                <input
+                  className="auth-password-input"
+                  type={showAuthPassword ? "text" : "password"}
+                  value={forgotConfirm}
+                  onChange={(event) => setForgotConfirm(event.target.value)}
+                  placeholder="Repeat password"
+                  autoComplete="new-password"
+                />
+              </label>
+              <button type="submit" disabled={authBusy}>
+                {authBusy ? "Please wait..." : "Update password"}
+              </button>
+            </form>
+            <AuthLegalFooter onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} />
+          </>
+        ) : (
+          <>
+            <div className="auth-card-head">
+              <div className="auth-card-logo-ring" aria-hidden>
+                <BrandLogo size={76} className="auth-card-logo" />
+              </div>
+              <h2 id="auth-card-title" className="auth-card-heading">
+                {authView === "login" ? "Welcome back" : "Create account"}
+              </h2>
+              <p className="auth-card-tagline">
+                {authView === "login"
+                  ? `Sign in to continue on ${APP_NAME}`
+                  : `Join ${APP_NAME} — demo & live trading`}
+              </p>
+            </div>
 
-          <button type="submit" disabled={authBusy}>
-            {authBusy ? "Please wait..." : authView === "login" ? "Login" : "Create account"}
-          </button>
-        </form>
+            <div className="auth-tabs" role="tablist" aria-label="Login or register">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authView === "login"}
+                className={authView === "login" ? "tab active" : "tab"}
+                onClick={() => onViewChange("login")}
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={authView === "register"}
+                className={authView === "register" ? "tab active" : "tab"}
+                onClick={() => onViewChange("register")}
+              >
+                Register
+              </button>
+            </div>
 
-        <p className="auth-footer">
-          {authView === "login" ? "New here?" : "Already have an account?"}{" "}
-          <button type="button" className="link-inline" onClick={() => onViewChange(authView === "login" ? "register" : "login")}>
-            {authView === "login" ? "Register" : "Login"}
-          </button>
-        </p>
+            <form className="auth-form" onSubmit={onAuthSubmit}>
+              {authView === "register" ? (
+                <label>
+                  Full name
+                  <input
+                    type="text"
+                    value={registerForm.name}
+                    onChange={(event) =>
+                      onRegisterFormChange((current) => ({
+                        ...current,
+                        name: event.target.value
+                      }))
+                    }
+                    placeholder="Your name"
+                    autoComplete="name"
+                  />
+                </label>
+              ) : null}
+
+              {authView === "register" ? (
+                <div className="auth-phone-combo" role="group" aria-label="Phone number">
+                  <div className="auth-phone-combo-labels auth-phone-combo-labels--npm">
+                    <span>Mobile number</span>
+                  </div>
+                  <AuthPhoneField
+                    countryCode={registerForm.countryCode}
+                    phone={registerForm.phone}
+                    disabled={authBusy}
+                    onChange={(cc, nat) =>
+                      onRegisterFormChange((c) => ({ ...c, countryCode: cc, phone: nat }))
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="auth-phone-combo" role="group" aria-label="Phone number">
+                  <div className="auth-phone-combo-labels">
+                    <span>Country code</span>
+                    <span>Mobile number</span>
+                  </div>
+                  <div className="auth-phone-combo-inner">
+                    <div className="auth-phone-cc-field">
+                      <AuthDialCodeFlag dialCode={loginForm.countryCode} />
+                      <input
+                        className="auth-phone-cc-input"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={loginForm.countryCode}
+                        onChange={(event) => {
+                          const v = event.target.value.replace(/\D/g, "").slice(0, 4);
+                          onLoginFormChange((c) => ({ ...c, countryCode: v }));
+                        }}
+                        placeholder="91"
+                        autoComplete="tel-country-code"
+                        aria-label="Country calling code e.g. 91 India, 92 Pakistan"
+                      />
+                    </div>
+                    <span className="auth-phone-combo-divider" aria-hidden />
+                    <input
+                      className="auth-phone-num-input"
+                      type="tel"
+                      inputMode="numeric"
+                      value={loginForm.phone}
+                      onChange={(event) => {
+                        const v = event.target.value.replace(/\D/g, "").slice(0, 15);
+                        onLoginFormChange((c) => ({ ...c, phone: v }));
+                      }}
+                      placeholder="9876543210"
+                      autoComplete="tel-national"
+                      aria-label="Mobile number without country code"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <label className="auth-field-password">
+                Password
+                <div className="auth-password-field">
+                  <input
+                    className="auth-password-input"
+                    type={showAuthPassword ? "text" : "password"}
+                    value={authView === "login" ? loginForm.password : registerForm.password}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (authView === "login") {
+                        onLoginFormChange((current) => ({ ...current, password: value }));
+                        return;
+                      }
+
+                      onRegisterFormChange((current) => ({ ...current, password: value }));
+                    }}
+                    placeholder="Enter your password"
+                    autoComplete={authView === "login" ? "current-password" : "new-password"}
+                  />
+                  <button
+                    type="button"
+                    className="auth-password-eye"
+                    onClick={() => setShowAuthPassword((v) => !v)}
+                    aria-pressed={showAuthPassword}
+                    aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                    title={showAuthPassword ? "Hide password" : "Show password"}
+                  >
+                    {showAuthPassword ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="22"
+                        height="22"
+                        aria-hidden
+                        className="auth-password-eye-svg"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0 -11 -8 -11 -8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="22"
+                        height="22"
+                        aria-hidden
+                        className="auth-password-eye-svg"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </label>
+
+              {authView === "login" ? (
+                <p className="muted" style={{ margin: "-6px 0 0" }}>
+                  <button type="button" className="link-inline" onClick={() => onViewChange("forgot")}>
+                    Forgot password?
+                  </button>
+                </p>
+              ) : null}
+
+              {authView === "register" ? (
+                <label>
+                  Promotion code <span className="muted">(optional)</span>
+                  <input
+                    type="text"
+                    value={registerForm.referralCode}
+                    onChange={(event) =>
+                      onRegisterFormChange((current) => ({
+                        ...current,
+                        referralCode: event.target.value.toUpperCase()
+                      }))
+                    }
+                    placeholder="Friend's code"
+                    autoComplete="off"
+                  />
+                </label>
+              ) : null}
+
+              {authView === "register" ? (
+                <p className="auth-register-consent muted">
+                  By registering you agree to our{" "}
+                  <button type="button" className="link-inline" onClick={onOpenTerms}>
+                    Terms &amp; Conditions
+                  </button>{" "}
+                  and{" "}
+                  <button type="button" className="link-inline" onClick={onOpenPrivacy}>
+                    Privacy Policy
+                  </button>
+                  .
+                </p>
+              ) : null}
+
+              <button type="submit" disabled={authBusy}>
+                {authBusy ? "Please wait..." : authView === "login" ? "Login" : "Create account"}
+              </button>
+            </form>
+
+            <p className="auth-footer">
+              {authView === "login" ? "New here?" : "Already have an account?"}{" "}
+              <button
+                type="button"
+                className="link-inline"
+                onClick={() => onViewChange(authView === "login" ? "register" : "login")}
+              >
+                {authView === "login" ? "Register" : "Login"}
+              </button>
+            </p>
+            <AuthLegalFooter onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} />
+          </>
+        )}
       </section>
       </div>
     </div>

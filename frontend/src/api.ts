@@ -253,6 +253,52 @@ export async function loginUser(input: {
   return parseJson<AuthResponse>(response);
 }
 
+export async function requestForgotPasswordOtp(input: { countryCode: string; phone: string }) {
+  const response = await fetchJsonOrThrow(`${apiBase()}/api/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ countryCode: input.countryCode, phone: input.phone })
+  });
+  return parseJson<{ ok: true; debugOtp?: string }>(response);
+}
+
+export async function resetPasswordWithOtpApi(input: {
+  countryCode: string;
+  phone: string;
+  otp: string;
+  newPassword: string;
+}) {
+  const response = await fetchJsonOrThrow(`${apiBase()}/api/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      countryCode: input.countryCode,
+      phone: input.phone,
+      otp: input.otp,
+      newPassword: input.newPassword
+    })
+  });
+  return parseJson<{ ok: true }>(response);
+}
+
+/** Forgot password: mobile + new password only (no OTP). */
+export async function resetPasswordByPhoneApi(input: {
+  countryCode: string;
+  phone: string;
+  newPassword: string;
+}) {
+  const response = await fetchJsonOrThrow(`${apiBase()}/api/auth/reset-password-by-phone`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      countryCode: input.countryCode,
+      phone: input.phone,
+      newPassword: input.newPassword
+    })
+  });
+  return parseJson<{ ok: true }>(response);
+}
+
 export async function loadSession(token: string) {
   const response = await fetch(`${apiBase()}/api/auth/me`, {
     headers: {
