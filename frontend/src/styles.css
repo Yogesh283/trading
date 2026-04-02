@@ -904,6 +904,18 @@ select {
   .app-nav-brand-block {
     flex: 0 0 auto;
   }
+
+  /* Trade page: keep all links reachable without wrapping into a second row */
+  .app-main-nav-desktop {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    max-width: 100%;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
 }
 
 .auth-page-wrap {
@@ -2706,6 +2718,17 @@ select {
 
 .chart-lw-axis-pill--neutral .chart-lw-axis-pill-timer {
   border-left-color: transparent;
+}
+
+/* Countdown (MM:SS) follows last tick — green up / red down */
+.chart-lw-axis-pill--up .chart-lw-axis-pill-cd {
+  color: #12d991;
+  transition: color 0.45s ease;
+}
+
+.chart-lw-axis-pill--down .chart-lw-axis-pill-cd {
+  color: #ff5c6c;
+  transition: color 0.45s ease;
 }
 
 .tv-live-badge-cd-tf {

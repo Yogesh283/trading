@@ -99,6 +99,19 @@ html.cap-native:not(.cap-android):not(.cap-ios) .app-mobile-trade .app-main-nav 
   padding-top: max(6px, min(env(safe-area-inset-top, 0px), 20px));
 }
 
+/* Logged-in phone hides `.app-main-nav` — apply same top gutter to the sticky wallet bar */
+html.cap-native.cap-android .app-mobile-trade .mobile-wallet-nav-wrap {
+  padding-top: max(28px, env(safe-area-inset-top, 0px) + 6px);
+}
+
+html.cap-native.cap-ios .app-mobile-trade .mobile-wallet-nav-wrap {
+  padding-top: max(6px, env(safe-area-inset-top, 0px));
+}
+
+html.cap-native:not(.cap-android):not(.cap-ios) .app-mobile-trade .mobile-wallet-nav-wrap {
+  padding-top: max(6px, min(env(safe-area-inset-top, 0px), 20px));
+}
+
 @media (max-width: 768px) {
   html.cap-native .app-shell.app-mobile-trade {
     padding-top: 0;

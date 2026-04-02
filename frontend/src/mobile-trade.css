@@ -319,9 +319,20 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 
 /* Wallet bar: shared across all mobile sections (deposit, referral, trading, …) */
 .app-mobile-trade .mobile-wallet-nav-wrap {
+  position: sticky;
+  top: 0;
+  /* Above chart TF / type overlays (z ~260–280); below app drawer (480) */
+  z-index: 300;
+  width: 100%;
+  box-sizing: border-box;
   padding-left: 8px;
   padding-right: 8px;
   padding-top: max(6px, env(safe-area-inset-top, 0px));
+  padding-bottom: 6px;
+  background: rgba(10, 12, 18, 0.94);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Own row so Up/Down/FX never gets flex-squeezed to zero inside `.mobile-trading-page-nav` */
@@ -497,7 +508,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   left: 50%;
   top: calc(100% + 4px);
   transform: translateX(-50%);
-  z-index: 50;
+  z-index: 310;
   min-width: min(200px, 88vw);
   padding: 4px;
   border-radius: 12px;
