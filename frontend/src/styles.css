@@ -2708,27 +2708,62 @@ select {
   transition: none;
 }
 
-.chart-lw-axis-pill--up .chart-lw-axis-pill-timer {
-  border-left: 2px solid #089981;
-}
-
-.chart-lw-axis-pill--down .chart-lw-axis-pill-timer {
-  border-left: 2px solid #f23645;
-}
-
 .chart-lw-axis-pill--neutral .chart-lw-axis-pill-timer {
   border-left-color: transparent;
 }
 
-/* Countdown (MM:SS) follows last tick — green up / red down */
+/* Last tick up: green price pill + green timer chip (TradingView-style) */
+.chart-lw-axis-pill--up .chart-lw-axis-pill-price {
+  color: #042a1f;
+  background: linear-gradient(180deg, #3ae8b0 0%, #0ecb81 48%, #0a9d6a 100%);
+  border-color: rgba(6, 110, 75, 0.55);
+  box-shadow: 0 1px 6px rgba(14, 203, 129, 0.35);
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
+}
+
+.chart-lw-axis-pill--up .chart-lw-axis-pill-timer {
+  color: #eafff5;
+  background: linear-gradient(180deg, rgba(18, 95, 68, 0.95) 0%, rgba(8, 52, 40, 0.98) 100%);
+  border: 1px solid rgba(14, 203, 129, 0.55);
+  border-left: 3px solid #0ecb81;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background 0.35s ease, border-color 0.35s ease;
+}
+
+.chart-lw-axis-pill--up .chart-lw-axis-pill-tf {
+  color: rgba(190, 255, 225, 0.92);
+}
+
 .chart-lw-axis-pill--up .chart-lw-axis-pill-cd {
-  color: #12d991;
-  transition: color 0.45s ease;
+  color: #c6ffe8;
+  transition: color 0.35s ease;
+}
+
+/* Last tick down: red price pill + red timer chip */
+.chart-lw-axis-pill--down .chart-lw-axis-pill-price {
+  color: #fff;
+  background: linear-gradient(180deg, #ff8a96 0%, #f23645 48%, #c41e2f 100%);
+  border-color: rgba(140, 28, 42, 0.55);
+  box-shadow: 0 1px 6px rgba(246, 70, 93, 0.35);
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
+}
+
+.chart-lw-axis-pill--down .chart-lw-axis-pill-timer {
+  color: #fff5f6;
+  background: linear-gradient(180deg, rgba(115, 32, 44, 0.96) 0%, rgba(62, 14, 22, 0.99) 100%);
+  border: 1px solid rgba(246, 70, 93, 0.55);
+  border-left: 3px solid #f23645;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background 0.35s ease, border-color 0.35s ease;
+}
+
+.chart-lw-axis-pill--down .chart-lw-axis-pill-tf {
+  color: rgba(255, 210, 215, 0.95);
 }
 
 .chart-lw-axis-pill--down .chart-lw-axis-pill-cd {
-  color: #ff5c6c;
-  transition: color 0.45s ease;
+  color: #ffd0d5;
+  transition: color 0.35s ease;
 }
 
 .tv-live-badge-cd-tf {
@@ -2885,12 +2920,20 @@ select {
 }
 
 .tv-live-badge--timer-only.tv-live-badge--tick-up .tv-live-badge-cd {
-  color: #12d991;
+  color: #c6ffe8;
+}
+
+.tv-live-badge--timer-only.tv-live-badge--tick-up .tv-live-badge-cd-tf {
+  color: rgba(190, 255, 225, 0.95);
 }
 
 .tv-live-badge--timer-only.tv-live-badge--tick-down .tv-live-badge-cd {
-  color: #ff5c6c;
-  transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1);
+  color: #ffd0d5;
+  transition: color 0.35s ease;
+}
+
+.tv-live-badge--timer-only.tv-live-badge--tick-down .tv-live-badge-cd-tf {
+  color: rgba(255, 200, 205, 0.95);
 }
 
 .tv-chart-mobile .tv-live-badge {
