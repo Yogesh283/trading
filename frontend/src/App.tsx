@@ -3435,28 +3435,16 @@ export default function App() {
                     <span key={i} className="order-placed-confetti-piece" />
                   ))}
                 </div>
-                <div className="order-placed-celebrate-ribbon" aria-hidden>
-                  Winner
-                </div>
+             
               </>
             ) : null}
             <div className="order-placed-modal-inner">
               <div className="order-placed-icon" aria-hidden>
                 {binarySettlePopup.pnl >= 0 ? "✓" : "−"}
               </div>
-              <p
-                className={`order-placed-direction order-placed-direction--${
-                  binarySettlePopup.pnl >= 0 ? "up" : "down"
-                }`}
-              >
-                {binarySettlePopup.pnl >= 0 ? "Win" : "Loss"}
-              </p>
               <h2 id="binary-settle-title" className="order-placed-title">
-                {binarySettlePopup.pnl >= 0 ? "You won!" : "Trade closed — loss"}
+                {binarySettlePopup.pnl >= 0 ? "PROFIT BOOKED 💰" : "LOSS BOOKED 📉"}
               </h2>
-              {binarySettlePopup.pnl >= 0 ? (
-                <p className="order-placed-celebrate-sub">Trade settled in your favour</p>
-              ) : null}
               <p id="binary-settle-desc" className="order-placed-summary">
                 <span className="order-placed-summary-text">{binarySettlePopup.text}</span>
                 <span className="order-placed-amount-highlight" aria-label="Settlement amount">
