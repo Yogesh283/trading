@@ -59,7 +59,8 @@ export class ForexFeed extends EventEmitter {
     if (apiKey) {
       void this.bootstrapExternal(
         async () => {
-          const m = await fetchTraderMadeLive(apiKey, FOREX_SYMBOLS);
+          const tmSyms = FOREX_SYMBOLS;
+          const m = await fetchTraderMadeLive(apiKey, tmSyms);
           const gold = await fetchGoldUsdSpot();
           if (gold != null) {
             m.set("XAUUSD", gold);
@@ -134,8 +135,12 @@ export class ForexFeed extends EventEmitter {
 
   private roundPrice(symbol: string, raw: number): number {
     const next = raw;
+    const sym = symbol.toUpperCase();
+    if (next >= 1000) {
+      return Number(next.toFixed(2));
+    }
     const decimals =
-      symbol === "XAUUSD" || next >= 20 || (next >= 1 && symbol.includes("JPY")) ? 3 : next >= 5 ? 4 : 5;
+      sym === "XAUUSD" || next >= 20 || (next >= 1 && symbol.includes("JPY")) ? 3 : next >= 5 ? 4 : 5;
     return Number(next.toFixed(decimals));
   }
 

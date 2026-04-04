@@ -2,7 +2,7 @@
 
 Full-stack trading platform (Node.js, TypeScript, Express, React, WebSockets).
 
-**Project kaise kaam karta hai (flow, folders, auth, wallet, APK):** → **[`docs/PROJECT-KAISE-KAAM-KARTA-HAI.md`](docs/PROJECT-KAISE-KAAM-KARTA-HAI.md)**
+**How the project works (flow, folders, auth, wallet, APK):** → **[`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)**
 
 ## Structure
 

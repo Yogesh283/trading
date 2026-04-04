@@ -1,26 +1,26 @@
 # Deploy — local → Git → live server
 
-**Data ka flow:**
+**Data flow:**
 
 1. **PC** → `git push` → **GitHub** (`main` branch)  
-2. **VPS** → `git pull` (ya reset) + `npm run build:all` + `pm2 restart` → **live site**
+2. **VPS** → `git pull` (or reset) + `npm run build:all` + `pm2 restart` → **live site**
 
-`git push` **direct server par nahi jaata**. Har baar server par SSH se commands chalani padti hain.
+`git push` does **not** go to the server directly. Each deploy needs SSH commands on the server.
 
-### Mobile register → `users` table (phpMyAdmin “empty”?)
+### Mobile signup → `users` table (phpMyAdmin looks “empty”?)
 
-- **`.env` mein `MYSQL_DATABASE=...` set hai** → users **MySQL** mein jaate hain → phpMyAdmin mein **usi database** (jaise `tradeing`) kholo; columns **`phone_country_code`**, **`phone_local`** mein mobile signup dikhega. Synthetic email: `{id}@m.iqfxpro.local`.
-- **`MYSQL_DATABASE` khali / unset** → users **`data/app.db` (SQLite)** mein jaate hain → phpMyAdmin mein **nahi** dikhenge jab tak aap MySQL use nahi kar rahe. Check: browser/open `GET /api/system/database` ya register ke baad success message par DB hint.
-- Admin panel **Users** list ab **Phone CC** + **Phone** columns dikhata hai.
+- **If `.env` has `MYSQL_DATABASE=...` set** → users go to **MySQL** → open that database in phpMyAdmin (e.g. `tradeing`); mobile signup appears in **`phone_country_code`**, **`phone_local`**. Synthetic email: `{id}@m.iqfxpro.local`.
+- **If `MYSQL_DATABASE` is empty / unset** → users go to **`data/app.db` (SQLite)** → they will **not** show in phpMyAdmin until you use MySQL. Check: open `GET /api/system/database` in the browser or read the DB hint on the register success message.
+- The admin **Users** list shows **Phone CC** + **Phone** columns.
 
 **Repo:** `https://github.com/Yogesh283/trading.git` · **Branch:** `main`  
 **PC folder:** `d:\xampp\htdocs\tradeing`  
 **Server folder (primary / CloudPanel):** `/home/iqfxpro/htdocs/www.iqfxpro.com`  
-**PM2 name (example):** `iqfxpro` — jo `pm2 list` mein ho wahi use karo.
+**PM2 name (example):** `iqfxpro` — use whatever appears in `pm2 list`.
 
 ---
 
-## 1) PC se GitHub par (Windows — Git Bash)
+## 1) PC → GitHub (Windows — Git Bash)
 
 ```bash
 cd /d/xampp/htdocs/tradeing
@@ -30,10 +30,10 @@ git commit -m "your message"
 git push origin main
 ```
 
-- **`nothing to commit, working tree clean`** = koi naya change nahi; pehle files edit karo / `git add` karo.  
-- **`Everything up-to-date`** bina commit ke = GitHub par kuch naya **gaya hi nahi** — commit + push karo.
+- **`nothing to commit, working tree clean`** = no pending changes; edit files / `git add` first.  
+- **`Everything up-to-date`** without a new commit = nothing new reached GitHub — commit + push.
 
-**SSH push** (agar zaroorat ho):
+**SSH push** (if needed):
 
 ```bash
 eval "$(ssh-agent -s)"
@@ -47,17 +47,17 @@ git push origin main
 git log -1 --oneline
 ```
 
-Yeh hash GitHub website par `main` ke latest se match hona chahiye.
+This hash should match the latest `main` on GitHub.
 
 ---
 
-## 2) GitHub se server par (VPS — SSH)
+## 2) GitHub → server (VPS — SSH)
 
-**CloudPanel / Site Settings — App Port (502 se bachne ke liye):** Panel mein jo **App Port** dikhe (jaise `www.iqfxpro.com` → **4000**), wahi number server ke **`PORT=`** se match hona chahiye:
+**CloudPanel / Site Settings — App Port (avoid 502):** The **App Port** shown in the panel (e.g. `www.iqfxpro.com` → **4000**) must match **`PORT=`** in `.env`:
 
-- `.env` mein likho: `PORT=4000` (example) — default repo `3000` hai; panel `4000` hai aur `.env` `3000` reh gaya to nginx upstream **502 Bad Gateway** de sakta hai.
-- Test (SSH): `curl -sS http://127.0.0.1:4000/api/ping` → `pong` (apna port lagao).
-- Phir: `pm2 restart <app>`.
+- `.env` example: `PORT=4000` — default in repo is `3000`; if the panel uses `4000` but `.env` stays `3000`, nginx upstream can return **502 Bad Gateway**.
+- Test (SSH): `curl -sS http://127.0.0.1:4000/api/ping` → `pong` (use your port).
+- Then: `pm2 restart <app>`.
 
 ```bash
 cd /home/iqfxpro/htdocs/www.iqfxpro.com
@@ -67,30 +67,30 @@ git log -1 --oneline origin/main
 git log -1 --oneline
 ```
 
-**`.env` check (same path par):**
+**`.env` check (same path):**
 
-- **Linux VPS par** `curl` use karo — `curl.exe` sirf Windows / PowerShell hai (`command not found` aayega).
+- On **Linux VPS** use `curl` — not `curl.exe` (Windows PowerShell).
 
 ```bash
 cd /home/iqfxpro/htdocs/www.iqfxpro.com
 
-# File hai ya nahi (project root = jahan package.json hai)
+# Does .env exist?
 test -f .env && echo ".env OK" || echo "MISSING: copy .env.example to .env and edit"
 
-# Active MySQL lines (bina #) — agar kuch nahi aaya = MySQL off
+# Active MySQL lines (without #) — if nothing prints, MySQL is off
 grep -E '^USE_MYSQL=|^MYSQL_' .env 2>/dev/null || echo "(no active MYSQL_* — app uses SQLite)"
 
-# Chal raha Node app kaunsa DB use kar raha hai
+# Which DB the running Node app uses
 curl -sS "http://127.0.0.1:4000/api/system/database"
 # HTTPS:
 # curl -sS "https://www.iqfxpro.com/api/system/database"
 ```
 
-- `kind: "mysql"` + `database: "tradeing"` → naye user **phpMyAdmin / MySQL** mein.
-- `kind: "sqlite"` + `file: ".../data/app.db"` → **MySQL abhi band hai.**  
-  Sirf `grep` mein `# MYSQL_...` (comment) dikhna = **uncomment nahi** kiya. Neeche jaisa **bina `#`** likho, phir `pm2 restart`.
+- `kind: "mysql"` + `database: "tradeing"` → new users in **phpMyAdmin / MySQL**.
+- `kind: "sqlite"` + `file: ".../data/app.db"` → **MySQL is still off.**  
+  If `grep` only shows `# MYSQL_...` (commented), you **did not uncomment**. Uncomment and set values like below (no `#`), then `pm2 restart`.
 
-**MySQL on (example — apna password / user):**
+**MySQL on (example — use your password / user):**
 
 ```env
 USE_MYSQL=1
@@ -100,27 +100,27 @@ MYSQL_USER=root
 MYSQL_PASSWORD=YOUR_MYSQL_PASSWORD
 ```
 
-(`USE_MYSQL=1` se database name default `tradeing` ho jata hai — pehle MySQL mein `tradeing` DB banao.)
+(`USE_MYSQL=1` defaults the database name to `tradeing` — create the `tradeing` database in MySQL first.)
 
-Phir:
+Then:
 
 ```bash
 pm2 restart iqfxpro
 curl -sS "http://127.0.0.1:4000/api/system/database"
 ```
 
-Dubara `kind: "mysql"` aana chahiye.
+You should see `kind: "mysql"` again.
 
 ---
 
-Agar **server wala hash purana** hai:
+If the **server commit hash is old**:
 
 ```bash
 git restore frontend/tsconfig.tsbuildinfo 2>/dev/null || git checkout -- frontend/tsconfig.tsbuildinfo
 git pull origin main
 ```
 
-**Build + app restart (hamesha deploy ke baad):**
+**Build + restart (after every deploy):**
 
 ```bash
 npm ci
@@ -128,22 +128,22 @@ npm run build:all
 pm2 restart iqfxpro
 ```
 
-**Phir verify:**
+**Verify:**
 
 ```bash
 git log -1 --oneline
 ```
 
-Ab hash **GitHub `main`** jaisa hona chahiye.
+Hash should match **GitHub `main`**.
 
-**Browser:** naya JS/CSS ke liye **Ctrl+F5** ya incognito.
+**Browser:** hard refresh (**Ctrl+F5**) or incognito for new JS/CSS.
 
 ---
 
-## 3) Agar `git pull` fail ho ya branch uljha ho
+## 3) If `git pull` fails or branch diverged
 
-`git branch -vv` par **`ahead X, behind Y`** dikhe → server aur GitHub alag history par hain.  
-**Sirf deploy mirror** ke liye (`.env` gitignore mein hai, usually safe):
+If `git branch -vv` shows **`ahead X, behind Y`** → server and GitHub have different histories.  
+For a **deploy mirror only** (`.env` is gitignored, usually safe):
 
 ```bash
 cd /home/iqfxpro/htdocs/www.iqfxpro.com
@@ -154,32 +154,34 @@ npm run build:all
 pm2 restart iqfxpro
 ```
 
-**Rule:** VPS par **`git commit` mat karo** — code PC se push, server par sirf **pull / reset** + build.
+**Rule:** do **not** `git commit` on the VPS — push from PC; on the server only **pull / reset** + build.
 
 ---
 
-## 4) Typo / chhoti cheezein
+## 4) Typos / small fixes
 
-**Chart local sahi, live par purani candles nahi:** Placeholder **`APNA-DOMAIN` copy-paste mat karo** — **apna asli hostname** likho (browser jaisa URL; production: **`www.iqfxpro.com`**).
+**Chart works locally but live has old candles:** do not copy placeholder **`APNA-DOMAIN`** — use your **real hostname** (same as browser URL; production: **`www.iqfxpro.com`**).
+
 ```bash
 # Public HTTPS:
 curl -sS "https://www.iqfxpro.com/api/markets/candles?symbol=GBPAUD&timeframe=60&limit=5" | head -c 200
-# Seedha Node (VPS par — port `.env` `PORT=` se match; CloudPanel example 4000):
+# Direct to Node (on VPS — port must match `.env` `PORT=`; CloudPanel example 4000):
 curl -sS "http://127.0.0.1:4000/api/markets/candles?symbol=GBPAUD&timeframe=60&limit=5" | head -c 200
 ```
-Jawab **`{"candles":`** se shuru hona chahiye. **`{"candles":[]}`** = API theek hai, lekin DB mein abhi **koi bar save nahi** (naya server, ya seed/off failed). phpMyAdmin: `SELECT COUNT(*) FROM chart_candles;` — `pm2 logs` mein `chart_candles` errors dekho. **Turant history** ke liye `.env` mein optional **`TRADERMADE_KEY`** / **`ALPHA_VANTAGE_API_KEY`** (server start pe seed chalega). Bina keys: kuch **minute** chalao taake buckets close hon aur ticks DB mein likhein. Redirect par **`curl -L`** use karo. Agar **HTML** (`<!DOCTYPE`) aaye to **`location /api/`** Node proxy **`location /` se pehle** hona chahiye. Cloudflare par **`/api` ko “Cache Everything” mat** do. Same-origin par `frontend/.env` mein **`VITE_API_URL` khali** rakho.
+
+The response should start with **`{"candles":`**. **`{"candles":[]}`** = API OK but DB has **no bars yet** (new server, or seed disabled/failed). phpMyAdmin: `SELECT COUNT(*) FROM chart_candles;` — check `pm2 logs` for `chart_candles` errors. For **faster history**, set optional **`TRADERMADE_KEY`** / **`ALPHA_VANTAGE_API_KEY`** in `.env` (seed runs on server start). Without keys: run a few **minutes** so buckets close and ticks write to DB. If you get a redirect, use **`curl -L`**. If you get **HTML** (`<!DOCTYPE`), **`location /api/`** must come **before** **`location /`** in nginx. On Cloudflare, do **not** set **`/api`** to “Cache Everything”. For same-origin SPA, keep **`VITE_API_URL` empty** in `frontend/.env`.
 
 | Problem | Fix |
 |--------|-----|
-| `it: command not found` | **`git pull`** likho — **`it pull`** nahi. |
-| `frontend/dist/index.html` ENOENT | `npm run build:all` chalao (frontend build banega). |
-| Node warning / Vite | Server par **`node -v`** — **v20.19+** behtar (`curl -fsSL https://deb.nodesource.com/setup_20.x \| sudo -E bash -` phir `apt install nodejs`). |
-| PM2 bar‑bar restart | `pm2 logs iqfxpro --lines 80` — `.env`, DB, `PORT` dekho. |
-| USDT address error in logs | `.env` mein `USDT_BEP20_DEPOSIT_ADDRESS` = **`0x` + 40 hex** ya line hata do. |
+| `it: command not found` | Type **`git pull`** — not **`it pull`**. |
+| `frontend/dist/index.html` ENOENT | Run `npm run build:all` (builds frontend). |
+| Node / Vite warnings | On server: **`node -v`** — **v20.19+** is recommended (`curl -fsSL https://deb.nodesource.com/setup_20.x \| sudo -E bash -` then `apt install nodejs`). |
+| PM2 keeps restarting | `pm2 logs iqfxpro --lines 80` — check `.env`, DB, `PORT`. |
+| USDT address error in logs | `.env` `USDT_BEP20_DEPOSIT_ADDRESS` = **`0x` + 40 hex** or remove the line. |
 
 ---
 
-## 5) Pehli baar server par (reference)
+## 5) First server setup (reference)
 
 ```bash
 cd /home/iqfxpro/htdocs
@@ -192,16 +194,16 @@ pm2 start dist/index.js --name iqfxpro
 pm2 save && pm2 startup
 ```
 
-**Domain:** Nginx / CloudPanel se site ko **`http://127.0.0.1:4000`** (ya jo `.env` `PORT` ho — panel ke **App Port** se match) par **reverse proxy** karo; sirf static folder se Node API **`/api` / `/ws` nahi chalenge`.
+**Domain:** In Nginx / CloudPanel, reverse-proxy the site to **`http://127.0.0.1:4000`** (or whatever `.env` **`PORT`** is — must match **App Port**). Serving only static files will **not** expose Node **`/api`** / **`/ws`**.
 
 ---
 
 ## 6) Android APK (Capacitor)
 
-**Nginx (APK / API):** `location /api/` block **`location /` se pehle** — warna `/api/...` SPA `index.html` ban jata hai → download **`mobile-app.html`**.
+**Nginx (APK / API):** `location /api/` must be **before** **`location /`** — otherwise `/api/...` returns SPA `index.html` → download becomes **`mobile-app.html`**.
 
 ```nginx
-# Upstream timeouts — bina inke WebView / lambi API par **504 Gateway Timeout** aa sakta hai
+# Upstream timeouts — without these, WebView / long API can get **504 Gateway Timeout**
 proxy_connect_timeout 75s;
 proxy_send_timeout 300s;
 proxy_read_timeout 300s;
@@ -216,36 +218,36 @@ location /api/ {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 
-# Agar poori site (/) bhi Node ko jaati hai — wahi `location /` block mein bhi yahi headers + timeouts lagao.
-# WebSocket ke liye (live prices): is block mein `Upgrade` / `Connection` headers (docs: nginx proxy_pass ws).
+# If the whole site (/) also proxies to Node — add the same headers + timeouts in that `location /` block.
+# WebSocket (live prices): add `Upgrade` / `Connection` headers (see nginx WebSocket proxy docs).
 ```
 
-**APK mein 504** = nginx/proxy ne **`127.0.0.1:PORT`** par Node se jawab **time limit** ke andar nahi paya (ya Node band / hang / DB slow). **APK code se fix nahi** — server check:
+**504 in APK** = nginx/proxy did not get a response from **`127.0.0.1:PORT`** within the time limit (or Node down, hang, slow DB). **Not fixed in APK code** — fix the server:
 
-1. SSH: `curl -sS --max-time 5 http://127.0.0.1:4000/api/ping` → `pong` (PORT = `.env` `PORT`). Na ho to **`pm2 logs iqfxpro`**, `.env`, MySQL — app crash / DB connect stall = timeout.
-2. Nginx vhost mein upar wale **`proxy_*_timeout`** add karo, **`nginx -t`** → reload. CloudPanel: site → **Vhost** / custom nginx snippet.
-3. **Cloudflare** use ho to kabhi **524** bhi dikhta hai; **SSL/TLS → Full (strict)**, aur `/api` par aggressive cache mat lagao. Origin slow ho to CF edge timeout badhana ya route optimize karna pad sakta hai.
+1. SSH: `curl -sS --max-time 5 http://127.0.0.1:4000/api/ping` → `pong` (PORT = `.env` `PORT`). If not: **`pm2 logs iqfxpro`**, `.env`, MySQL — app crash / DB stall causes timeout.
+2. Add **`proxy_*_timeout`** above in the vhost, **`nginx -t`** → reload. CloudPanel: site → **Vhost** / custom nginx snippet.
+3. With **Cloudflare**, you may also see **524**; use **SSL/TLS → Full (strict)** and do not aggressively cache `/api`. If origin is slow, you may need to increase Cloudflare/origin timeouts.
 
-APK **WebView** mein live site kholta hai. Config: **`mobile-apk/capacitor.config.json`** → `server.url` (**`https://www.iqfxpro.com`**). Domains badalne ke baad: **`cd mobile-apk` → `npx cap sync android`** → naya APK build.
+The APK opens the live site in a **WebView**. Config: **`mobile-apk/capacitor.config.json`** → `server.url` (**`https://www.iqfxpro.com`**). After changing domains: **`cd mobile-apk` → `npx cap sync android`** → build a new APK.
 
-| Kaam | Command / jagah |
+| Task | Command / location |
 |------|-------------------|
-| URL badalna | `mobile-apk/capacitor.config.json` edit → phir **`npx cap sync android`** |
-| Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (ya Studio se **`mobile-apk/android`** open) |
-| Release APK | Android Studio → **Build → Build APK(s)** (ya signed bundle Play ke liye) |
-| **Site par “Download APK”** | PC: Studio se APK build → **`npm run apk:sync`** → `releases/Iqfxpro.apk` bane; SFTP se VPS **`.../releases/Iqfxpro.apk`**. Server: **`pm2 restart`**. (Ya `.env` **`APK_FILE_PATH=/home/.../Iqfxpro.apk`**.) Link: **`GET /api/system/android-apk`**. |
-| Download **`mobile-app.html`** / HTML instead of APK | **`/api/...` Node tak nahi ja raha** — static/SPA ne `index.html` de diya. **Fix:** Nginx mein **`location /api/`** → Node, **`location /` se pehle**. |
-| VPS par `curl` → **`Could not resolve host`** | Galat domain spelling ya server DNS — `https://www.iqfxpro.com` verify karo, ya test: `curl -I http://127.0.0.1:PORT/...` |
-| `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **404** + chhota HTML | **Purana `dist`** chal raha hai — server par: `grep android-apk dist/server.js` (kuch lines dikhni chahiye). Phir **`npm run build`**, **`npm run build:all`** (agar frontend bhi), **`pm2 restart`**. |
-| APK route live hai? | `curl -I http://127.0.0.1:PORT/api/ping` → header **`X-Served-By: iqfxpro-raw`**. Phir `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **`application/vnd.android.package-archive`** (file ho to) ya lamba HTML “APK file missing” (file na ho). |
-| **APK WebView par 504** | Node up + fast `curl /api/ping` (neeche step 1). Phir nginx **`proxy_read_timeout`** / **`send_timeout`** (snippet upar). Phir Cloudflare/origin. |
+| Change URL | Edit `mobile-apk/capacitor.config.json` → **`npx cap sync android`** |
+| Sync + Studio | `cd mobile-apk` → `npm install` → `npx cap sync android` → `npx cap open android` (or open **`mobile-apk/android`** in Studio) |
+| Release APK | Android Studio → **Build → Build APK(s)** (or signed bundle for Play) |
+| **“Download APK” on site** | On PC: build APK in Studio → **`npm run apk:sync`** → `releases/Iqfxpro.apk`; SFTP to VPS **`.../releases/Iqfxpro.apk`**. Server: **`pm2 restart`**. (Or `.env` **`APK_FILE_PATH=/home/.../Iqfxpro.apk`**.) Link: **`GET /api/system/android-apk`**. |
+| Download **`mobile-app.html`** instead of APK | **`/api/...` is not reaching Node** — static/SPA returned `index.html`. **Fix:** nginx **`location /api/`** → Node, **`location /` before** it. |
+| VPS `curl` → **`Could not resolve host`** | Wrong domain spelling or server DNS — verify `https://www.iqfxpro.com`, or test `curl -I http://127.0.0.1:PORT/...` |
+| `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **404** + short HTML | **Old `dist`** running — on server: `grep android-apk dist/server.js` (should show lines). Then **`npm run build`**, **`npm run build:all`** if needed, **`pm2 restart`**. |
+| Is APK route live? | `curl -I http://127.0.0.1:PORT/api/ping` → header **`X-Served-By: iqfxpro-raw`**. Then `curl -I http://127.0.0.1:PORT/api/system/android-apk` → **`application/vnd.android.package-archive`** (if file exists) or long HTML “APK file missing” (if missing). |
+| **504 in APK WebView** | Node up + fast `curl /api/ping` (step 1). Then nginx **`proxy_read_timeout`** / **`send_timeout`** (snippet above). Then Cloudflare/origin. |
 
-**Zyaadaatar web fix:** sirf server par **`npm run build:all`** + deploy — **naya APK zaroori nahi** (user app band–khole to naya UI load ho sakta hai).
+**Most web UI fixes:** only **`npm run build:all`** on the server + deploy — **a new APK is not always required** (user can close/reopen the app to load new UI).
 
-**Naya APK zaroori jab:** `server.url` / app name / icons / native permissions badlein.
+**You need a new APK when:** changing `server.url`, app name, icons, or native permissions.
 
-Poori detail (Windows path, cleartext HTTP, cache): **`mobile-apk/README.md`**, **`releases/README.md`**.
+More detail (Windows paths, cleartext HTTP, cache): **`mobile-apk/README.md`**, **`releases/README.md`**.
 
 ---
 
-*Paths / PM2 naam apne server ke hisaab se badlo — production ke liye upar wale `iqfxpro` / `www.iqfxpro.com` defaults use karo.*
+*Adjust paths / PM2 names for your server — production defaults above use `iqfxpro` / `www.iqfxpro.com`.*

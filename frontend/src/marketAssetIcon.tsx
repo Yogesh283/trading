@@ -47,13 +47,20 @@ function flagEmojiFromRegion(region: string): string {
   return String.fromCodePoint(up.codePointAt(0)! - 65 + base, up.codePointAt(1)! - 65 + base);
 }
 
-export function formatForexPair(sym: string): string {
-  return /^[A-Z]{6}$/.test(sym) ? `${sym.slice(0, 3)}/${sym.slice(3)}` : sym;
+/** Plain instrument id (no slashes) — e.g. `EURUSD`, `XAUUSD`. */
+export function formatMarketSymbolPath(sym: string): string {
+  const s = sym.toUpperCase().trim();
+  if (!s) return "—";
+  return s;
 }
 
-/** Primary list label: `EUR/USD OTC` style (Olymp mockup). */
+export function formatForexPair(sym: string): string {
+  return formatMarketSymbolPath(sym);
+}
+
+/** Primary list label: `EURUSD OTC` style. */
 export function formatMarketPairOtc(sym: string): string {
-  return /^[A-Z]{6}$/.test(sym) ? `${sym.slice(0, 3)}/${sym.slice(3)} OTC` : `${sym} OTC`;
+  return `${formatMarketSymbolPath(sym)} OTC`;
 }
 
 /** Plain-text flags for `<option>` / labels where JSX flags are not usable. */
@@ -68,7 +75,7 @@ export function assetPairEmojiPrefix(sym: string): string {
   return `${b}${q} `;
 }
 
-/** 3-letter base in a 6-char pair — single rounded “crypto” tile (future pairs like BTCUSD). */
+/** 3-letter base in a 6-char pair — rounded flag discs for forex / metals. */
 function FlagDisc({
   flagCode,
   emoji,
@@ -111,17 +118,6 @@ function FlagDisc({
   );
 }
 
-const CRYPTO_BADGE: Record<string, { bg: string; label: string }> = {
-  BTC: { bg: "#f7931a", label: "₿" },
-  ETH: { bg: "#627eea", label: "Ξ" },
-  BNB: { bg: "#f3ba2f", label: "B" },
-  SOL: { bg: "#9945ff", label: "◎" },
-  XRP: { bg: "#00aae4", label: "✕" },
-  LTC: { bg: "#bfbbbb", label: "Ł" },
-  ADA: { bg: "#0033ad", label: "₳" },
-  DOT: { bg: "#e6007a", label: "●" }
-};
-
 export function AssetPairFlags({ symbol, className }: { symbol: string; className?: string }) {
   const extra = className ? ` ${className}` : "";
 
@@ -140,17 +136,6 @@ export function AssetPairFlags({ symbol, className }: { symbol: string; classNam
   const base = symbol.slice(0, 3);
   const quote = symbol.slice(3, 6);
   const title = formatForexPair(symbol);
-
-  const crypto = CRYPTO_BADGE[base];
-  if (crypto) {
-    return (
-      <span className={`market-asset-icon market-asset-icon--crypto${extra}`} aria-hidden title={title}>
-        <span className="market-asset-icon__crypto" style={{ backgroundColor: crypto.bg }}>
-          {crypto.label}
-        </span>
-      </span>
-    );
-  }
 
   const baseEmoji =
     base === "XAU" ? "🥇" : flagEmojiFromRegion(FX_CC_TO_REGION[base] ?? base.slice(0, 2));

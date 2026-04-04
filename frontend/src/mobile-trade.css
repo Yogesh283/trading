@@ -768,11 +768,19 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 }
 
 .mobile-chart-topbar--trading .mobile-ai-insight-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   flex-shrink: 0;
   align-self: center;
   height: 32px;
-  min-width: 38px;
-  padding: 0 8px;
+  min-width: min(100%, max-content);
+  width: max-content;
+  max-width: 100%;
+  padding: 0 10px;
+  overflow: visible;
+  white-space: nowrap;
   border-radius: 8px;
   border: 1px solid rgba(125, 211, 252, 0.38);
   background: linear-gradient(180deg, #1a2d3a 0%, #121c26 100%);
@@ -784,6 +792,18 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   -webkit-tap-highlight-color: transparent;
 }
 
+.mobile-chart-topbar--trading .mobile-ai-insight-btn .chart-ai-insight-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.mobile-chart-topbar--trading .mobile-ai-insight-btn .chart-ai-insight-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .mobile-chart-topbar--trading .mobile-ai-insight-btn:hover:not(:disabled) {
   border-color: rgba(125, 211, 252, 0.55);
   filter: brightness(1.06);
@@ -792,6 +812,24 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 .mobile-chart-topbar--trading .mobile-ai-insight-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.mobile-chart-topbar--trading .mobile-ai-insight-btn.mobile-ai-insight-btn--active {
+  border-color: rgba(234, 179, 8, 0.8);
+  background: linear-gradient(180deg, rgba(234, 179, 8, 0.28) 0%, rgba(146, 64, 14, 0.35) 100%);
+  color: #fffbeb;
+  box-shadow:
+    0 0 0 1px rgba(234, 179, 8, 0.4),
+    0 4px 16px rgba(234, 179, 8, 0.28);
+}
+
+.mobile-chart-topbar--trading .mobile-ai-insight-btn.mobile-ai-insight-btn--active:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+
+.mobile-chart-topbar--trading .mobile-ai-insight-btn.mobile-ai-insight-btn--active:not(:disabled) {
+  cursor: pointer;
 }
 
 .app-mobile-trade[data-account-wallet="demo"] .mobile-chart-topbar--trading .mobile-tf-pill,
@@ -1321,7 +1359,7 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
 .tv-chart-mobile .tv-chart-meta-right,
 .tv-chart-mobile .tv-chart-toolbar .chart-meta-right {
   flex: 0 0 auto;
-  /* Narrow column: stack timer + trades (kam width, lamba vertically). */
+  /* Narrow column: stack timer + trades (small width, tall vertically). */
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: flex-end;

@@ -1,6 +1,6 @@
 import "./landing.css";
 import "./about.css";
-import { APP_NAME, SUPPORT_EMAIL } from "./appBrand";
+import { APP_NAME, LEGAL_LAST_UPDATED_ISO, SUPPORT_EMAIL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
 export type LegalDocKind = "terms" | "privacy";
@@ -22,6 +22,8 @@ type Props =
       onLogin: () => void;
       onRegister: () => void;
       onTryDemo: () => void;
+      /** Public legal pages: return to landing. */
+      onBackToHome?: () => void;
     };
 
 function LegalFooterLinks(props: { kind: LegalDocKind } & Pick<Props, "onGoTerms" | "onGoPrivacy" | "onGoAbout">) {
@@ -59,26 +61,48 @@ function LegalFooterLinks(props: { kind: LegalDocKind } & Pick<Props, "onGoTerms
   );
 }
 
+function formatLegalDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map((x) => parseInt(x, 10));
+  if (!y || !m || !d) return iso;
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC"
+  });
+}
+
 export default function LegalInfoPage(props: Props) {
   const embedded = props.embeddedInApp === true;
   const { kind, onGoTerms, onGoPrivacy, onGoAbout } = props;
   const standaloneCta = embedded ? null : (props as Extract<Props, { embeddedInApp?: false }>);
+  const onBackToHome =
+    !embedded && "onBackToHome" in props && typeof props.onBackToHome === "function"
+      ? props.onBackToHome
+      : undefined;
 
   const title = kind === "terms" ? "Terms & Conditions" : "Privacy Policy";
   const eyebrow = kind === "terms" ? "Legal terms" : "Privacy & data";
-
-  const effective = new Date().toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" });
+  const effective = formatLegalDate(LEGAL_LAST_UPDATED_ISO);
 
   return (
     <div
       className={`landing-page about-page landing-ot legal-info-page${embedded ? " about-page--embedded" : ""}`}
       lang="en"
     >
-      <header className="about-top-bar">
+      <header className={`about-top-bar${onBackToHome ? " about-top-bar--with-back" : ""}`}>
+        {onBackToHome ? (
+          <button type="button" className="about-back-btn" onClick={onBackToHome}>
+            ← Home
+          </button>
+        ) : (
+          <span className="about-top-bar-spacer" aria-hidden />
+        )}
         <span className="about-top-brand">
           <BrandLogo size={32} className="about-top-logo" />
           <span>{APP_NAME}</span>
         </span>
+        {onBackToHome ? <span className="about-top-bar-spacer" aria-hidden /> : null}
       </header>
 
       <main className="about-main">
@@ -91,7 +115,7 @@ export default function LegalInfoPage(props: Props) {
           <p className="legal-doc-intro">
             {kind === "terms"
               ? `These Terms & Conditions (“Terms”) govern your access to and use of ${APP_NAME} and related services. By registering or using the platform, you agree to them. If you do not agree, do not use the service.`
-              : `This Privacy Policy explains how ${APP_NAME} collects, uses, stores, and protects personal information when you use our website and apps. It should be read together with our Terms & Conditions.`}
+              : `This Privacy Policy explains how ${APP_NAME} (“we”, “us”) collects, uses, stores, and protects personal information when you use our website, web app, or related services. It should be read together with our Terms & Conditions. By using the service, you acknowledge this policy.`}
           </p>
         </div>
 
@@ -185,75 +209,115 @@ export default function LegalInfoPage(props: Props) {
           </>
         ) : (
           <>
+            <section className="about-block" aria-labelledby="priv-scope">
+              <h2 id="priv-scope">1. Scope &amp; who we are</h2>
+              <p className="about-income-intro">
+                This policy applies to personal data processed in connection with {APP_NAME} services accessed via the web
+                or compatible clients. The operator responsible for the platform is identified in your account area or
+                contact correspondence; privacy requests may be sent to{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+              </p>
+            </section>
             <section className="about-block" aria-labelledby="priv-collect">
-              <h2 id="priv-collect">1. Information we may collect</h2>
+              <h2 id="priv-collect">2. Information we collect</h2>
               <ul className="about-list">
                 <li>
-                  <strong>Account data</strong> — name, mobile number, country code, and credentials needed to register
-                  and sign in.
+                  <strong>Identity &amp; account</strong> — name, phone number (with country code), email if provided,
+                  login identifiers, and password or OTP verification data.
                 </li>
                 <li>
-                  <strong>Activity data</strong> — trading and wallet transactions, support tickets, device/browser
-                  metadata, and logs for security and operations.
+                  <strong>Trading &amp; wallet</strong> — orders, balances, deposits, withdrawals, referral or promotion
+                  activity, and related timestamps as recorded in our systems.
                 </li>
                 <li>
-                  <strong>Technical data</strong> — IP address, approximate location, cookies or local storage tokens
-                  used to keep you signed in or remember preferences.
+                  <strong>Support &amp; communications</strong> — messages you send to support, including ticket content
+                  and metadata.
+                </li>
+                <li>
+                  <strong>Technical &amp; usage</strong> — IP address, device/browser type, approximate location, session
+                  tokens, timestamps, and logs for security, debugging, and abuse prevention.
                 </li>
               </ul>
             </section>
             <section className="about-block" aria-labelledby="priv-use">
-              <h2 id="priv-use">2. How we use information</h2>
+              <h2 id="priv-use">3. How we use your information</h2>
               <ul className="about-list">
-                <li>To provide, secure, and improve the platform (authentication, fraud prevention, support).</li>
-                <li>To process deposits, withdrawals, and wallet movements in line with our processes.</li>
-                <li>To meet legal, regulatory, and tax obligations where applicable.</li>
-                <li>To send service-related notices; marketing only where you have opted in where required.</li>
+                <li>To create and maintain your account, authenticate you, and provide the trading and wallet features.</li>
+                <li>To process transactions, settle trades, and comply with financial crime and regulatory obligations.</li>
+                <li>To detect, prevent, and investigate fraud, abuse, and security incidents.</li>
+                <li>To improve reliability and performance of the platform (including aggregated or de-identified analytics).</li>
+                <li>To send service-related notices (e.g. security alerts); marketing only where you have opted in where required.</li>
               </ul>
             </section>
-            <section className="about-block" aria-labelledby="priv-legal">
-              <h2 id="priv-legal">3. Legal bases &amp; retention</h2>
+            <section className="about-block" aria-labelledby="priv-cookies">
+              <h2 id="priv-cookies">4. Cookies, storage &amp; similar technologies</h2>
               <p className="about-income-intro">
-                We process data as needed to perform our contract with you, comply with law, and pursue legitimate
-                interests (such as security and product improvement) balanced where required against your rights.
-                Retention periods depend on legal requirements, dispute resolution, and operational need; some records may
-                be kept longer where the law requires.
+                We use browser storage (such as cookies or local storage) to keep you signed in, remember preferences,
+                and protect sessions. You can control cookies in your browser; disabling essential cookies may prevent
+                parts of the service from working.
+              </p>
+            </section>
+            <section className="about-block" aria-labelledby="priv-legal">
+              <h2 id="priv-legal">5. Legal bases &amp; retention</h2>
+              <p className="about-income-intro">
+                We process data as necessary to perform our contract with you, comply with law, and pursue legitimate
+                interests (such as security and service improvement), balanced against your rights where applicable.
+                Retention depends on legal requirements, dispute resolution, and operational need; some records may be
+                kept longer where required by law (e.g. financial or tax records).
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-share">
-              <h2 id="priv-share">4. Sharing</h2>
+              <h2 id="priv-share">6. Sharing &amp; processors</h2>
               <p className="about-income-intro">
-                We do not sell your personal information. We may share data with service providers (hosting, analytics,
-                communications) under confidentiality obligations, and with authorities when legally required or to protect
-                rights and safety.
+                We do <strong>not</strong> sell your personal information. We may share data with trusted service
+                providers (hosting, email/SMS delivery, payment or blockchain infrastructure, analytics) who process
+                data on our instructions under appropriate safeguards. We may disclose information to law enforcement,
+                regulators, or other parties when required by law or to protect rights, safety, and property.
+              </p>
+            </section>
+            <section className="about-block" aria-labelledby="priv-transfer">
+              <h2 id="priv-transfer">7. International transfers</h2>
+              <p className="about-income-intro">
+                Your data may be processed in countries where we or our providers operate. Where required, we use
+                appropriate safeguards (such as contractual clauses) for cross-border transfers.
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-security">
-              <h2 id="priv-security">5. Security</h2>
+              <h2 id="priv-security">8. Security</h2>
               <p className="about-income-intro">
-                We use reasonable technical and organisational measures to protect data. No online service is completely
-                secure; you should use a strong password and protect your devices.
+                We apply reasonable technical and organisational measures to protect personal data. No method of
+                transmission over the internet is 100% secure; you should use a strong password and protect your devices.
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-rights">
-              <h2 id="priv-rights">6. Your rights</h2>
+              <h2 id="priv-rights">9. Your rights</h2>
               <p className="about-income-intro">
-                Depending on your region, you may have rights to access, correct, delete, or restrict processing of your
-                personal data, or to object to certain uses. Contact us at the email below; we may need to verify your
-                identity before acting.
+                Depending on your location, you may have rights to access, correct, delete, or restrict processing of your
+                personal data, to object to certain processing, or to lodge a complaint with a supervisory authority. To
+                exercise rights, contact us at the email below; we may need to verify your identity. If you are in
+                India, applicable rights under the Digital Personal Data Protection Act (where in force) may apply
+                alongside this policy.
+              </p>
+            </section>
+            <section className="about-block" aria-labelledby="priv-minors">
+              <h2 id="priv-minors">10. Children</h2>
+              <p className="about-income-intro">
+                {APP_NAME} is not directed at children. You must meet the minimum age in your jurisdiction (typically
+                18) to register. We do not knowingly collect data from minors; if you believe we have, contact us so we
+                can delete it.
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-changes">
-              <h2 id="priv-changes">7. Changes</h2>
+              <h2 id="priv-changes">11. Changes to this policy</h2>
               <p className="about-income-intro">
                 We may update this Privacy Policy from time to time. The “Last updated” date at the top will change when
-                we do; material changes may be communicated through the app or by email where appropriate.
+                we do; we may notify you through the app or by email for material changes where appropriate.
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-contact">
-              <h2 id="priv-contact">8. Contact</h2>
+              <h2 id="priv-contact">12. Contact</h2>
               <p className="about-income-intro">
-                Privacy questions:{" "}
+                For privacy questions or requests:{" "}
                 <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
               </p>
             </section>

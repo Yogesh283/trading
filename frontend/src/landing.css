@@ -8,6 +8,15 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Landing home — cooler charcoal + soft gold wash (IQFX marketing page) */
+.landing-page.landing-ot {
+  background:
+    radial-gradient(ellipse 120% 90% at 50% -25%, rgba(234, 179, 8, 0.09) 0%, transparent 52%),
+    radial-gradient(ellipse 80% 50% at 100% 20%, rgba(56, 189, 248, 0.04) 0%, transparent 45%),
+    linear-gradient(180deg, #0b0d12 0%, #080a0f 38%, #050608 100%);
+  color: #eceff3;
+}
+
 .landing-nav {
   position: sticky;
   top: 0;
@@ -16,6 +25,14 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 0 0 16px 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.landing-page.landing-ot .landing-nav {
+  background: rgba(7, 9, 13, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
 }
 
 .landing-nav.landing-drawer-open {
@@ -66,9 +83,14 @@
   gap: 2px;
   padding: 5px 8px;
   border-radius: 999px;
-  background: rgba(28, 32, 38, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  background: rgba(18, 21, 28, 0.88);
+  border: 1px solid rgba(234, 179, 8, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.landing-page.landing-ot .landing-nav-pill {
+  background: rgba(15, 18, 26, 0.92);
+  border-color: rgba(148, 163, 184, 0.15);
 }
 
 .landing-pill-link {
@@ -599,6 +621,14 @@ a.landing-link {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   max-width: 800px;
   margin: 0 auto;
+}
+
+.landing-page.landing-ot .landing-footer {
+  border-top-color: rgba(148, 163, 184, 0.12);
+}
+
+.landing-page.landing-ot .landing-footer p {
+  color: #8b95a1;
 }
 
 .landing-footer-brand-row {
@@ -1196,11 +1226,13 @@ a.landing-link {
 
 /* ========== Olymptrade-inspired landing (Iqfx Pro) ========== */
 .landing-ot {
-  --ot-gold: #eab308;
-  --ot-gold-d: #ca8a04;
-  --ot-bg: #0a0a0a;
-  --ot-card: #111318;
-  --ot-border: rgba(255, 255, 255, 0.08);
+  --ot-gold: #f0c23a;
+  --ot-gold-d: #c9a227;
+  --ot-bg: #0a0c10;
+  --ot-card: #12151c;
+  --ot-border: rgba(148, 163, 184, 0.14);
+  --ot-muted: #9ca8b3;
+  --ot-subtle: rgba(255, 255, 255, 0.06);
 }
 
 .landing-ot-nav {
@@ -1221,7 +1253,9 @@ a.landing-link {
   transform: translateX(-50%);
   width: min(900px, 140%);
   height: 70%;
-  background: radial-gradient(ellipse, rgba(234, 179, 8, 0.12) 0%, transparent 65%);
+  background:
+    radial-gradient(ellipse, rgba(240, 194, 58, 0.14) 0%, transparent 62%),
+    radial-gradient(ellipse at 70% 30%, rgba(56, 189, 248, 0.06) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -1276,7 +1310,7 @@ a.landing-link {
   max-width: 560px;
   font-size: clamp(19px, 2.8vw, 22px);
   line-height: 1.55;
-  color: #9aa0a6;
+  color: var(--ot-muted, #9ca8b3);
 }
 
 .landing-ot-hero-cta {
@@ -1293,7 +1327,7 @@ a.landing-link {
   border-radius: 10px;
   border: 0;
   background: linear-gradient(180deg, var(--ot-gold), var(--ot-gold-d));
-  color: #04210f;
+  color: #1a1406;
   font-family: inherit;
   font-size: 18px;
   font-weight: 800;
@@ -1542,7 +1576,7 @@ a.landing-ot-btn-ghost {
 /* Android APK strip (see appBrand APK_DOWNLOAD_URL) */
 .landing-ot-apk-band {
   padding: clamp(36px, 6vw, 56px) 20px;
-  background: linear-gradient(180deg, #0a1210 0%, #070807 100%);
+  background: linear-gradient(180deg, #0c1016 0%, #080b10 100%);
   border-top: 1px solid var(--ot-border);
   border-bottom: 1px solid var(--ot-border);
 }
@@ -1565,7 +1599,7 @@ a.landing-ot-btn-ghost {
   margin: 0 0 22px;
   font-size: 17px;
   line-height: 1.6;
-  color: #9aa3ad;
+  color: var(--ot-muted, #9ca8b3);
 }
 
 .landing-ot-apk-inner .landing-ot-btn-main {
@@ -1574,7 +1608,7 @@ a.landing-ot-btn-ghost {
 
 .landing-ot-pills {
   padding: 20px 0 28px;
-  background: #060606;
+  background: #080a0e;
   border-bottom: 1px solid var(--ot-border);
   overflow: hidden;
 }
@@ -1675,7 +1709,7 @@ a.landing-ot-btn-ghost {
 
 .landing-ot-band {
   padding: clamp(48px, 6vw, 72px) 20px;
-  background: linear-gradient(180deg, #0d0d0d 0%, #0a0a0a 100%);
+  background: linear-gradient(180deg, #0e1118 0%, var(--ot-bg, #0a0c10) 100%);
 }
 
 .landing-ot-band-inner {
@@ -1696,7 +1730,7 @@ a.landing-ot-btn-ghost {
   margin: 16px 0 0;
   font-size: 19px;
   line-height: 1.6;
-  color: #8b9299;
+  color: var(--ot-muted, #9ca8b3);
 }
 
 /* Landing-only brand art (I9) — between trust band and platform split */
@@ -1741,7 +1775,7 @@ a.landing-ot-btn-ghost {
   text-align: center;
   font-size: 18px;
   line-height: 1.6;
-  color: #8b9299;
+  color: var(--ot-muted, #9ca8b3);
 }
 
 .landing-ot-lead {

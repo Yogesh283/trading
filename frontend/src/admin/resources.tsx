@@ -323,7 +323,7 @@ export function UserEdit() {
           label="Pass (signup copy)"
           disabled
           fullWidth
-          helperText="Saved at registration when available. Use Naya password below to change login."
+          helperText="Saved at registration when available. Use the new password field below to change login."
         />
         <TextInput source="created_at" label="Created at" disabled fullWidth />
         <SelectInput
@@ -334,7 +334,7 @@ export function UserEdit() {
           ]}
           required
         />
-        <BooleanInput source="is_blocked" label="Account blocked (login band)" />
+        <BooleanInput source="is_blocked" label="Account blocked (login disabled)" />
         <TextInput source="last_login_at" label="Last login (read-only)" disabled fullWidth />
         <TextInput source="self_referral_code" label="Self ref" fullWidth />
         <TextInput source="referral_code" label="Signup ref code (inviter’s code)" fullWidth />
@@ -361,7 +361,7 @@ export function UserEdit() {
         <TextInput
           source="new_password"
           type="password"
-          label="Naya password (optional)"
+          label="New password (optional)"
           helperText="The old password is never shown (only a hash is stored). Enter a new password here to update; leave blank to keep the current password."
           fullWidth
           autoComplete="new-password"

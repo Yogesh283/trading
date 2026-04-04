@@ -1,5 +1,20 @@
 import { getBackendHttpOrigin } from "./backendOrigin";
 
+/** Running inside the Capacitor Android/iOS shell (WebView). Hide website-only “Download APK” promos. */
+export function isCapacitorNativeClient(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (typeof document !== "undefined" && document.documentElement.classList.contains("cap-native")) {
+      return true;
+    }
+    return Boolean(
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()
+    );
+  } catch {
+    return false;
+  }
+}
+
 export type AndroidAppInfo = {
   versionCode: number;
   versionName: string;

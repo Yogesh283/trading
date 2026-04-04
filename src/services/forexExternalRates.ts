@@ -105,6 +105,7 @@ export async function fetchYahooFxSpot(symbol: string): Promise<number | null> {
 }
 
 /** Frankfurter matrix, then overlay Yahoo spot per pair when Yahoo returns a quote (live/retail-style). */
+
 export async function fetchRetailSpotFxMatrix(): Promise<Map<string, number>> {
   const m = await fetchFrankfurterUsdMatrix();
   const syms = FOREX_SYMBOLS.filter((s) => s !== "XAUUSD");

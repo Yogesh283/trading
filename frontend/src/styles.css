@@ -2035,6 +2035,14 @@ select {
 }
 
 .chart-ai-insight-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+  white-space: nowrap;
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid rgba(125, 211, 252, 0.35);
@@ -2048,6 +2056,18 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
+.chart-ai-insight-btn .chart-ai-insight-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.chart-ai-insight-btn .chart-ai-insight-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .chart-ai-insight-btn:hover:not(:disabled) {
   border-color: rgba(125, 211, 252, 0.55);
   filter: brightness(1.06);
@@ -2056,6 +2076,25 @@ select {
 .chart-ai-insight-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* AI loading or chart bias visible — keep readable (don’t dim while :disabled during load) */
+.chart-ai-insight-btn.chart-ai-insight-btn--active {
+  border-color: rgba(234, 179, 8, 0.75);
+  background: linear-gradient(180deg, rgba(234, 179, 8, 0.22) 0%, rgba(180, 83, 9, 0.18) 100%);
+  color: #fffbeb;
+  box-shadow:
+    0 0 0 1px rgba(234, 179, 8, 0.35),
+    0 4px 18px rgba(234, 179, 8, 0.25);
+}
+
+.chart-ai-insight-btn.chart-ai-insight-btn--active:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+
+.chart-ai-insight-btn.chart-ai-insight-btn--active:not(:disabled) {
+  cursor: pointer;
 }
 
 .badge {
@@ -4654,6 +4693,82 @@ button.desktop-demo-cta:disabled,
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 24px 56px rgba(0, 0, 0, 0.55);
+}
+
+.order-placed-modal--chart-ai-intro {
+  max-width: 400px;
+  text-align: left;
+  border-color: rgba(56, 189, 248, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(56, 189, 248, 0.08),
+    0 24px 56px rgba(0, 0, 0, 0.55);
+}
+
+.order-placed-modal--chart-ai-intro .order-placed-title {
+  text-align: center;
+  margin-bottom: 0.35rem;
+  font-size: 1.05rem;
+}
+
+.chart-ai-intro-icon-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+.chart-ai-intro-icon-wrap .chart-ai-insight-icon--modal {
+  width: 44px;
+  height: 44px;
+}
+
+.chart-ai-intro-lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.chart-ai-intro-list {
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.chart-ai-intro-list li {
+  margin-bottom: 0.5rem;
+}
+
+.chart-ai-intro-list strong {
+  color: #e2e8f0;
+}
+
+.chart-ai-intro-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chart-ai-intro-btn-dismiss {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chart-ai-intro-btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1f5f9;
 }
 
 /* Win — gold / warm night theme */

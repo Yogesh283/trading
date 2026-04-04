@@ -9,7 +9,12 @@ import { WebSocketServer, type WebSocket } from "ws";
 import cron from "node-cron";
 import { DEFAULT_DEMO_BALANCE_INR } from "./config/demo";
 import { env } from "./config/env";
-import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config/funds";
+import {
+  AI_CHART_INSIGHT_FEE_INR,
+  inrDebitForUsdtWithdraw,
+  INR_PER_USDT,
+  usdtToInrCredit
+} from "./config/funds";
 import { dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
@@ -731,15 +736,23 @@ app.get("/api/referrals/summary", (req, res) => {
 });
 
 /**
- * Optional AI: turn app-computed signal JSON into 1–2 lines of plain text (OpenAI).
- * Requires OPENAI_API_KEY. Does not predict markets — narration only.
+ * Optional AI: chart bias (OpenAI). Live wallet only; debits `AI_CHART_INSIGHT_FEE_INR` INR per request.
+ * Requires OPENAI_API_KEY. `X-Account-Type: live` required (not demo).
  */
 app.post("/api/ai/explain-signal", (req, res) => {
   void (async () => {
+    let user;
     try {
-      await requireSession(req.headers.authorization);
+      user = await requireSession(req.headers.authorization);
     } catch {
       return res.status(401).json({ message: "Unauthorized" });
+    }
+    const wallet = resolveWallet(user.id, req.headers["x-account-type"] as string | undefined);
+    if (wallet !== "live") {
+      return res.status(403).json({
+        message:
+          "AI insight is only available on your live wallet. Switch to Live in the app and ensure you have a live balance."
+      });
     }
     if (!env.OPENAI_API_KEY?.trim()) {
       return res.status(503).json({
@@ -754,10 +767,41 @@ app.post("/api/ai/explain-signal", (req, res) => {
     }
     const locale =
       typeof req.body?.locale === "string" ? req.body.locale : typeof req.body?.lang === "string" ? req.body.lang : undefined;
+
+    const fee = AI_CHART_INSIGHT_FEE_INR;
+    if (fee > 0) {
+      try {
+        await prepareAccountForRequest(user.id, "live");
+        await applyLedger(user.id, -fee, "ai_chart_insight", null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (msg.includes("Insufficient")) {
+          return res.status(400).json({
+            message: `Insufficient live balance — need ₹${fee.toFixed(0)} for AI insight.`
+          });
+        }
+        logger.warn({ err: e }, "explain-signal debit");
+        return res.status(500).json({ message: "Could not process wallet debit" });
+      }
+    }
+
     try {
       const { explanation, direction } = await explainSignalWithOpenAI({ signal: raw, locale });
-      return res.json({ explanation, direction });
+      await hydrateLiveAccountFromWallet(user.id);
+      const balanceAfter = await getWalletBalance(user.id);
+      return res.json({
+        explanation,
+        direction,
+        feeInr: fee,
+        balanceAfter
+      });
     } catch (e) {
+      if (fee > 0) {
+        await applyLedger(user.id, fee, "ai_chart_insight_refund", null).catch((err) =>
+          logger.error({ err }, "explain-signal refund failed")
+        );
+        await hydrateLiveAccountFromWallet(user.id).catch(() => {});
+      }
       logger.warn({ err: e }, "explain-signal");
       return res.status(502).json({
         message: e instanceof Error ? e.message : "Failed to generate explanation"

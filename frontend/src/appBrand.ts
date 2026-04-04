@@ -5,6 +5,12 @@ export const BRAND_GOLD = "#eab308";
 export const APP_NAME = "IQFX Pro";
 /** Support / contact — mailto + copy only */
 export const SUPPORT_EMAIL = "support@iqfxpro.com";
+
+/**
+ * Shown on Terms & Privacy (“Last updated”). Update when you change legal text.
+ * Format: ISO date string (YYYY-MM-DD).
+ */
+export const LEGAL_LAST_UPDATED_ISO = "2026-03-28";
 /** Two-colour wordmark segments (must match `APP_NAME`). */
 export const APP_NAME_MARK_PRIMARY = "IQFX";
 export const APP_NAME_MARK_SECONDARY = "Pro";

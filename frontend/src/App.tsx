@@ -21,6 +21,7 @@ import {
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
+import { AiChartInsightIcon } from "./AiChartInsightIcon";
 import { AssetPairFlags, assetPairEmojiPrefix, formatForexPair, formatMarketPairOtc } from "./marketAssetIcon";
 import { lastTickMove } from "./tickDirection";
 import {
@@ -76,7 +77,11 @@ import {
   USER_ACCOUNT_WALLET_STORAGE_KEY
 } from "./appBrand";
 import { brandApkIcon } from "./brandUrls";
-import { fetchAndroidAppInfo, getNativeAndroidVersionCode } from "./androidAppUpdate";
+import {
+  fetchAndroidAppInfo,
+  getNativeAndroidVersionCode,
+  isCapacitorNativeClient
+} from "./androidAppUpdate";
 import { AuthPhoneField } from "./AuthPhoneField";
 import { iso2ForPhoneCountryCode } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
@@ -175,6 +180,24 @@ const FOREX_SYMBOLS_DEFAULT = [
   "XAUUSD"
 ] as const;
 
+/** `?symbol=EURUSD` or path `/EURUSD` (single segment) — must match server symbol list when possible. */
+function readSymbolFromUrl(): string | null {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const fromQ = q.get("symbol")?.trim().toUpperCase();
+    if (fromQ && /^[A-Z0-9]+$/.test(fromQ)) {
+      return fromQ;
+    }
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    if (parts.length === 1 && /^[A-Z0-9]+$/.test(parts[0]!)) {
+      return parts[0]!.toUpperCase();
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 /** Per-symbol DB+memory merge; ~2 ticks/s → enough buckets for long TFs (e.g. 5m). */
 const CHART_HISTORY_TICKS = 35_000;
 /** Closed bars from `chart_candles` — larger window after login so chart isn’t empty. */
@@ -183,8 +206,11 @@ const CHART_DB_CANDLES_LIMIT = 1500;
 /** v2: default + persist candlestick as primary chart (ignore legacy line/area from old key). */
 const CHART_GRAPH_TYPE_STORAGE_KEY = "tradeing.chartGraphType.v2";
 const CHART_GRAPH_TYPE_LEGACY_KEY = "tradeing.chartGraphType";
+/** First-time Chart AI explanation modal — one dismiss per user id. */
+const CHART_AI_INTRO_STORAGE_KEY = "iqfxpro_chart_ai_intro_v1";
 
-function formatFxPrice(_sym: string, p: number) {
+function formatFxPrice(sym: string, p: number) {
+  if (p >= 1000) return p.toFixed(2);
   if (p >= 50) return p.toFixed(3);
   if (p >= 5) return p.toFixed(4);
   return p.toFixed(5);
@@ -286,7 +312,7 @@ export default function App() {
   /** Server `chart_candles` (closed bars) keyed `${symbol}:${timeframeSec}` — merged with WebSocket LivePrice ticks. */
   const [dbClosedCandles, setDbClosedCandles] = useState<Record<string, CandlePoint[]>>({});
   const [status, setStatus] = useState("Connecting...");
-  const [symbol, setSymbol] = useState("XAUUSD");
+  const [symbol, setSymbol] = useState("EURUSD");
   const [pairNames, setPairNames] = useState<Record<string, string>>({});
   const [forexSymbolList, setForexSymbolList] = useState<string[]>([...FOREX_SYMBOLS_DEFAULT]);
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -389,7 +415,7 @@ export default function App() {
   >(null);
   const [androidAppInfo, setAndroidAppInfo] = useState<Awaited<ReturnType<typeof fetchAndroidAppInfo>>>(null);
   const [nativeAndroidVersionCode, setNativeAndroidVersionCode] = useState<number | null>(null);
-  const [isCapNativeClient, setIsCapNativeClient] = useState(false);
+  const [isCapNativeClient, setIsCapNativeClient] = useState(() => isCapacitorNativeClient());
   /** After binary timeout — win/loss popup for demo and live (same modal shell). */
   const [binarySettlePopup, setBinarySettlePopup] = useState<
     null | { text: string; amountHighlight: string; pnl: number }
@@ -403,6 +429,8 @@ export default function App() {
     timeframeSec: number;
   } | null>(null);
   const chartAiHintTimerRef = useRef<number | null>(null);
+  /** First tap on Chart AI: show how-it-works; `Continue` stores flag and runs the request. */
+  const [chartAiIntroOpen, setChartAiIntroOpen] = useState(false);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
   const binaryTradesSnapInitializedRef = useRef(false);
   /** True after `visibility:hidden` / app background — used so `focus` can refresh chart DB candles when visibility events are flaky (mobile WebView / APK). */
@@ -487,9 +515,7 @@ export default function App() {
   }, [postAuthWelcome, dismissPostAuthWelcome]);
 
   useEffect(() => {
-    setIsCapNativeClient(
-      typeof document !== "undefined" && document.documentElement.classList.contains("cap-native")
-    );
+    setIsCapNativeClient(isCapacitorNativeClient());
   }, []);
 
   useEffect(() => {
@@ -550,6 +576,25 @@ export default function App() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+
+  useEffect(() => {
+    const parsed = readSymbolFromUrl();
+    if (!parsed) return;
+    if ((FOREX_SYMBOLS_DEFAULT as readonly string[]).includes(parsed)) {
+      setSymbol(parsed);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("symbol", symbol);
+      window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      /* ignore */
+    }
+  }, [symbol, session]);
 
   useEffect(() => {
     if (!session || !isPhone) {
@@ -1164,37 +1209,103 @@ export default function App() {
     };
   }, [chartAiHint]);
 
-  const handleAiInsight = useCallback(async () => {
-    if (!session?.token) {
-      showAlert("Sign in to use AI insight.", "error");
-      return;
+  /** ₹1 default — server uses AI_CHART_INSIGHT_FEE_INR; keep UX hint in sync */
+  const AI_CHART_INSIGHT_MIN_INR = 1;
+
+  /** Highlight AI chart button while request runs or bias overlay is visible (live only) */
+  const chartAiInsightBtnActive = Boolean(
+    session && accountWallet === "live" && (aiInsightLoading || chartAiHint)
+  );
+
+  const aiInsightDisabled =
+    !session ||
+    aiInsightLoading ||
+    accountWallet !== "live" ||
+    (dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR);
+
+  const handleAiInsight = useCallback(
+    async (skipIntro = false) => {
+      if (!session?.token) {
+        showAlert("Sign in to use AI insight.", "error");
+        return;
+      }
+      if (accountWallet !== "live") {
+        showAlert("AI insight uses your live wallet (₹1 per use). Switch to Live in the header.", "info");
+        return;
+      }
+      if (dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR) {
+        showAlert(
+          `Add at least ₹${AI_CHART_INSIGHT_MIN_INR} to your live wallet to use AI insight.`,
+          "error"
+        );
+        return;
+      }
+      if (
+        !skipIntro &&
+        session.user?.id &&
+        typeof window !== "undefined" &&
+        !window.localStorage.getItem(`${CHART_AI_INTRO_STORAGE_KEY}:${session.user.id}`)
+      ) {
+        setChartAiIntroOpen(true);
+        return;
+      }
+      setAiInsightLoading(true);
+      try {
+        const signal: Record<string, unknown> = {
+          kind: "chart_snapshot",
+          symbol,
+          timeframeSec: chartTimeframe,
+          chartStyle: chartGraphType,
+          lastTickDirection: spotTickMove,
+          lastPrice: selectedTick?.price ?? null
+        };
+        const { direction } = await explainSignalAI(session.token, signal, "en", "live");
+        setChartAiHint({ direction, symbol, timeframeSec: chartTimeframe });
+        await refreshRef.current(accountWallet, { skipMarketTicks: true });
+      } catch (e) {
+        showAlert(e instanceof Error ? e.message : "AI insight failed", "error");
+      } finally {
+        setAiInsightLoading(false);
+      }
+    },
+    [
+      session?.token,
+      session?.user?.id,
+      accountWallet,
+      dualBalances.live,
+      symbol,
+      chartTimeframe,
+      chartGraphType,
+      spotTickMove,
+      selectedTick?.price,
+      showAlert
+    ]
+  );
+
+  const dismissChartAiIntro = useCallback(() => {
+    setChartAiIntroOpen(false);
+  }, []);
+
+  const handleChartAiIntroContinue = useCallback(() => {
+    if (session?.user?.id) {
+      try {
+        window.localStorage.setItem(`${CHART_AI_INTRO_STORAGE_KEY}:${session.user.id}`, "1");
+      } catch {
+        /* ignore */
+      }
     }
-    setAiInsightLoading(true);
-    try {
-      const signal: Record<string, unknown> = {
-        kind: "chart_snapshot",
-        symbol,
-        timeframeSec: chartTimeframe,
-        chartStyle: chartGraphType,
-        lastTickDirection: spotTickMove,
-        lastPrice: selectedTick?.price ?? null
-      };
-      const { direction } = await explainSignalAI(session.token, signal, "en");
-      setChartAiHint({ direction, symbol, timeframeSec: chartTimeframe });
-    } catch (e) {
-      showAlert(e instanceof Error ? e.message : "AI insight failed", "error");
-    } finally {
-      setAiInsightLoading(false);
-    }
-  }, [
-    session?.token,
-    symbol,
-    chartTimeframe,
-    chartGraphType,
-    spotTickMove,
-    selectedTick?.price,
-    showAlert
-  ]);
+    setChartAiIntroOpen(false);
+    void handleAiInsight(true);
+  }, [session?.user?.id, handleAiInsight]);
+
+  useEffect(() => {
+    if (!chartAiIntroOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChartAiIntroOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [chartAiIntroOpen]);
 
   useEffect(() => {
     binaryTradesSnapInitializedRef.current = false;
@@ -1506,6 +1617,9 @@ export default function App() {
     androidAppInfo != null &&
     androidAppInfo.versionCode > nativeAndroidVersionCode;
 
+  /** Website: show “Download APK”. In the APK WebView: hide unless a newer build is available. */
+  const showApkDownloadLink = !isCapNativeClient || showApkUpdateBadge;
+
   const mobileApkRowLabel = (() => {
     if (!androidAppInfo) {
       return isCapNativeClient ? "App update" : "Download APK";
@@ -1559,6 +1673,7 @@ export default function App() {
     if (publicScreen === "about") {
       return (
         <AboutPage
+          onBackToHome={() => setPublicScreen("landing")}
           onLogin={() => {
             setAuthView("login");
             setPublicScreen("auth");
@@ -1578,6 +1693,7 @@ export default function App() {
       return (
         <LegalInfoPage
           kind="terms"
+          onBackToHome={() => setPublicScreen("landing")}
           onGoTerms={() => setPublicScreen("terms")}
           onGoPrivacy={() => setPublicScreen("privacy")}
           onGoAbout={() => setPublicScreen("about")}
@@ -1598,6 +1714,7 @@ export default function App() {
       return (
         <LegalInfoPage
           kind="privacy"
+          onBackToHome={() => setPublicScreen("landing")}
           onGoTerms={() => setPublicScreen("terms")}
           onGoPrivacy={() => setPublicScreen("privacy")}
           onGoAbout={() => setPublicScreen("about")}
@@ -1788,10 +1905,12 @@ export default function App() {
               >
                 Privacy
               </button>
-              <a className="app-nav-desktop-apk" href={apkDownloadHref} download={apkFileDownloadName}>
-                <img src={brandApkIcon} alt="" width={20} height={20} className="app-nav-desktop-apk-ico" />
-                {drawerApkLabel}
-              </a>
+              {showApkDownloadLink ? (
+                <a className="app-nav-desktop-apk" href={apkDownloadHref} download={apkFileDownloadName}>
+                  <img src={brandApkIcon} alt="" width={20} height={20} className="app-nav-desktop-apk-ico" />
+                  {drawerApkLabel}
+                </a>
+              ) : null}
             </nav>
           ) : null}
           <div className="app-nav-right">
@@ -2064,15 +2183,17 @@ export default function App() {
                 <DrawerIconAbout />
                 <span>Privacy</span>
               </button>
-              <a
-                className="app-nav-drawer-link app-nav-drawer-apk"
-                href={apkDownloadHref}
-                download={apkFileDownloadName}
-                onClick={() => setMainNavOpen(false)}
-              >
-                <img src={brandApkIcon} alt="" width={22} height={22} className="app-nav-drawer-apk-ico" />
-                <span>{drawerApkLabel}</span>
-              </a>
+              {showApkDownloadLink ? (
+                <a
+                  className="app-nav-drawer-link app-nav-drawer-apk"
+                  href={apkDownloadHref}
+                  download={apkFileDownloadName}
+                  onClick={() => setMainNavOpen(false)}
+                >
+                  <img src={brandApkIcon} alt="" width={22} height={22} className="app-nav-drawer-apk-ico" />
+                  <span>{drawerApkLabel}</span>
+                </a>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -2435,12 +2556,25 @@ export default function App() {
               </span>
               <button
                 type="button"
-                className="mobile-ai-insight-btn"
-                disabled={aiInsightLoading || !session}
-                title="AI bias on chart for one period (e.g. 5s TF → hides after 5s) — educational only"
+                className={`mobile-ai-insight-btn${chartAiInsightBtnActive ? " mobile-ai-insight-btn--active" : ""}`}
+                disabled={aiInsightDisabled}
+                title={
+                  accountWallet !== "live"
+                    ? "AI insight — live account only (₹1 per use from live wallet)"
+                    : dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR
+                      ? `Need at least ₹${AI_CHART_INSIGHT_MIN_INR} in live wallet`
+                      : "AI bias for one chart period — ₹1 per use — educational only"
+                }
                 onClick={() => void handleAiInsight()}
               >
-                {aiInsightLoading ? "…" : "AI"}
+                {aiInsightLoading ? (
+                  "…"
+                ) : (
+                  <>
+                    <AiChartInsightIcon className="chart-ai-insight-icon" />
+                    <span className="chart-ai-insight-label">AI</span>
+                  </>
+                )}
               </button>
             </header>
             <LiveChart
@@ -2892,12 +3026,25 @@ export default function App() {
               </span>
               <button
                 type="button"
-                className="chart-ai-insight-btn"
-                disabled={aiInsightLoading || !session}
-                title="AI bias on chart for one period (e.g. 5s TF → hides after 5s) — educational only"
+                className={`chart-ai-insight-btn${chartAiInsightBtnActive ? " chart-ai-insight-btn--active" : ""}`}
+                disabled={aiInsightDisabled}
+                title={
+                  accountWallet !== "live"
+                    ? "AI insight — live account only (₹1 per use from live wallet)"
+                    : dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR
+                      ? `Need at least ₹${AI_CHART_INSIGHT_MIN_INR} in live wallet`
+                      : "AI bias for one chart period — ₹1 per use — educational only"
+                }
                 onClick={() => void handleAiInsight()}
               >
-                {aiInsightLoading ? "…" : "AI insight"}
+                {aiInsightLoading ? (
+                  "…"
+                ) : (
+                  <>
+                    <AiChartInsightIcon className="chart-ai-insight-icon" />
+                    <span className="chart-ai-insight-label">AI insight</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -3358,16 +3505,18 @@ export default function App() {
       )}
       {session && isPhone ? (
         <div className="mobile-bottom-dock-stack">
-          <div className="mobile-dock-apk-row">
-            <a
-              className={`mobile-dock-apk-link${showApkUpdateBadge ? " mobile-dock-apk-link--update" : ""}`}
-              href={apkDownloadHref}
-              download={apkFileDownloadName}
-            >
-              <img src={brandApkIcon} alt="" width={22} height={22} className="mobile-dock-apk-ico" />
-              <span>{mobileApkRowLabel}</span>
-            </a>
-          </div>
+          {showApkDownloadLink ? (
+            <div className="mobile-dock-apk-row">
+              <a
+                className={`mobile-dock-apk-link${showApkUpdateBadge ? " mobile-dock-apk-link--update" : ""}`}
+                href={apkDownloadHref}
+                download={apkFileDownloadName}
+              >
+                <img src={brandApkIcon} alt="" width={22} height={22} className="mobile-dock-apk-ico" />
+                <span>{mobileApkRowLabel}</span>
+              </a>
+            </div>
+          ) : null}
           <nav
             className="mobile-bottom-dock mobile-bottom-dock--theme mobile-bottom-dock--main-tabs"
             aria-label="Bottom menu"
@@ -3594,6 +3743,53 @@ export default function App() {
             <button type="button" className="order-placed-ok" onClick={dismissDemoFundsSuccessPopup}>
               OK
             </button>
+          </div>
+        </div>
+      ) : null}
+      {chartAiIntroOpen ? (
+        <div className="order-placed-backdrop" role="presentation" onClick={dismissChartAiIntro}>
+          <div
+            className="order-placed-modal order-placed-modal--chart-ai-intro"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="chart-ai-intro-title"
+            aria-describedby="chart-ai-intro-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="chart-ai-intro-icon-wrap">
+              <AiChartInsightIcon className="chart-ai-insight-icon chart-ai-insight-icon--modal" />
+            </div>
+            <h2 id="chart-ai-intro-title" className="order-placed-title">
+              Chart AI — how it works
+            </h2>
+            <p id="chart-ai-intro-desc" className="chart-ai-intro-lead">
+              First time — read this before you continue.
+            </p>
+            <ul className="chart-ai-intro-list">
+              <li>
+                <strong>Live only</strong> — Chart AI is not available on Demo. Select <strong>Live</strong> in the
+                header.
+              </li>
+              <li>
+                <strong>₹1 per use</strong> — Each successful request debits ₹1 from your live wallet. You need at least
+                ₹1 available balance.
+              </li>
+              <li>
+                <strong>Chart hint</strong> — A short directional overlay on the chart for the current period
+                (educational; not a profit guarantee).
+              </li>
+              <li>
+                <strong>Server AI</strong> — Only a chart snapshot / context is sent to the server (OpenAI-style API).
+              </li>
+            </ul>
+            <div className="chart-ai-intro-actions">
+              <button type="button" className="order-placed-ok" onClick={handleChartAiIntroContinue}>
+                Continue
+              </button>
+              <button type="button" className="chart-ai-intro-btn-dismiss" onClick={dismissChartAiIntro}>
+                Not now
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -4487,7 +4683,16 @@ function LiveChart({
   }
 
   /** All TFs: clamp absurd H/L from mixed ticks/DB so candles look like real OHLC (not barcode). */
-  const displayCandles = allCandles.map((c) => clampChartCandleBar(c, timeframeSec));
+  const tfMsForClamp = timeframeSec * 1000;
+  const formingBucketMs = Math.floor(candleWallNow / tfMsForClamp) * tfMsForClamp;
+  const displayCandles = allCandles.map((c, i) => {
+    const isLast = i === allCandles.length - 1;
+    const bucket = Math.floor(Number(c.timestamp) / tfMsForClamp) * tfMsForClamp;
+    if (isLast && bucket === formingBucketMs) {
+      return c;
+    }
+    return clampChartCandleBar(c, timeframeSec);
+  });
 
   const current = displayCandles[displayCandles.length - 1]!;
   const change = displayCandles.length > 1 ? current.close - displayCandles[0].open : 0;

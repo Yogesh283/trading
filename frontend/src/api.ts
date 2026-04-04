@@ -465,22 +465,38 @@ export async function loadReferralSummary(token: string) {
   return j as ReferralSummary;
 }
 
-/** Optional: OpenAI narration + bias for app-computed signal JSON (`POST /api/ai/explain-signal`). Requires server `OPENAI_API_KEY`. */
+/** Chart AI insight — live wallet only; server debits fee (see `feeInr`). */
 export async function explainSignalAI(
   token: string,
   signal: Record<string, unknown>,
-  locale?: string
-): Promise<{ explanation: string; direction: "up" | "down" | "neutral" }> {
+  locale?: string,
+  wallet: WalletType = "demo"
+): Promise<{
+  explanation: string;
+  direction: "up" | "down" | "neutral";
+  feeInr?: number;
+  balanceAfter?: number;
+}> {
   const response = await fetch(`${apiBase()}/api/ai/explain-signal`, {
     method: "POST",
-    headers: { ...requestHeaders(token), "Content-Type": "application/json" },
+    headers: { ...requestHeaders(token, wallet), "Content-Type": "application/json" },
     body: JSON.stringify({ signal, ...(locale ? { locale } : {}) })
   });
-  const j = await parseJson<{ explanation: string; direction?: string }>(response);
+  const j = await parseJson<{
+    explanation: string;
+    direction?: string;
+    feeInr?: number;
+    balanceAfter?: number;
+  }>(response);
   const d = String(j.direction ?? "").toLowerCase();
   const direction =
     d === "up" || d === "down" || d === "neutral" ? d : ("neutral" as const);
-  return { explanation: j.explanation, direction };
+  return {
+    explanation: j.explanation,
+    direction,
+    feeInr: j.feeInr,
+    balanceAfter: j.balanceAfter
+  };
 }
 
 export interface SupportTicket {

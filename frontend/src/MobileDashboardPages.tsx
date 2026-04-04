@@ -52,6 +52,7 @@ function trendingSymbolsFor(symbolList: string[]): string[] {
 }
 
 function formatFxPrice(sym: string, p: number) {
+  if (p >= 1000) return p.toFixed(2);
   if (p >= 50) return p.toFixed(3);
   if (p >= 5) return p.toFixed(4);
   return p.toFixed(5);

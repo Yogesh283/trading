@@ -1,4 +1,4 @@
-/** Forex + gold — `base` seeds sim backfill only; live fiat uses Yahoo `*=X` spot (+ Frankfurter fallback), gold from Yahoo/Pyth. */
+/** Forex + gold — `base` seeds sim backfill; fiat from Yahoo/Frankfurter; XAU from gold spot APIs. */
 export const FOREX_PAIRS = [
   /** When live spot fails briefly, sim stays near real gold (not ~4400). */
   { symbol: "XAUUSD", name: "Gold / US Dollar", base: 4550 },

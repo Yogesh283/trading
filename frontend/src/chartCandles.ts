@@ -294,7 +294,8 @@ export function mergeDbClosedWithLiveCandles(
 /**
  * Apply the latest order-book / WebSocket price to the **current** (forming) bucket so the last candle
  * always moves with live quotes even if tick history is sparse or the bar was seeded from DB + flat extend.
- * Requires the series to already include a bar for `floor(nowMs/tfMs)*tfMs` (typically via `extendClosedCandlesToNow` after merge).
+ * Usually the series already includes `nowBucket` via `extendClosedCandlesToNow`; if the last bar’s bucket lags,
+ * this bridges flat bars and appends the forming candle at `nowBucket` so the chart close matches the live tick.
  */
 export function overlayLivePriceOnFormingCandle(
   candles: CandlePoint[],
@@ -308,15 +309,39 @@ export function overlayLivePriceOnFormingCandle(
   const tfMs = timeframeSec * 1000;
   const nowBucket = Math.floor(nowMs / tfMs) * tfMs;
   const last = candles[candles.length - 1]!;
-  if (Number(last.timestamp) !== nowBucket) {
+  const lastBucket = Math.floor(Number(last.timestamp) / tfMs) * tfMs;
+  if (!Number.isFinite(lastBucket)) {
     return candles;
   }
-  const close = livePrice;
-  const high = Math.max(last.high, close);
-  const low = Math.min(last.low, close);
-  const nextLast: CandlePoint = { ...last, close, high, low };
-  /** Don’t clamp the forming bar — live overlay should reflect real spikes (clamp stays on closed bar merge). */
-  return [...candles.slice(0, -1), nextLast];
+
+  const applyLive = (bar: CandlePoint): CandlePoint => {
+    const close = livePrice;
+    const high = Math.max(bar.high, close);
+    const low = Math.min(bar.low, close);
+    return { ...bar, close, high, low };
+  };
+
+  /** If last bar is behind wall-time bucket (misaligned ts or extend skipped), bridge + forming bar at `nowBucket`. */
+  if (lastBucket < nowBucket) {
+    const out = [...candles];
+    let bridge = last.close;
+    for (let t = lastBucket + tfMs; t < nowBucket; t += tfMs) {
+      out.push({ timestamp: t, open: bridge, high: bridge, low: bridge, close: bridge });
+    }
+    const p = livePrice;
+    out.push({
+      timestamp: nowBucket,
+      open: bridge,
+      high: Math.max(bridge, p),
+      low: Math.min(bridge, p),
+      close: p
+    });
+    return out;
+  }
+
+  const bar =
+    lastBucket === nowBucket ? { ...last, timestamp: nowBucket } : last;
+  return [...candles.slice(0, -1), applyLive(bar)];
 }
 
 /** Append flat O=H=L=C bars from the last timestamp through the current bucket (wall-time alignment). */
@@ -325,17 +350,23 @@ export function extendClosedCandlesToNow(closed: CandlePoint[], timeframeSec: nu
     return [];
   }
   const tfMs = timeframeSec * 1000;
-  const last = closed[closed.length - 1]!;
-  const nowBucket = Math.floor(nowMs / tfMs) * tfMs;
-  const lastBucket = Number(last.timestamp);
-  if (!Number.isFinite(lastBucket)) {
+  const rawLast = closed[closed.length - 1]!;
+  const lastBucketAligned = Math.floor(Number(rawLast.timestamp) / tfMs) * tfMs;
+  if (!Number.isFinite(lastBucketAligned)) {
     return closed;
   }
+  const base: CandlePoint[] =
+    Number(rawLast.timestamp) === lastBucketAligned
+      ? closed
+      : [...closed.slice(0, -1), { ...rawLast, timestamp: lastBucketAligned }];
+  const last = base[base.length - 1]!;
+  const nowBucket = Math.floor(nowMs / tfMs) * tfMs;
+  const lastBucket = lastBucketAligned;
   if (nowBucket <= lastBucket) {
-    return closed;
+    return base;
   }
   let lc = last.close;
-  const out = [...closed];
+  const out = [...base];
   for (let t = lastBucket + tfMs; t <= nowBucket; t += tfMs) {
     out.push({ timestamp: t, open: lc, high: lc, low: lc, close: lc });
     lc = lc;
