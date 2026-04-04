@@ -1699,6 +1699,31 @@ a.landing-ot-btn-ghost {
   color: #8b9299;
 }
 
+/* Landing-only brand art (I9) — between trust band and platform split */
+.landing-ot-figure {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 40px) 20px 0;
+}
+
+.landing-ot-figure-inner {
+  width: 100%;
+  max-width: min(920px, 94vw);
+  margin: 0 auto;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.landing-ot-figure-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  aspect-ratio: 16 / 10;
+}
+
 .landing-ot-h2 {
   margin: 0 0 12px;
   font-size: clamp(28px, 4.2vw, 40px);

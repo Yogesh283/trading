@@ -40,6 +40,7 @@ import {
   addDemoFunds,
   createDemoOrder,
   createLiveOrder,
+  explainSignalAI,
   loadAccount,
   loadMarketCandles,
   loadMarkets,
@@ -394,6 +395,14 @@ export default function App() {
     null | { text: string; amountHighlight: string; pnl: number }
   >(null);
   const binarySettlePopupTimeoutRef = useRef<number | null>(null);
+  const [aiInsightLoading, setAiInsightLoading] = useState(false);
+  /** After AI click: show bias arrow on chart (no text popup). Cleared when pair/chart TF changes, or after current TF duration (e.g. 5s → 5s). */
+  const [chartAiHint, setChartAiHint] = useState<{
+    direction: "up" | "down" | "neutral";
+    symbol: string;
+    timeframeSec: number;
+  } | null>(null);
+  const chartAiHintTimerRef = useRef<number | null>(null);
   const prevOpenBinaryIdsRef = useRef<Set<string>>(new Set());
   const binaryTradesSnapInitializedRef = useRef(false);
   /** True after `visibility:hidden` / app background — used so `focus` can refresh chart DB candles when visibility events are flaky (mobile WebView / APK). */
@@ -1125,6 +1134,67 @@ export default function App() {
       .sort()
       .join(",")}|${Math.min(...expiries)}`;
   }, [trades]);
+
+  useEffect(() => {
+    setChartAiHint(null);
+  }, [symbol, chartTimeframe]);
+
+  /** Auto-hide AI chart hint after one candle period (same seconds as selected chart/trade TF). */
+  useEffect(() => {
+    if (chartAiHintTimerRef.current != null) {
+      window.clearTimeout(chartAiHintTimerRef.current);
+      chartAiHintTimerRef.current = null;
+    }
+    if (!chartAiHint) {
+      return;
+    }
+    const sec = Number(chartAiHint.timeframeSec);
+    if (!Number.isFinite(sec) || sec <= 0) {
+      return;
+    }
+    chartAiHintTimerRef.current = window.setTimeout(() => {
+      chartAiHintTimerRef.current = null;
+      setChartAiHint(null);
+    }, sec * 1000);
+    return () => {
+      if (chartAiHintTimerRef.current != null) {
+        window.clearTimeout(chartAiHintTimerRef.current);
+        chartAiHintTimerRef.current = null;
+      }
+    };
+  }, [chartAiHint]);
+
+  const handleAiInsight = useCallback(async () => {
+    if (!session?.token) {
+      showAlert("Sign in to use AI insight.", "error");
+      return;
+    }
+    setAiInsightLoading(true);
+    try {
+      const signal: Record<string, unknown> = {
+        kind: "chart_snapshot",
+        symbol,
+        timeframeSec: chartTimeframe,
+        chartStyle: chartGraphType,
+        lastTickDirection: spotTickMove,
+        lastPrice: selectedTick?.price ?? null
+      };
+      const { direction } = await explainSignalAI(session.token, signal, "en");
+      setChartAiHint({ direction, symbol, timeframeSec: chartTimeframe });
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "AI insight failed", "error");
+    } finally {
+      setAiInsightLoading(false);
+    }
+  }, [
+    session?.token,
+    symbol,
+    chartTimeframe,
+    chartGraphType,
+    spotTickMove,
+    selectedTick?.price,
+    showAlert
+  ]);
 
   useEffect(() => {
     binaryTradesSnapInitializedRef.current = false;
@@ -2363,6 +2433,15 @@ export default function App() {
                 <span className="live-dot" />
                 Live
               </span>
+              <button
+                type="button"
+                className="mobile-ai-insight-btn"
+                disabled={aiInsightLoading || !session}
+                title="AI bias on chart for one period (e.g. 5s TF → hides after 5s) — educational only"
+                onClick={() => void handleAiInsight()}
+              >
+                {aiInsightLoading ? "…" : "AI"}
+              </button>
             </header>
             <LiveChart
               points={chartSeries}
@@ -2378,6 +2457,15 @@ export default function App() {
               tickDirection={spotTickMove}
               expectBackendCandles
               livePrice={selectedTick?.price ?? null}
+              aiHint={
+                chartAiHint
+                  ? {
+                      direction: chartAiHint.direction,
+                      symbolLabel: formatForexPair(chartAiHint.symbol),
+                      timeframeLabel: tfLabel(chartAiHint.timeframeSec)
+                    }
+                  : null
+              }
             />
           </section>
 
@@ -2802,6 +2890,15 @@ export default function App() {
                 {spotTickMove === "up" ? "↑ " : spotTickMove === "down" ? "↓ " : ""}
                 {selectedTick ? formatFxPrice(symbol, selectedTick.price) : "—"}
               </span>
+              <button
+                type="button"
+                className="chart-ai-insight-btn"
+                disabled={aiInsightLoading || !session}
+                title="AI bias on chart for one period (e.g. 5s TF → hides after 5s) — educational only"
+                onClick={() => void handleAiInsight()}
+              >
+                {aiInsightLoading ? "…" : "AI insight"}
+              </button>
             </div>
           </div>
           <LiveChart
@@ -2816,6 +2913,15 @@ export default function App() {
             tickDirection={spotTickMove}
             expectBackendCandles
             livePrice={selectedTick?.price ?? null}
+            aiHint={
+              chartAiHint
+                ? {
+                    direction: chartAiHint.direction,
+                    symbolLabel: formatForexPair(chartAiHint.symbol),
+                    timeframeLabel: tfLabel(chartAiHint.timeframeSec)
+                  }
+                : null
+            }
           />
         </section>
 
@@ -4136,7 +4242,8 @@ function LiveChart({
   isMobileChart = false,
   tickDirection = null,
   expectBackendCandles = false,
-  livePrice = null
+  livePrice = null,
+  aiHint = null
 }: {
   points: MarketTick[];
   /** Closed OHLC from `/api/markets/candles` (DB); live leg from WebSocket `live_price` ticks. */
@@ -4155,6 +4262,12 @@ function LiveChart({
   expectBackendCandles?: boolean;
   /** Latest quote so the forming candle updates even when tick history is sparse. */
   livePrice?: number | null;
+  /** AI bias shown on-chart (pair · timeframe · arrow); no text popup. */
+  aiHint?: {
+    direction: "up" | "down" | "neutral";
+    symbolLabel: string;
+    timeframeLabel: string;
+  } | null;
 }) {
   const [, setTick] = useState(0);
   const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -4489,6 +4602,23 @@ function LiveChart({
         </div>
       ) : null}
       <div className="chart-svg-wrap chart-lw-wrap">
+        {aiHint ? (
+          <div className="chart-ai-hint-overlay" aria-live="polite">
+            <div className="chart-ai-hint-inner">
+              <span className="chart-ai-hint-pair">{aiHint.symbolLabel}</span>
+              <span className="chart-ai-hint-sep" aria-hidden>
+                ·
+              </span>
+              <span className="chart-ai-hint-tf">{aiHint.timeframeLabel}</span>
+              <span
+                className={`chart-ai-hint-arrow chart-ai-hint-arrow--${aiHint.direction}`}
+                aria-hidden
+              >
+                {aiHint.direction === "up" ? "↑" : aiHint.direction === "down" ? "↓" : "↔"}
+              </span>
+            </div>
+          </div>
+        ) : null}
         <div
           className="chart-touch-layer chart-lw-touch"
           ref={chartWrapRef}

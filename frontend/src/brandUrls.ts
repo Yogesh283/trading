@@ -9,8 +9,10 @@ const brandMarkPath = `brand/${encodeURIComponent(BRAND_MARK_FILE)}`;
 export const brandLogo = `${b}${brandMarkPath}`;
 /** Download / dock row — same main mark */
 export const brandApkIcon = brandLogo;
-export const brandBanner1 = `${b}brand/banner1.jpeg`;
-export const brandBanner2 = `${b}brand/banner2.jpeg`;
-export const brandBanner3 = `${b}brand/banner3.jpeg`;
+
+/** Landing page visuals only (`public/brand/`). */
+export const landingBrandI3 = `${b}brand/I3.png`;
+export const landingBrandI6 = `${b}brand/I6.png`;
+export const landingBrandI9 = `${b}brand/I9.png`;
 /** Promo / hero video (place file at public/brand/v.mp4) */
 export const brandHeroVideo = `${b}brand/v.mp4`;

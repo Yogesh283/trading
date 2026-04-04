@@ -1,10 +1,35 @@
+import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-/** Project root `.env` — not `process.cwd()` (PM2 fork / systemd can use a different cwd). */
-const envPath = path.resolve(__dirname, "..", "..", ".env");
+/**
+ * Resolve `.env` next to `package.json` (works when `__dirname` is `src/config` or `dist/config`).
+ * Fallback: `../../.env`, then `cwd/.env`, then dotenv default.
+ */
+function resolveEnvFilePath(): string {
+  let dir = __dirname;
+  for (let i = 0; i < 12; i++) {
+    const envFile = path.join(dir, ".env");
+    const pkg = path.join(dir, "package.json");
+    if (fs.existsSync(pkg) && fs.existsSync(envFile)) {
+      return envFile;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return path.resolve(__dirname, "..", "..", ".env");
+}
+
+const envPath = resolveEnvFilePath();
 dotenv.config({ path: envPath });
+if (!process.env.OPENAI_API_KEY?.trim()) {
+  dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+}
+if (!process.env.OPENAI_API_KEY?.trim()) {
+  dotenv.config();
+}
 
 /**
  * Empty / whitespace → undefined (Zod `.default()` applies).
@@ -144,7 +169,19 @@ const envSchema = z.object({
   FORGOT_PASSWORD_DEBUG_OTP: z
     .string()
     .optional()
-    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true")
+    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true"),
+  /**
+   * Optional: `POST /api/ai/explain-signal` — OpenAI API key (server-only). Never commit real keys.
+   * https://platform.openai.com/api-keys
+   */
+  OPENAI_API_KEY: z.string().optional(),
+  /** Chat model for explain-signal (default gpt-4o-mini). */
+  OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  /**
+   * `responses` = OpenAI Responses API (`openai.responses.create`).
+   * `chat` = Chat Completions (`openai.chat.completions.create`) if your org/model only supports that.
+   */
+  OPENAI_API_MODE: z.enum(["responses", "chat"]).default("responses")
 });
 
 const parsed = envSchema.parse(process.env);

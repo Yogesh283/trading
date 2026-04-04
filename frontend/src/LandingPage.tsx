@@ -3,7 +3,7 @@ import "./landing.css";
 import { APP_NAME, APK_DOWNLOAD_URL, SUPPORT_EMAIL } from "./appBrand";
 import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
-import { brandApkIcon, brandBanner2, brandBanner3, brandLogo } from "./brandUrls";
+import { brandApkIcon, brandLogo, landingBrandI3, landingBrandI6, landingBrandI9 } from "./brandUrls";
 
 const PILL_ITEMS = [
   "Forex & metals markets",
@@ -424,7 +424,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
             </button>
           </div>
           <div className="landing-demo-brand-visual">
-            <img src={brandBanner3} alt="" loading="lazy" decoding="async" />
+            <img src={landingBrandI3} alt="" loading="lazy" decoding="async" />
           </div>
         </div>
       </section>
@@ -480,6 +480,12 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
         </div>
       </section>
 
+      <section className="landing-ot-figure" aria-hidden>
+        <div className="landing-ot-figure-inner">
+          <img src={landingBrandI9} alt="" className="landing-ot-figure-img" loading="lazy" decoding="async" />
+        </div>
+      </section>
+
       {/* Platform + mock device */}
       <section className="landing-ot-split" id="ot-platform">
         <div className="landing-ot-split-copy">
@@ -503,7 +509,7 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
         </div>
         <div className="landing-ot-split-visual" aria-hidden>
           <div className="landing-ot-banner-wrap">
-            <img src={brandBanner2} alt="" className="landing-ot-banner" />
+            <img src={landingBrandI6} alt="" className="landing-ot-banner" loading="lazy" decoding="async" />
           </div>
         </div>
       </section>

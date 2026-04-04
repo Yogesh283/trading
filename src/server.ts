@@ -13,6 +13,7 @@ import { inrDebitForUsdtWithdraw, INR_PER_USDT, usdtToInrCredit } from "./config
 import { dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
+import { explainSignalWithOpenAI } from "./services/signalExplainService";
 import {
   createSupportTicket,
   listSupportTicketsForUser,
@@ -297,7 +298,9 @@ const server = http.createServer((req, res) => {
       forexPairs: FOREX_SYMBOLS.length,
       apkReady: Boolean(resolveAndroidApkPath()),
       androidAppVersionCode: env.ANDROID_APP_VERSION_CODE,
-      androidAppVersionName: env.ANDROID_APP_VERSION_NAME
+      androidAppVersionName: env.ANDROID_APP_VERSION_NAME,
+      /** True when `OPENAI_API_KEY` is set (AI insight / explain-signal). No secret leaked. */
+      openaiConfigured: Boolean(env.OPENAI_API_KEY?.trim())
     });
     res.writeHead(200, {
       "Content-Type": "application/json; charset=utf-8",
@@ -723,6 +726,42 @@ app.get("/api/referrals/summary", (req, res) => {
       }
       logger.warn({ err: e }, "referrals summary");
       return res.status(500).json({ message: "Failed to load referrals" });
+    }
+  })();
+});
+
+/**
+ * Optional AI: turn app-computed signal JSON into 1–2 lines of plain text (OpenAI).
+ * Requires OPENAI_API_KEY. Does not predict markets — narration only.
+ */
+app.post("/api/ai/explain-signal", (req, res) => {
+  void (async () => {
+    try {
+      await requireSession(req.headers.authorization);
+    } catch {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    if (!env.OPENAI_API_KEY?.trim()) {
+      return res.status(503).json({
+        message: "AI explanation is not configured (set OPENAI_API_KEY on the server)."
+      });
+    }
+    const raw = req.body?.signal ?? req.body;
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+      return res.status(400).json({
+        message: "JSON body must be an object, e.g. { \"signal\": { \"bias\": \"up\", \"confidence\": 55 } }."
+      });
+    }
+    const locale =
+      typeof req.body?.locale === "string" ? req.body.locale : typeof req.body?.lang === "string" ? req.body.lang : undefined;
+    try {
+      const { explanation, direction } = await explainSignalWithOpenAI({ signal: raw, locale });
+      return res.json({ explanation, direction });
+    } catch (e) {
+      logger.warn({ err: e }, "explain-signal");
+      return res.status(502).json({
+        message: e instanceof Error ? e.message : "Failed to generate explanation"
+      });
     }
   })();
 });
