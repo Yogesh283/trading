@@ -40,7 +40,6 @@ export default function ReferralPage({ token }: Props) {
   }, [refresh]);
 
   const link = data ? buildReferralLink(data.selfReferralCode) : "";
-  const promotionHeroSrc = `${import.meta.env.BASE_URL}brand/I1.png`;
 
   const copyLink = async () => {
     if (!link) return;
@@ -78,20 +77,6 @@ export default function ReferralPage({ token }: Props) {
           >
             {summaryLoading ? "…" : "Refresh"}
           </button>
-        </div>
-        <p className="funds-network">
-          Share your link. Friends who register join your team. <strong>Level income</strong> and today’s commission totals
-          are <strong>today (IST)</strong> only. Team lists show your full network (all time).
-        </p>
-
-        <div className="promotion-hero">
-          <img
-            src={promotionHeroSrc}
-            alt=""
-            className="promotion-hero__img"
-            decoding="async"
-            loading="lazy"
-          />
         </div>
 
         {data ? (

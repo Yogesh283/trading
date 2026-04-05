@@ -89,7 +89,6 @@ import GlobalRefreshButton from "./GlobalRefreshButton";
 import { useGlobalAlert } from "./GlobalAlertContext";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
-  DockIconAi,
   DockIconHome,
   DockIconMarkets,
   DockIconPromotionDiamond,
@@ -928,12 +927,12 @@ export default function App() {
     const skipMarketTicks = Boolean(options?.skipMarketTicks);
     try {
       if (!skipMarketTicks) {
-        const marketData = await loadMarkets();
-        if (mySeq !== refreshSeqRef.current) {
-          return;
-        }
+      const marketData = await loadMarkets();
+      if (mySeq !== refreshSeqRef.current) {
+        return;
+      }
 
-        setMarkets(marketData.ticks);
+      setMarkets(marketData.ticks);
 
         if (marketData.symbols?.length) {
           setForexSymbolList([...marketData.symbols]);
@@ -1090,9 +1089,9 @@ export default function App() {
         if (session != null && isPersonalSnap && accountSnap && snapWallet) {
           if (snapWallet === accountWallet) {
             setAccount(accountSnap);
-            if (Array.isArray(payload.data.trades)) {
-              setTrades(payload.data.trades);
-            }
+          if (Array.isArray(payload.data.trades)) {
+            setTrades(payload.data.trades);
+          }
           }
           setDualBalances((prev) => ({
             ...prev,
@@ -1885,27 +1884,27 @@ export default function App() {
               >
                 Help
               </button>
-              <button
-                type="button"
+                <button
+                  type="button"
                 className={dashboardSection === "about" ? "active" : ""}
                 onClick={() => setDashboardSection("about")}
-              >
+                >
                 About
-              </button>
-              <button
-                type="button"
+                </button>
+                <button
+                  type="button"
                 className={dashboardSection === "terms" ? "active" : ""}
                 onClick={() => setDashboardSection("terms")}
-              >
+                >
                 Terms
-              </button>
-              <button
-                type="button"
+                </button>
+                <button
+                  type="button"
                 className={dashboardSection === "privacy" ? "active" : ""}
                 onClick={() => setDashboardSection("privacy")}
-              >
+                >
                 Privacy
-              </button>
+                </button>
               {showApkDownloadLink ? (
                 <a className="app-nav-desktop-apk" href={apkDownloadHref} download={apkFileDownloadName}>
                   <img src={brandApkIcon} alt="" width={20} height={20} className="app-nav-desktop-apk-ico" />
@@ -2008,31 +2007,31 @@ export default function App() {
             </div>
             <div className="app-nav-drawer-wallet-row app-nav-drawer-trading-block">
               <div className="app-nav-drawer-trading-row">
-                <span className="app-nav-drawer-wallet-label">Trading</span>
-                <div className="app-nav-account-toggle app-nav-account-toggle--drawer" role="group" aria-label="Trading account">
-                  <button
-                    type="button"
-                    className={accountWallet === "demo" ? "on demo-on" : ""}
-                    onClick={() => {
-                      setUserAccountWallet("demo");
-                      void refresh("demo").catch(() => undefined);
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Demo
-                  </button>
-                  <button
-                    type="button"
-                    className={accountWallet === "live" ? "on live-on" : ""}
-                    onClick={() => {
-                      setUserAccountWallet("live");
-                      void refresh("live").catch(() => undefined);
-                      setMainNavOpen(false);
-                    }}
-                  >
-                    Live
-                  </button>
-                </div>
+              <span className="app-nav-drawer-wallet-label">Trading</span>
+              <div className="app-nav-account-toggle app-nav-account-toggle--drawer" role="group" aria-label="Trading account">
+                <button
+                  type="button"
+                  className={accountWallet === "demo" ? "on demo-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("demo");
+                    void refresh("demo").catch(() => undefined);
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Demo
+                </button>
+                <button
+                  type="button"
+                  className={accountWallet === "live" ? "on live-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("live");
+                    void refresh("live").catch(() => undefined);
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Live
+                </button>
+              </div>
               </div>
             </div>
             <div className="app-nav-drawer-demo-topup">
@@ -2164,26 +2163,26 @@ export default function App() {
                 <DrawerIconAbout />
                 <span>About</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
+                <button
+                  type="button"
+                  onClick={() => {
                   setDashboardSection("terms");
-                  setMainNavOpen(false);
-                }}
-              >
+                    setMainNavOpen(false);
+                  }}
+                >
                 <DrawerIconAbout />
                 <span>Terms</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                   setDashboardSection("privacy");
-                  setMainNavOpen(false);
-                }}
-              >
+                    setMainNavOpen(false);
+                  }}
+                >
                 <DrawerIconAbout />
                 <span>Privacy</span>
-              </button>
+                </button>
               {showApkDownloadLink ? (
                 <a
                   className="app-nav-drawer-link app-nav-drawer-apk"
@@ -2195,17 +2194,17 @@ export default function App() {
                   <span>{drawerApkLabel}</span>
                 </a>
               ) : null}
-              <button
-                type="button"
-                onClick={() => {
-                  setMainNavOpen(false);
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMainNavOpen(false);
                   void refresh().catch(() => undefined);
                   showAlert("Data refreshed.", "info");
-                }}
-              >
+                  }}
+                >
                 <DrawerIconRefresh />
                 <span>Refresh data</span>
-              </button>
+                </button>
               <button type="button" className="app-nav-drawer-danger" onClick={() => { setMainNavOpen(false); logout(); }}>
                 Log out
               </button>
@@ -2217,8 +2216,8 @@ export default function App() {
       {session && isPhone ? (
         <div className="mobile-wallet-nav-wrap">
           <div className="mobile-trading-page-nav" aria-label="Wallet and account">
-            <button
-              type="button"
+                <button
+                  type="button"
               className="mobile-tpn-profile"
               aria-label="Open menu"
               onClick={() => setMainNavOpen(true)}
@@ -2264,28 +2263,28 @@ export default function App() {
                     type="button"
                     role="menuitem"
                     className={accountWallet === "demo" ? "active" : ""}
-                    onClick={() => {
+                  onClick={() => {
                       setUserAccountWallet("demo");
                       void refresh("demo").catch(() => undefined);
                       setTradingPageWalletMenuOpen(false);
-                    }}
-                  >
+                  }}
+                >
                     <span>Demo</span>
                     <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.demo)}</span>
-                  </button>
-                  <button
-                    type="button"
+                </button>
+                <button
+                  type="button"
                     role="menuitem"
                     className={accountWallet === "live" ? "active" : ""}
-                    onClick={() => {
+                  onClick={() => {
                       setUserAccountWallet("live");
                       void refresh("live").catch(() => undefined);
                       setTradingPageWalletMenuOpen(false);
-                    }}
-                  >
+                  }}
+                >
                     <span>Live</span>
                     <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.live)}</span>
-                  </button>
+                </button>
                   <button
                     type="button"
                     role="menuitem"
@@ -2300,8 +2299,8 @@ export default function App() {
                     <span className="mobile-tpn-dd-add-hint">
                       +{formatInr(DEFAULT_DEMO_BALANCE_INR)} default
                     </span>
-                  </button>
-                </div>
+              </button>
+            </div>
               ) : null}
             </div>
             <GlobalRefreshButton
@@ -2450,24 +2449,24 @@ export default function App() {
         <main className="mobile-trade-root">
           <section className="panel wide mobile-chart-wrap" id="app-chart-anchor">
             <header className="mobile-chart-topbar mobile-chart-topbar--trading mobile-chart-topbar--in-card">
-              <button
-                type="button"
-                className="mobile-asset-pill"
+            <button
+              type="button"
+              className="mobile-asset-pill"
                 title={
                   pairNames[symbol]
                     ? `${formatForexPair(symbol)} — ${pairNames[symbol]}`
                     : formatForexPair(symbol)
                 }
-                onClick={() => setAssetPickerOpen(true)}
-              >
+              onClick={() => setAssetPickerOpen(true)}
+            >
                 <span className="mobile-asset-pill-icon">
                   <AssetPairFlags symbol={symbol} />
                 </span>
                 <span className="mobile-asset-pill-text">{getAssetName(symbol, pairNames)}</span>
-                <span className="mobile-chevron" aria-hidden>
-                  ▾
-                </span>
-              </button>
+              <span className="mobile-chevron" aria-hidden>
+                ▾
+              </span>
+            </button>
               <div className="mobile-tf-wrap" ref={mobileTfWrapRef}>
                 <button
                   type="button"
@@ -2553,8 +2552,8 @@ export default function App() {
                 <span className="live-dot" />
                 Live
               </span>
-              <button
-                type="button"
+                  <button
+                    type="button"
                 className={`mobile-ai-insight-btn${chartAiInsightBtnActive ? " mobile-ai-insight-btn--active" : ""}`}
                 disabled={aiInsightDisabled}
                 title={
@@ -2573,8 +2572,8 @@ export default function App() {
                     <AiChartInsightIcon variant="chart" className="chart-ai-insight-icon" />
                     <span className="chart-ai-insight-label">AI</span>
                   </>
-                )}
-              </button>
+                    )}
+                  </button>
             </header>
             <LiveChart
               points={chartSeries}
@@ -2688,14 +2687,14 @@ export default function App() {
                   −
                 </button>
                 <label className="mobile-stepper-mid mobile-stepper-mid--inr mobile-stepper-inr-wrap">
-                  <input
+                <input
                     id="mob-trading-amount-inr"
-                    type="number"
+                  type="number"
                     inputMode="numeric"
-                    min={1}
-                    step={1}
+                  min={1}
+                  step={1}
                     className="mobile-stepper-inr-input"
-                    value={quantity}
+                  value={quantity}
                     onChange={(e) => {
                       setMobileStakeMultSelection(null);
                       const v = e.target.value;
@@ -2716,8 +2715,8 @@ export default function App() {
                   />
                   <span className="mobile-stepper-inr-suffix" aria-hidden />
                 </label>
-                <button
-                  type="button"
+                    <button
+                      type="button"
                   className="mobile-stepper-nudge"
                   aria-label="Increase quantity"
                   onClick={() => bumpMobileStake(1)}
@@ -2733,16 +2732,16 @@ export default function App() {
                     className={`mobile-olymp-mult-btn${
                       mobileStakeMultSelection === mult ? " mobile-olymp-mult-btn--active" : ""
                     }`}
-                    onClick={() => {
+                      onClick={() => {
                       setMobileStakeMultSelection(mult);
                       applyStakeMultiplier(mult);
-                    }}
-                  >
+                      }}
+                    >
                     {mult}x
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
 
             <div className="mobile-olymp-total-row">
               <div className="mobile-olymp-total">
@@ -2816,9 +2815,9 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {trades.slice(0, 20).map((trade) => {
-                        const dir = formatTradeDirectionLabel(trade.direction, trade.side);
-                        const isBinary = trade.direction === "up" || trade.direction === "down";
+              {trades.slice(0, 20).map((trade) => {
+                const dir = formatTradeDirectionLabel(trade.direction, trade.side);
+                const isBinary = trade.direction === "up" || trade.direction === "down";
                         const closeDetailTitle =
                           isBinary && trade.status === "closed" && trade.closePrice != null
                             ? `Close ${formatFxPrice(trade.symbol, trade.closePrice)} · Entry ${formatFxPrice(
@@ -2833,17 +2832,17 @@ export default function App() {
                               : trade.status === "closed" && typeof trade.closePrice === "number"
                                 ? `Settlement: ${formatFxPrice(trade.symbol, trade.closePrice)}`
                                 : undefined;
-                        return (
+                return (
                           <tr key={trade.id} className="mobile-hist-tr-main">
                             <td title={trade.symbol}>
                               <span className="hist-pair-cell">
                                 <AssetPairFlags symbol={trade.symbol} />
                                 {formatForexPair(trade.symbol)}
-                              </span>
+                      </span>
                             </td>
                             <td
                               className={isBinary ? (trade.direction === "up" ? "dir-up" : "dir-down") : ""}
-                              title={
+                        title={
                                 isBinary
                                   ? `Direction: ${dir} · Stake ${fmtWallet(trade.quantity)}`
                                   : `Stake ${fmtWallet(trade.quantity)}`
@@ -2852,28 +2851,28 @@ export default function App() {
                               {isBinary ? (trade.direction === "up" ? "↑ Up" : "↓ Down") : dir}
                             </td>
                             <td
-                              className={
-                                typeof trade.pnl === "number"
-                                  ? trade.pnl >= 0
-                                    ? "pnl-win"
-                                    : "pnl-loss"
-                                  : ""
-                              }
-                              title={
+                        className={
+                          typeof trade.pnl === "number"
+                            ? trade.pnl >= 0
+                              ? "pnl-win"
+                              : "pnl-loss"
+                            : ""
+                        }
+                        title={
                                 isBinary && trade.status === "closed" && trade.pnl != null
                                   ? trade.pnl >= 0
                                     ? "Total credited (profit + trading amount)"
                                     : "Trading amount lost"
                                   : trade.status === "closed" && trade.closePrice != null
-                                    ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                                    : undefined
-                              }
-                            >
-                              {trade.status === "closed" && trade.pnl != null
+                            ? `Entry ${formatFxPrice(trade.symbol, trade.entryPrice)} → close ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                            : undefined
+                        }
+                      >
+                        {trade.status === "closed" && trade.pnl != null
                                 ? formatBinarySettledAmountDisplay(trade, fmtWallet)
-                                : trade.status === "open"
-                                  ? "Open"
-                                  : trade.status}
+                          : trade.status === "open"
+                            ? "Open"
+                            : trade.status}
                             </td>
                             <td title="Price when order was placed (execution / entry)">
                               {formatFxPrice(trade.symbol, trade.entryPrice)}
@@ -2892,8 +2891,8 @@ export default function App() {
                               {formatTradeCloseCell(trade)}
                             </td>
                           </tr>
-                        );
-                      })}
+                );
+              })}
                     </tbody>
                   </table>
                 </div>
@@ -2964,11 +2963,11 @@ export default function App() {
                 const tileMove = lastTickMove(history[s]);
                 return (
                   <li key={s} className="asset-picker-list-item">
-                    <button
-                      type="button"
+                  <button
+                    type="button"
                       className={`asset-tile asset-tile--row ${s === symbol ? "active" : ""}`}
-                      onClick={() => setSymbol(s)}
-                    >
+                    onClick={() => setSymbol(s)}
+                  >
                       <span className="asset-tile-icon" aria-hidden>
                         <AssetPairFlags symbol={s} />
                       </span>
@@ -2976,7 +2975,7 @@ export default function App() {
                         <span className="asset-tile-name asset-tile-name--otc">{formatMarketPairOtc(s)}</span>
                         <span className="asset-tile-pair">{getAssetName(s, pairNames)}</span>
                       </span>
-                      {tick ? (
+                    {tick ? (
                         <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
                           {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
                           {formatFxPrice(s, tick.price)}
@@ -2984,7 +2983,7 @@ export default function App() {
                       ) : (
                         <span className="asset-tile-price muted">—</span>
                       )}
-                    </button>
+                  </button>
                   </li>
                 );
               })}
@@ -3266,8 +3265,8 @@ export default function App() {
                             : "Trading amount lost"
                           : undefined
                         : trade.status === "closed" && trade.closePrice != null
-                          ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
-                          : undefined
+                        ? `Settlement price: ${formatFxPrice(trade.symbol, trade.closePrice)}`
+                        : undefined
                     }
                   >
                     {trade.status === "closed" && typeof trade.pnl === "number"
@@ -3312,15 +3311,15 @@ export default function App() {
             <label className="desktop-demo-block">
               <span className="desktop-demo-label">Amount (₹)</span>
               <div className="desktop-demo-amt-wrap">
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  className="desktop-demo-amt"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
+              <input
+                type="number"
+                min={1}
+                step={1}
+                className="desktop-demo-amt"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
                   aria-label="Trading amount"
-                />
+              />
                 <span className="desktop-demo-amt-suffix" aria-hidden>
                   x
                 </span>
@@ -3469,14 +3468,14 @@ export default function App() {
                 const tileMove = lastTickMove(history[s]);
                 return (
                   <li key={s} className="asset-picker-list-item">
-                    <button
-                      type="button"
+                  <button
+                    type="button"
                       className={`asset-tile asset-tile--row ${s === symbol ? "active" : ""}`}
-                      onClick={() => {
-                        setSymbol(s);
-                        setAssetPickerOpen(false);
-                      }}
-                    >
+                    onClick={() => {
+                      setSymbol(s);
+                      setAssetPickerOpen(false);
+                    }}
+                  >
                       <span className="asset-tile-icon" aria-hidden>
                         <AssetPairFlags symbol={s} />
                       </span>
@@ -3484,7 +3483,7 @@ export default function App() {
                         <span className="asset-tile-name asset-tile-name--otc">{formatMarketPairOtc(s)}</span>
                         <span className="asset-tile-pair">{getAssetName(s, pairNames)}</span>
                       </span>
-                      {tick ? (
+                    {tick ? (
                         <span className={`asset-tile-price${tileMove ? ` ${tileMove}` : ""}`}>
                           {tileMove === "up" ? "↑ " : tileMove === "down" ? "↓ " : ""}
                           {formatFxPrice(s, tick.price)}
@@ -3492,7 +3491,7 @@ export default function App() {
                       ) : (
                         <span className="asset-tile-price muted">—</span>
                       )}
-                    </button>
+                  </button>
                   </li>
                 );
               })}
@@ -3518,10 +3517,10 @@ export default function App() {
           ) : null}
           <nav
             className="mobile-bottom-dock mobile-bottom-dock--theme mobile-bottom-dock--main-tabs"
-            aria-label="Bottom menu"
-          >
-            <button
-              type="button"
+          aria-label="Bottom menu"
+        >
+          <button
+            type="button"
               className={`mobile-dock-item mobile-dock-cell${dashboardSection === "home" ? " active" : ""}`}
               onClick={() => {
                 setMainNavOpen(false);
@@ -3529,14 +3528,14 @@ export default function App() {
                 setDashboardSection("home");
               }}
               aria-current={dashboardSection === "home" ? "page" : undefined}
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
+          >
+            <span className="mobile-dock-icon-slot" aria-hidden>
                 <DockIconHome />
-              </span>
+            </span>
               <span className="mobile-dock-label">Home</span>
-            </button>
-            <button
-              type="button"
+          </button>
+          <button
+            type="button"
               className={`mobile-dock-item mobile-dock-cell${assetPickerOpen ? " active" : ""}`}
               onClick={() => {
                 setMainNavOpen(false);
@@ -3544,34 +3543,34 @@ export default function App() {
                 setAssetPickerOpen(true);
               }}
               aria-current={assetPickerOpen ? "page" : undefined}
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
+          >
+            <span className="mobile-dock-icon-slot" aria-hidden>
                 <DockIconMarkets />
-              </span>
+            </span>
               <span className="mobile-dock-label">Markets</span>
-            </button>
-            <button
-              type="button"
+          </button>
+          <button
+            type="button"
               className={`mobile-dock-item mobile-dock-cell mobile-dock-tab--trading${
                 dashboardSection === "trading" && !assetPickerOpen ? " active" : ""
               }`}
-              onClick={() => {
+            onClick={() => {
                 setMainNavOpen(false);
                 setAssetPickerOpen(false);
-                setDashboardSection("trading");
-                window.requestAnimationFrame(() =>
-                  document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                );
-              }}
+              setDashboardSection("trading");
+              window.requestAnimationFrame(() =>
+                document.getElementById("app-chart-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              );
+            }}
               aria-current={dashboardSection === "trading" && !assetPickerOpen ? "page" : undefined}
-            >
+          >
               <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconTradeBars />
-              </span>
+              <DockIconTradeBars />
+            </span>
               <span className="mobile-dock-label">Trading</span>
-            </button>
-            <button
-              type="button"
+          </button>
+          <button
+            type="button"
               className={`mobile-dock-item mobile-dock-cell${dashboardSection === "referral" ? " active" : ""}`}
               onClick={() => {
                 setMainNavOpen(false);
@@ -3580,14 +3579,14 @@ export default function App() {
               }}
               aria-current={dashboardSection === "referral" ? "page" : undefined}
               aria-label="Promotion"
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
+          >
+            <span className="mobile-dock-icon-slot" aria-hidden>
                 <DockIconPromotionDiamond />
-              </span>
+            </span>
               <span className="mobile-dock-label">Promotion</span>
-            </button>
-            <button
-              type="button"
+          </button>
+          <button
+            type="button"
               className={`mobile-dock-item mobile-dock-cell${dashboardSection === "offers" ? " active" : ""}`}
               onClick={() => {
                 setMainNavOpen(false);
@@ -3596,13 +3595,16 @@ export default function App() {
               }}
               aria-current={dashboardSection === "offers" ? "page" : undefined}
               aria-label="AI"
-            >
-              <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconAi />
-              </span>
+          >
+            <span className="mobile-dock-icon-slot" aria-hidden>
+                <AiChartInsightIcon
+                  variant="chart"
+                  className="chart-ai-insight-icon mobile-dock-fg-icon mobile-dock-ai-bitmap"
+                />
+            </span>
               <span className="mobile-dock-label">AI</span>
-            </button>
-          </nav>
+          </button>
+        </nav>
         </div>
       ) : null}
       {walletActivityOpen && session ? (
@@ -3642,23 +3644,23 @@ export default function App() {
                   const lossRow = tx.txn_type === "binary_settle_loss";
                   const pos = !lossRow && tx.amount >= 0;
                   return (
-                    <div key={tx.id} className="wallet-tx-row">
-                      <div className="wallet-tx-row-main">
-                        <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
+                  <div key={tx.id} className="wallet-tx-row">
+                    <div className="wallet-tx-row-main">
+                      <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
                         <span
                           className={lossRow ? "wallet-tx-muted" : pos ? "wallet-tx-pos" : "wallet-tx-neg"}
                           title={hint ?? undefined}
                         >
                           {walletLedgerAmountPrimary(tx)}
-                        </span>
-                      </div>
-                      <div className="wallet-tx-row-sub muted">
+                      </span>
+                    </div>
+                    <div className="wallet-tx-row-sub muted">
                         {hint ? <span className="wallet-tx-hint">{hint}</span> : null}
                         {hint ? <span className="wallet-tx-hint-sep"> · </span> : null}
-                        Bal {formatInr(Number(tx.before_balance))} → {formatInr(Number(tx.after_balance))} ·{" "}
-                        {new Date(tx.created_at).toLocaleString()}
-                      </div>
+                      Bal {formatInr(Number(tx.before_balance))} → {formatInr(Number(tx.after_balance))} ·{" "}
+                      {new Date(tx.created_at).toLocaleString()}
                     </div>
+                  </div>
                   );
                 })}
               </div>
@@ -3827,7 +3829,7 @@ export default function App() {
                 {postAuthWelcome.kind === "login"
                   ? `Welcome back, ${postAuthWelcome.name}`
                   : `Hi, ${postAuthWelcome.name}`}
-              </h2>
+            </h2>
               <p id="post-auth-welcome-desc" className="order-placed-summary">
               <span className="order-placed-summary-text">
   {postAuthWelcome.kind === "login"
@@ -3840,7 +3842,7 @@ export default function App() {
               </p>
               <button type="button" className="order-placed-ok" onClick={dismissPostAuthWelcome}>
                 Continue
-              </button>
+            </button>
             </div>
           </div>
         </div>
@@ -3978,7 +3980,7 @@ function AuthScreen({
 
   return (
     <div className="auth-page-wrap">
-      <div className="auth-shell">
+    <div className="auth-shell">
       <section className="auth-hero">
         <div className="auth-hero-brand">
           <BrandLogo size={44} className="auth-hero-logo" />
@@ -4172,59 +4174,59 @@ function AuthScreen({
           </>
         ) : (
           <>
-            <div className="auth-card-head">
-              <div className="auth-card-logo-ring" aria-hidden>
-                <BrandLogo size={76} className="auth-card-logo" />
-              </div>
-              <h2 id="auth-card-title" className="auth-card-heading">
-                {authView === "login" ? "Welcome back" : "Create account"}
-              </h2>
-              <p className="auth-card-tagline">
-                {authView === "login"
-                  ? `Sign in to continue on ${APP_NAME}`
-                  : `Join ${APP_NAME} — demo & live trading`}
-              </p>
-            </div>
+        <div className="auth-card-head">
+          <div className="auth-card-logo-ring" aria-hidden>
+            <BrandLogo size={76} className="auth-card-logo" />
+          </div>
+          <h2 id="auth-card-title" className="auth-card-heading">
+            {authView === "login" ? "Welcome back" : "Create account"}
+          </h2>
+          <p className="auth-card-tagline">
+            {authView === "login"
+              ? `Sign in to continue on ${APP_NAME}`
+              : `Join ${APP_NAME} — demo & live trading`}
+          </p>
+        </div>
 
-            <div className="auth-tabs" role="tablist" aria-label="Login or register">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={authView === "login"}
-                className={authView === "login" ? "tab active" : "tab"}
-                onClick={() => onViewChange("login")}
-              >
-                Log in
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={authView === "register"}
-                className={authView === "register" ? "tab active" : "tab"}
-                onClick={() => onViewChange("register")}
-              >
-                Register
-              </button>
-            </div>
+        <div className="auth-tabs" role="tablist" aria-label="Login or register">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authView === "login"}
+            className={authView === "login" ? "tab active" : "tab"}
+            onClick={() => onViewChange("login")}
+          >
+            Log in
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={authView === "register"}
+            className={authView === "register" ? "tab active" : "tab"}
+            onClick={() => onViewChange("register")}
+          >
+            Register
+          </button>
+        </div>
 
-            <form className="auth-form" onSubmit={onAuthSubmit}>
-              {authView === "register" ? (
-                <label>
-                  Full name
-                  <input
-                    type="text"
-                    value={registerForm.name}
-                    onChange={(event) =>
-                      onRegisterFormChange((current) => ({
-                        ...current,
-                        name: event.target.value
-                      }))
-                    }
-                    placeholder="Your name"
-                    autoComplete="name"
-                  />
-                </label>
-              ) : null}
+        <form className="auth-form" onSubmit={onAuthSubmit}>
+          {authView === "register" ? (
+            <label>
+              Full name
+              <input
+                type="text"
+                value={registerForm.name}
+                onChange={(event) =>
+                  onRegisterFormChange((current) => ({
+                    ...current,
+                    name: event.target.value
+                  }))
+                }
+                placeholder="Your name"
+                autoComplete="name"
+              />
+            </label>
+          ) : null}
 
               {authView === "register" ? (
                 <div className="auth-phone-combo" role="group" aria-label="Phone number">
@@ -4249,58 +4251,58 @@ function AuthScreen({
                   <div className="auth-phone-combo-inner">
                     <div className="auth-phone-cc-field">
                       <AuthDialCodeFlag dialCode={loginForm.countryCode} />
-                      <input
+              <input
                         className="auth-phone-cc-input"
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={4}
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
                         value={loginForm.countryCode}
-                        onChange={(event) => {
-                          const v = event.target.value.replace(/\D/g, "").slice(0, 4);
-                          onLoginFormChange((c) => ({ ...c, countryCode: v }));
-                        }}
-                        placeholder="91"
-                        autoComplete="tel-country-code"
-                        aria-label="Country calling code e.g. 91 India, 92 Pakistan"
-                      />
+                onChange={(event) => {
+                  const v = event.target.value.replace(/\D/g, "").slice(0, 4);
+                    onLoginFormChange((c) => ({ ...c, countryCode: v }));
+                }}
+                placeholder="91"
+                autoComplete="tel-country-code"
+                aria-label="Country calling code e.g. 91 India, 92 Pakistan"
+              />
                     </div>
                     <span className="auth-phone-combo-divider" aria-hidden />
-                    <input
+              <input
                       className="auth-phone-num-input"
-                      type="tel"
-                      inputMode="numeric"
+                type="tel"
+                inputMode="numeric"
                       value={loginForm.phone}
-                      onChange={(event) => {
-                        const v = event.target.value.replace(/\D/g, "").slice(0, 15);
-                        onLoginFormChange((c) => ({ ...c, phone: v }));
-                      }}
-                      placeholder="9876543210"
-                      autoComplete="tel-national"
+                onChange={(event) => {
+                  const v = event.target.value.replace(/\D/g, "").slice(0, 15);
+                    onLoginFormChange((c) => ({ ...c, phone: v }));
+                }}
+                placeholder="9876543210"
+                autoComplete="tel-national"
                       aria-label="Mobile number without country code"
-                    />
-                  </div>
+              />
+          </div>
                 </div>
               )}
 
               <label className="auth-field-password">
-                Password
+            Password
                 <div className="auth-password-field">
-                  <input
+            <input
                     className="auth-password-input"
                     type={showAuthPassword ? "text" : "password"}
-                    value={authView === "login" ? loginForm.password : registerForm.password}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      if (authView === "login") {
-                        onLoginFormChange((current) => ({ ...current, password: value }));
-                        return;
-                      }
+              value={authView === "login" ? loginForm.password : registerForm.password}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (authView === "login") {
+                  onLoginFormChange((current) => ({ ...current, password: value }));
+                  return;
+                }
 
-                      onRegisterFormChange((current) => ({ ...current, password: value }));
-                    }}
+                onRegisterFormChange((current) => ({ ...current, password: value }));
+              }}
                     placeholder="Enter your password"
-                    autoComplete={authView === "login" ? "current-password" : "new-password"}
-                  />
+              autoComplete={authView === "login" ? "current-password" : "new-password"}
+            />
                   <button
                     type="button"
                     className="auth-password-eye"
@@ -4344,7 +4346,7 @@ function AuthScreen({
                     )}
                   </button>
                 </div>
-              </label>
+          </label>
 
               {authView === "login" ? (
                 <p className="muted" style={{ margin: "-6px 0 0" }}>
@@ -4354,23 +4356,23 @@ function AuthScreen({
                 </p>
               ) : null}
 
-              {authView === "register" ? (
-                <label>
+          {authView === "register" ? (
+            <label>
                   Promotion code <span className="muted">(optional)</span>
-                  <input
-                    type="text"
-                    value={registerForm.referralCode}
-                    onChange={(event) =>
-                      onRegisterFormChange((current) => ({
-                        ...current,
-                        referralCode: event.target.value.toUpperCase()
-                      }))
-                    }
-                    placeholder="Friend's code"
-                    autoComplete="off"
-                  />
-                </label>
-              ) : null}
+              <input
+                type="text"
+                value={registerForm.referralCode}
+                onChange={(event) =>
+                  onRegisterFormChange((current) => ({
+                    ...current,
+                    referralCode: event.target.value.toUpperCase()
+                  }))
+                }
+                placeholder="Friend's code"
+                autoComplete="off"
+              />
+            </label>
+          ) : null}
 
               {authView === "register" ? (
                 <p className="auth-register-consent muted">
@@ -4386,26 +4388,26 @@ function AuthScreen({
                 </p>
               ) : null}
 
-              <button type="submit" disabled={authBusy}>
-                {authBusy ? "Please wait..." : authView === "login" ? "Login" : "Create account"}
-              </button>
-            </form>
+          <button type="submit" disabled={authBusy}>
+            {authBusy ? "Please wait..." : authView === "login" ? "Login" : "Create account"}
+          </button>
+        </form>
 
-            <p className="auth-footer">
-              {authView === "login" ? "New here?" : "Already have an account?"}{" "}
+        <p className="auth-footer">
+          {authView === "login" ? "New here?" : "Already have an account?"}{" "}
               <button
                 type="button"
                 className="link-inline"
                 onClick={() => onViewChange(authView === "login" ? "register" : "login")}
               >
-                {authView === "login" ? "Register" : "Login"}
-              </button>
-            </p>
+            {authView === "login" ? "Register" : "Login"}
+          </button>
+        </p>
             <AuthLegalFooter onOpenTerms={onOpenTerms} onOpenPrivacy={onOpenPrivacy} />
           </>
         )}
       </section>
-      </div>
+    </div>
     </div>
   );
 }
@@ -4726,8 +4728,8 @@ function LiveChart({
   return (
     <div className={`chart-card tv-chart chart-wrapper-ref${isMobileChart ? " tv-chart-mobile" : ""}`}>
       {!isMobileChart ? (
-        <div className="chart-meta tv-chart-toolbar">
-          <div className="tv-toolbar-left">
+      <div className="chart-meta tv-chart-toolbar">
+        <div className="tv-toolbar-left">
             <strong className="tv-symbol">
               <AssetPairFlags symbol={symbol} className="tv-symbol-flags" />
               {pairLabel}
@@ -4742,11 +4744,11 @@ function LiveChart({
               title={`O ${fp(current.open)} H ${fp(current.high)} L ${fp(current.low)} C ${fp(current.close)}`}
             >
               O {fp(current.open)} H {fp(current.high)} L {fp(current.low)} C {fp(current.close)}
-            </span>
-            <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
-              {change >= 0 ? "+" : ""}
-              {change.toFixed(4)} ({changePct.toFixed(2)}%)
-            </span>
+          </span>
+          <span className={change >= 0 ? "tv-change up" : "tv-change down"}>
+            {change >= 0 ? "+" : ""}
+            {change.toFixed(4)} ({changePct.toFixed(2)}%)
+          </span>
             <span className="tv-chart-extra-stats" aria-label="Current candle metrics">
               <span className="tv-stat tv-stat--range" title="Range (high − low), this candle">
                 <span className="tv-stat-label">R</span>
@@ -4779,8 +4781,8 @@ function LiveChart({
                 </>
               ) : null}
             </span>
-          </div>
-          <div className="chart-meta-right tv-chart-meta">
+        </div>
+        <div className="chart-meta-right tv-chart-meta">
             <span
               className={`tv-chart-candle-timer${
                 tickDirection === "up"
@@ -4799,8 +4801,8 @@ function LiveChart({
               ·
             </span>
             <span title={`Open trades: ${openTrades.length}`}>Trades: {openTrades.length}</span>
-          </div>
         </div>
+      </div>
       ) : null}
       <div className="chart-svg-wrap chart-lw-wrap">
         {aiHint ? (

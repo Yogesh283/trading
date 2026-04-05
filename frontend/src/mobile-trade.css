@@ -1812,6 +1812,18 @@ html.cap-native .mobile-dock-apk-row {
   transition: filter 0.2s ease, opacity 0.2s ease;
 }
 
+/* Bottom nav — AI tab uses public/chart-ai-icon.png (same asset as chart toolbar) */
+.mobile-dock-icon-slot .mobile-dock-ai-bitmap.chart-ai-insight-icon--bitmap {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.app-mobile-trade .mobile-dock-icon-slot .mobile-dock-ai-bitmap.chart-ai-insight-icon--bitmap {
+  width: 21px;
+  height: 21px;
+}
+
 .mobile-dock-item.mobile-dock-cell:not(.active) .mobile-dock-fg-icon {
   filter: var(--dock-icon-filter-inactive, grayscale(0.35) brightness(0.78) opacity(0.9));
 }
