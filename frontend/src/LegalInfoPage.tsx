@@ -1,6 +1,6 @@
 import "./landing.css";
 import "./about.css";
-import { APP_NAME, LEGAL_LAST_UPDATED_ISO, SUPPORT_EMAIL } from "./appBrand";
+import { APP_NAME, LEGAL_LAST_UPDATED_ISO, SUPPORT_EMAIL, SUPPORT_TELEGRAM_URL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
 export type LegalDocKind = "terms" | "privacy";
@@ -204,6 +204,10 @@ export default function LegalInfoPage(props: Props) {
               <p className="about-income-intro">
                 Questions about these Terms:{" "}
                 <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                {" · "}
+                <a href={SUPPORT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+                  Telegram
+                </a>
               </p>
             </section>
           </>
@@ -215,7 +219,11 @@ export default function LegalInfoPage(props: Props) {
                 This policy applies to personal data processed in connection with {APP_NAME} services accessed via the web
                 or compatible clients. The operator responsible for the platform is identified in your account area or
                 contact correspondence; privacy requests may be sent to{" "}
-                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+                <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> or via{" "}
+                <a href={SUPPORT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+                  Telegram
+                </a>
+                .
               </p>
             </section>
             <section className="about-block" aria-labelledby="priv-collect">
@@ -319,6 +327,10 @@ export default function LegalInfoPage(props: Props) {
               <p className="about-income-intro">
                 For privacy questions or requests:{" "}
                 <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                {" · "}
+                <a href={SUPPORT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+                  Telegram
+                </a>
               </p>
             </section>
           </>
@@ -345,6 +357,10 @@ export default function LegalInfoPage(props: Props) {
         <p className="about-footer-contact">
           Contact:{" "}
           <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+          {" · "}
+          <a href={SUPPORT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+            Telegram
+          </a>
         </p>
       </footer>
     </div>

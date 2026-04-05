@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import "./landing.css";
-import { APP_NAME, APK_DOWNLOAD_URL, SUPPORT_EMAIL } from "./appBrand";
+import { APP_NAME, APK_DOWNLOAD_URL, SUPPORT_EMAIL, SUPPORT_TELEGRAM_URL } from "./appBrand";
 import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
 import { isCapacitorNativeClient } from "./androidAppUpdate";
@@ -681,6 +681,15 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
           Contact:{" "}
           <a href={`mailto:${SUPPORT_EMAIL}`} className="landing-footer-mail">
             {SUPPORT_EMAIL}
+          </a>
+          {" · "}
+          <a
+            href={SUPPORT_TELEGRAM_URL}
+            className="landing-footer-mail"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Telegram
           </a>
         </p>
         <p className="landing-footer-about">

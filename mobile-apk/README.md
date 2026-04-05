@@ -109,6 +109,40 @@ npx cap open android
 
 The first time, **Android SDK** and **JDK 17** must be installed.
 
+### Play Store — Android App Bundle (`.aab`)
+
+Google Play needs a **signed** **Android App Bundle**, not a raw APK, for new listings and most updates.
+
+1. **Sync web assets into the Android project** (from repo root or `mobile-apk`):
+
+   ```bash
+   cd mobile-apk
+   npm install
+   npx cap sync android
+   ```
+
+2. Open **`mobile-apk/android`** in **Android Studio** (File → Open → select the `android` folder).
+
+3. **Build → Generate Signed App Bundle / APK…**
+
+4. Select **Android App Bundle** → **Next**.
+
+5. **Key store:** use your existing upload key, or **Create new…** and save the `.jks` / password in a safe place (you will need the same key for every update).
+
+6. Select **release** → **Finish**.
+
+7. The **`.aab`** file is created under:
+
+   `mobile-apk/android/app/build/outputs/bundle/release/app-release.aab`
+
+   (exact name may include flavors; use the `.aab` under `bundle/release`.)
+
+8. In [Google Play Console](https://play.google.com/console) → your app → **Release** → **Production** (or testing track) → **Create new release** → upload that `.aab`.
+
+**Version bumps (required for each Play upload):** edit `mobile-apk/android/app/build.gradle` — raise **`versionCode`** (integer, must increase every upload) and **`versionName`** (e.g. `1.0.1`) → sync → rebuild the bundle.
+
+**CLI (optional, after you configure signing in `build.gradle`):** from `mobile-apk/android` run `.\gradlew.bat bundleRelease` (Windows) or `./gradlew bundleRelease` (macOS/Linux). Without signing config, prefer the Studio wizard above.
+
 ## HTTP (non-SSL) dev server
 
 If `server.url` is **http://**, add this on the `<application>` element in `android/app/src/main/AndroidManifest.xml`:

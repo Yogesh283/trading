@@ -7,6 +7,13 @@ export const APP_NAME = "IQFX Pro";
 export const SUPPORT_EMAIL = "support@iqfxpro.com";
 
 /**
+ * Official Telegram (channel / support): https://t.me/IQFxP
+ * Optional build override: `VITE_TELEGRAM_URL` in `frontend/.env` (full https://t.me/… URL).
+ */
+export const SUPPORT_TELEGRAM_URL =
+  (import.meta.env.VITE_TELEGRAM_URL as string | undefined)?.trim() || "https://t.me/IQFxP";
+
+/**
  * Shown on Terms & Privacy (“Last updated”). Update when you change legal text.
  * Format: ISO date string (YYYY-MM-DD).
  */

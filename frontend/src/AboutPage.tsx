@@ -1,6 +1,6 @@
 import "./landing.css";
 import "./about.css";
-import { APP_NAME, SUPPORT_EMAIL } from "./appBrand";
+import { APP_NAME, SUPPORT_EMAIL, SUPPORT_TELEGRAM_URL } from "./appBrand";
 import { BrandLogo } from "./BrandLogo";
 
 type Props =
@@ -260,6 +260,10 @@ export default function AboutPage(props: Props) {
             <a href={`mailto:${SUPPORT_EMAIL}`} className="about-qx-mail">
               {SUPPORT_EMAIL}
             </a>
+            , or join us on{" "}
+            <a href={SUPPORT_TELEGRAM_URL} className="about-qx-mail" target="_blank" rel="noopener noreferrer">
+              Telegram
+            </a>
             .
           </p>
         </section>
@@ -296,6 +300,10 @@ export default function AboutPage(props: Props) {
         <p>{APP_NAME} · Forex-style charts · Up / Down contracts · Demo &amp; live wallet</p>
         <p className="about-footer-contact">
           <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+          {" · "}
+          <a href={SUPPORT_TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
+            Telegram
+          </a>
         </p>
       </footer>
     </div>

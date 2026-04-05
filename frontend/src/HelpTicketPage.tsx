@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createSupportTicket, loadSupportTickets, type SupportTicket } from "./api";
 import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
-import { SUPPORT_EMAIL } from "./appBrand";
+import { SUPPORT_EMAIL, SUPPORT_TELEGRAM_URL } from "./appBrand";
 import { useGlobalAlert } from "./GlobalAlertContext";
 
 type Props = {
@@ -61,6 +61,10 @@ export default function HelpTicketPage({ token }: Props) {
           can also email{" "}
           <a href={`mailto:${SUPPORT_EMAIL}`} className="help-ticket-mail">
             {SUPPORT_EMAIL}
+          </a>{" "}
+          or reach us on{" "}
+          <a href={SUPPORT_TELEGRAM_URL} className="help-ticket-mail" target="_blank" rel="noopener noreferrer">
+            Telegram
           </a>
           .
         </p>
