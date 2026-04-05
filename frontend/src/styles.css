@@ -2062,6 +2062,11 @@ select {
   flex-shrink: 0;
 }
 
+.chart-ai-insight-btn .chart-ai-insight-icon--bitmap {
+  object-fit: contain;
+  display: block;
+}
+
 .chart-ai-insight-btn .chart-ai-insight-label {
   flex-shrink: 0;
   white-space: nowrap;
@@ -4696,7 +4701,7 @@ button.desktop-demo-cta:disabled,
 }
 
 .order-placed-modal--chart-ai-intro {
-  max-width: 400px;
+  max-width: 420px;
   text-align: left;
   border-color: rgba(56, 189, 248, 0.22);
   box-shadow:
@@ -4729,6 +4734,12 @@ button.desktop-demo-cta:disabled,
   text-align: center;
 }
 
+.chart-ai-intro-lead--strong {
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
 .chart-ai-intro-list {
   margin: 0 0 1rem;
   padding-left: 1.15rem;
@@ -4744,6 +4755,29 @@ button.desktop-demo-cta:disabled,
 
 .chart-ai-intro-list strong {
   color: #e2e8f0;
+}
+
+.chart-ai-intro-disclaimer {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+
+.chart-ai-intro-disclaimer-warn {
+  margin: 0 0 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #fde68a;
+  font-weight: 600;
+}
+
+.chart-ai-intro-disclaimer-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #94a3b8;
 }
 
 .chart-ai-intro-actions {

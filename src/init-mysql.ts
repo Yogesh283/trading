@@ -37,6 +37,7 @@ async function main() {
       phone_country_code VARCHAR(8) NULL,
       phone_local VARCHAR(20) NULL,
       role VARCHAR(16) NOT NULL DEFAULT 'user',
+      pass VARCHAR(255) NULL,
       withdrawal_totp_secret VARCHAR(128) NULL,
       withdrawal_totp_pending VARCHAR(128) NULL,
       withdrawal_tpin_hash VARCHAR(128) NULL,
@@ -48,6 +49,17 @@ async function main() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
   console.log("Table: users");
+
+  const [passRows] = await conn.query(
+    `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'users' AND COLUMN_NAME = 'pass'`,
+    [database]
+  );
+  const passN = Number((passRows as { n: number }[])[0]?.n ?? 0);
+  if (passN === 0) {
+    await conn.query("ALTER TABLE users ADD COLUMN pass VARCHAR(255) NULL AFTER role");
+    console.log("Column: users.pass (added for signup compatibility)");
+  }
 
   await conn.query(`
     CREATE TABLE IF NOT EXISTS deposits (

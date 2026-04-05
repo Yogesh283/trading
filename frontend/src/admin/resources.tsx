@@ -420,21 +420,6 @@ export function TransactionList() {
   );
 }
 
-export function UserInvestmentList() {
-  return (
-    <List perPage={25} sort={{ field: "user_id", order: "ASC" }} filters={adminSearchFilter}>
-      <Datagrid rowClick={false} bulkActionButtons={false}>
-        <TextField source="user_id" label="User id" />
-        <TextField source="user_mobile" label="Mobile" emptyText="—" />
-        <NumberField source="principal" options={{ maximumFractionDigits: 2 }} />
-        <TextField source="locked_until" label="Locked until" emptyText="—" />
-        <TextField source="last_yield_date" label="Last yield" emptyText="—" />
-        <TextField source="last_monthly_yield_ym" label="Last ROI month (UTC)" emptyText="—" />
-      </Datagrid>
-    </List>
-  );
-}
-
 export function MarketTickList() {
   return (
     <List perPage={50} sort={{ field: "timestamp", order: "DESC" }} filters={adminSearchFilter}>

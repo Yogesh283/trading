@@ -89,10 +89,10 @@ import GlobalRefreshButton from "./GlobalRefreshButton";
 import { useGlobalAlert } from "./GlobalAlertContext";
 import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
 import {
+  DockIconAi,
   DockIconHome,
   DockIconMarkets,
   DockIconPromotionDiamond,
-  DockIconTag,
   DockIconTradeBars,
   DockIconWalletTab,
   DrawerIconAbout,
@@ -157,6 +157,7 @@ function formatAuthDatabaseDetail(db: AuthDatabaseInfo | undefined): string | un
 
 /** Fallback until /api/markets loads (matches server FOREX_SYMBOLS). */
 const FOREX_SYMBOLS_DEFAULT = [
+  "XAUUSD",
   "EURUSD",
   "GBPUSD",
   "USDJPY",
@@ -176,11 +177,10 @@ const FOREX_SYMBOLS_DEFAULT = [
   "USDNOK",
   "USDTRY",
   "USDMXN",
-  "USDZAR",
-  "XAUUSD"
+  "USDZAR"
 ] as const;
 
-/** `?symbol=EURUSD` or path `/EURUSD` (single segment) — must match server symbol list when possible. */
+/** `?symbol=XAUUSD` or path `/XAUUSD` (single segment) — must match server symbol list when possible. */
 function readSymbolFromUrl(): string | null {
   try {
     const q = new URLSearchParams(window.location.search);
@@ -312,7 +312,7 @@ export default function App() {
   /** Server `chart_candles` (closed bars) keyed `${symbol}:${timeframeSec}` — merged with WebSocket LivePrice ticks. */
   const [dbClosedCandles, setDbClosedCandles] = useState<Record<string, CandlePoint[]>>({});
   const [status, setStatus] = useState("Connecting...");
-  const [symbol, setSymbol] = useState("EURUSD");
+  const [symbol, setSymbol] = useState("XAUUSD");
   const [pairNames, setPairNames] = useState<Record<string, string>>({});
   const [forexSymbolList, setForexSymbolList] = useState<string[]>([...FOREX_SYMBOLS_DEFAULT]);
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -1229,6 +1229,16 @@ export default function App() {
         showAlert("Sign in to use AI insight.", "error");
         return;
       }
+      /** First AI click per user: show disclaimer before wallet / API (demo users see it too). */
+      if (
+        !skipIntro &&
+        session.user?.id &&
+        typeof window !== "undefined" &&
+        !window.localStorage.getItem(`${CHART_AI_INTRO_STORAGE_KEY}:${session.user.id}`)
+      ) {
+        setChartAiIntroOpen(true);
+        return;
+      }
       if (accountWallet !== "live") {
         showAlert("AI insight uses your live wallet (₹1 per use). Switch to Live in the header.", "info");
         return;
@@ -1238,15 +1248,6 @@ export default function App() {
           `Add at least ₹${AI_CHART_INSIGHT_MIN_INR} to your live wallet to use AI insight.`,
           "error"
         );
-        return;
-      }
-      if (
-        !skipIntro &&
-        session.user?.id &&
-        typeof window !== "undefined" &&
-        !window.localStorage.getItem(`${CHART_AI_INTRO_STORAGE_KEY}:${session.user.id}`)
-      ) {
-        setChartAiIntroOpen(true);
         return;
       }
       setAiInsightLoading(true);
@@ -2409,11 +2410,9 @@ export default function App() {
         />
       ) : dashboardSection === "offers" ? (
         <MobileOffersPage
-          token={session.token}
           referralCode={session.user.selfReferralCode}
           demoBal={dualBalances.demo}
           liveBal={dualBalances.live}
-          onInvestmentChanged={() => void refresh()}
         />
       ) : dashboardSection === "assets" ? (
         <MobileAssetsPage
@@ -2571,7 +2570,7 @@ export default function App() {
                   "…"
                 ) : (
                   <>
-                    <AiChartInsightIcon className="chart-ai-insight-icon" />
+                    <AiChartInsightIcon variant="chart" className="chart-ai-insight-icon" />
                     <span className="chart-ai-insight-label">AI</span>
                   </>
                 )}
@@ -3041,7 +3040,7 @@ export default function App() {
                   "…"
                 ) : (
                   <>
-                    <AiChartInsightIcon className="chart-ai-insight-icon" />
+                    <AiChartInsightIcon variant="chart" className="chart-ai-insight-icon" />
                     <span className="chart-ai-insight-label">AI insight</span>
                   </>
                 )}
@@ -3596,11 +3595,12 @@ export default function App() {
                 setDashboardSection("offers");
               }}
               aria-current={dashboardSection === "offers" ? "page" : undefined}
+              aria-label="AI"
             >
               <span className="mobile-dock-icon-slot" aria-hidden>
-                <DockIconTag />
+                <DockIconAi />
               </span>
-              <span className="mobile-dock-label">Offers</span>
+              <span className="mobile-dock-label">AI</span>
             </button>
           </nav>
         </div>
@@ -3760,28 +3760,24 @@ export default function App() {
               <AiChartInsightIcon className="chart-ai-insight-icon chart-ai-insight-icon--modal" />
             </div>
             <h2 id="chart-ai-intro-title" className="order-placed-title">
-              Chart AI — how it works
+              Chart AI
             </h2>
-            <p id="chart-ai-intro-desc" className="chart-ai-intro-lead">
-              First time — read this before you continue.
+            <p id="chart-ai-intro-desc" className="chart-ai-intro-lead chart-ai-intro-lead--strong">
+              Get AI-based direction for your selected timeframe.
             </p>
             <ul className="chart-ai-intro-list">
+              <li>Works only on Live Wallet</li>
               <li>
-                <strong>Live only</strong> — Chart AI is not available on Demo. Select <strong>Live</strong> in the
-                header.
+                Predicts: UP <span aria-hidden>📈</span> or DOWN <span aria-hidden>📉</span>
               </li>
-              <li>
-                <strong>₹1 per use</strong> — Each successful request debits ₹1 from your live wallet. You need at least
-                ₹1 available balance.
-              </li>
-              <li>
-                <strong>Chart hint</strong> — A short directional overlay on the chart for the current period
-                (educational; not a profit guarantee).
-              </li>
-              <li>
-                <strong>Server AI</strong> — Only a chart snapshot / context is sent to the server (OpenAI-style API).
-              </li>
+              <li>Cost: ₹1 per use</li>
             </ul>
+            <div className="chart-ai-intro-disclaimer" role="note">
+              <p className="chart-ai-intro-disclaimer-warn">
+                <span aria-hidden>⚠️</span> Educational only. Not financial advice.
+              </p>
+              <p className="chart-ai-intro-disclaimer-sub">Accuracy is not guaranteed. Use at your own risk.</p>
+            </div>
             <div className="chart-ai-intro-actions">
               <button type="button" className="order-placed-ok" onClick={handleChartAiIntroContinue}>
                 Continue
@@ -4150,7 +4146,7 @@ function AuthScreen({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     )}
@@ -4342,7 +4338,7 @@ function AuthScreen({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M1 12s4 8 11 8 11-8 11-8-4-8-11-8-11 8z" />
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     )}

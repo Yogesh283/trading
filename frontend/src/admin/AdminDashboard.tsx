@@ -36,8 +36,6 @@ type Stats = {
   pendingWithdrawalsCount: number;
   totalLiveWalletInr: number;
   totalDemoWalletInr: number;
-  investorsWithPrincipal: number;
-  totalInvestmentPrincipalInr: number;
   usersLoggedInTodayUtc: number;
   usersLoggedInTodayUtcDate: string;
   usersLoggedInTodayUtcIds?: string[];
@@ -284,14 +282,6 @@ export function AdminDashboard() {
               onNavigate={() => goList("wallets")}
             />
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-            <StatCard
-              title="Active investments"
-              value={String(stats.investorsWithPrincipal)}
-              subtitle={`Principal total ₹${stats.totalInvestmentPrincipalInr.toFixed(2)}`}
-              onNavigate={() => goList("user_investments")}
-            />
-          </Grid>
         </Grid>
 
         <Paper variant="outlined" sx={{ p: 2, mt: 2, maxWidth: 960, bgcolor: "background.paper" }}>
@@ -320,7 +310,7 @@ export function AdminDashboard() {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           Deposits: credited USDT only. Withdrawals: completed USDT only (paid out). Profit: live binary settles today minus
-          referral payouts (level income). Not full accounting — excludes investment yield, fees, etc.
+          referral payouts (level income). Not full accounting — excludes fees, etc.
         </Typography>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>

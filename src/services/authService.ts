@@ -11,7 +11,6 @@ import {
 } from "./walletStore";
 import { validateInviterReferralCode, allocateUniqueSelfReferralCode } from "./referralService";
 import { getReferralLevelConfigPayload } from "./referralLevelConfigService";
-import { listInvestmentRoiLevelRows } from "./investmentRoiLevelService";
 import { LEVEL_INCOME_DEPTH } from "../config/referral";
 import { formatAdminMobile } from "../utils/adminMobile";
 
@@ -1022,18 +1021,14 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   directTotalLiveBalanceInr: number;
   /** Sum of credited USDT deposits across direct referrals only. */
   directTeamTotalDepositsUsdt: number;
-  /** Today (IST) referral commissions credited to your live wallet (betting + staking + investment ROI). */
+  /** Today (IST) referral commissions from live binary stakes (`level_income`). */
   totalReferralCommissionInr: number;
   /** Today (IST), `level_income`. */
   bettingCommissionInr: number;
-  /** Today (IST), `level_income_staking`. */
-  stakingCommissionInr: number;
-  /** Today (IST), `level_income_roi`. */
-  investmentRoiCommissionInr: number;
   referralProgramEnabled: boolean;
   /** Example stake used for “Income (example)” column on promotion page. */
   levelIncomeExampleStakeInr: number;
-  /** Per-upline % of live binary stake and investment add stake (same schedule). */
+  /** Per-upline % of live binary stake (referral level config). */
   betStakeLevelSchedule: Array<{
     level: number;
     uplineLabel: string;
@@ -1041,17 +1036,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     percentLabel: string;
     paysOut: boolean;
     exampleIncomeInr: number;
-    /** Today (IST) credited from this depth (binary + staking `level_income*`). */
-    receivedInr: number;
-  }>;
-  /** Per-upline % of gross monthly investment ROI when yield is distributed. */
-  monthlyRoiLevelSchedule: Array<{
-    level: number;
-    uplineLabel: string;
-    fractionOfGrossYield: number;
-    percentLabel: string;
-    paysOut: boolean;
-    /** Today (IST) credited from this depth (`level_income_roi`). */
+    /** Today (IST) credited from this depth (`level_income`). */
     receivedInr: number;
   }>;
 }> {
@@ -1073,41 +1058,22 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
   const myCode = String(me.self_referral_code ?? "").trim();
   const { startIso, endIso } = getIstDayUtcIsoBounds();
 
-  const commissionRows = await dbAll<{ txn_type: string; total: number | string | null }>(
-    `SELECT txn_type, COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ? GROUP BY txn_type`,
+  const commissionAgg = await dbGet<{ total: number | string | null }>(
+    `SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id = ? AND txn_type = 'level_income' AND created_at >= ? AND created_at < ?`,
     [uid, startIso, endIso]
   );
-  let bettingCommissionInr = 0;
-  let stakingCommissionInr = 0;
-  let investmentRoiCommissionInr = 0;
-  for (const r of commissionRows) {
-    const t = Number(r.total ?? 0);
-    if (r.txn_type === "level_income") {
-      bettingCommissionInr += t;
-    } else if (r.txn_type === "level_income_staking") {
-      stakingCommissionInr += t;
-    } else if (r.txn_type === "level_income_roi") {
-      investmentRoiCommissionInr += t;
-    }
-  }
-  const totalReferralCommissionInr = Number(
-    (bettingCommissionInr + stakingCommissionInr + investmentRoiCommissionInr).toFixed(4)
-  );
-  bettingCommissionInr = Number(bettingCommissionInr.toFixed(4));
-  stakingCommissionInr = Number(stakingCommissionInr.toFixed(4));
-  investmentRoiCommissionInr = Number(investmentRoiCommissionInr.toFixed(4));
+  const bettingCommissionInr = Number(Number(commissionAgg?.total ?? 0).toFixed(4));
+  const totalReferralCommissionInr = bettingCommissionInr;
 
   const levelIncomeRows = await dbAll<{
     txn_type: string;
     reference_id: string | null;
     amount: number | string | null;
   }>(
-    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type IN ('level_income','level_income_staking','level_income_roi') AND created_at >= ? AND created_at < ?`,
+    `SELECT txn_type, reference_id, amount FROM transactions WHERE user_id = ? AND txn_type = 'level_income' AND created_at >= ? AND created_at < ?`,
     [uid, startIso, endIso]
   );
   const betRecvByLevel = new Map<number, number>();
-  const stakeRecvByLevel = new Map<number, number>();
-  const roiRecvByLevel = new Map<number, number>();
   for (const r of levelIncomeRows) {
     const lv = parseReferralLevelFromReferenceId(r.reference_id);
     if (lv == null) {
@@ -1116,10 +1082,6 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     const amt = Number(r.amount ?? 0);
     if (r.txn_type === "level_income") {
       betRecvByLevel.set(lv, (betRecvByLevel.get(lv) ?? 0) + amt);
-    } else if (r.txn_type === "level_income_staking") {
-      stakeRecvByLevel.set(lv, (stakeRecvByLevel.get(lv) ?? 0) + amt);
-    } else if (r.txn_type === "level_income_roi") {
-      roiRecvByLevel.set(lv, (roiRecvByLevel.get(lv) ?? 0) + amt);
     }
   }
 
@@ -1208,10 +1170,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     .map(({ depth: _d, ...rest }) => rest);
 
   const LEVEL_INCOME_EXAMPLE_STAKE_INR = 1000;
-  const [refCfg, roiLevelRows] = await Promise.all([
-    getReferralLevelConfigPayload(),
-    listInvestmentRoiLevelRows()
-  ]);
+  const refCfg = await getReferralLevelConfigPayload();
   const programOn = refCfg.referralProgramEnabled;
   const betStakeLevelSchedule = refCfg.levels
     .slice()
@@ -1223,9 +1182,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
       const exampleIncomeInr = paysOut
         ? Number((LEVEL_INCOME_EXAMPLE_STAKE_INR * fractionOfStake).toFixed(2))
         : 0;
-      const receivedInr = Number(
-        ((betRecvByLevel.get(row.level) ?? 0) + (stakeRecvByLevel.get(row.level) ?? 0)).toFixed(4)
-      );
+      const receivedInr = Number((betRecvByLevel.get(row.level) ?? 0).toFixed(4));
       return {
         level: row.level,
         uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
@@ -1233,24 +1190,6 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
         percentLabel: formatFractionAsPercentLabel(fractionOfStake),
         paysOut,
         exampleIncomeInr,
-        receivedInr
-      };
-    });
-
-  const monthlyRoiLevelSchedule = roiLevelRows
-    .slice()
-    .sort((a, b) => a.level - b.level)
-    .map((row) => {
-      const frac = Number(row.percentOfGrossYield);
-      const fractionOfGrossYield = Number.isFinite(frac) ? frac : 0;
-      const paysOut = row.enabled && fractionOfGrossYield > 0;
-      const receivedInr = Number((roiRecvByLevel.get(row.level) ?? 0).toFixed(4));
-      return {
-        level: row.level,
-        uplineLabel: row.level === 1 ? "Level 1 — direct inviter" : `Level ${row.level} upline`,
-        fractionOfGrossYield,
-        percentLabel: formatFractionAsPercentLabel(fractionOfGrossYield),
-        paysOut,
         receivedInr
       };
     });
@@ -1269,12 +1208,9 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     directTeamTotalDepositsUsdt,
     totalReferralCommissionInr,
     bettingCommissionInr,
-    stakingCommissionInr,
-    investmentRoiCommissionInr,
     referralProgramEnabled: programOn,
     levelIncomeExampleStakeInr: LEVEL_INCOME_EXAMPLE_STAKE_INR,
-    betStakeLevelSchedule,
-    monthlyRoiLevelSchedule
+    betStakeLevelSchedule
   };
 }
 

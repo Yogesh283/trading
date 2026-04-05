@@ -1,8 +1,27 @@
 import { useId } from "react";
 
+type AiChartInsightIconProps = {
+  className?: string;
+  /** Chart toolbar only — uses `public/chart-ai-icon.png` (SVG elsewhere). */
+  variant?: "default" | "chart";
+};
+
 /** Compact “AI chip” mark — label text lives beside this in the button (no tiny letters inside the icon). */
-export function AiChartInsightIcon({ className }: { className?: string }) {
+export function AiChartInsightIcon({ className, variant = "default" }: AiChartInsightIconProps) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  if (variant === "chart") {
+    const src = `${import.meta.env.BASE_URL}chart-ai-icon.png`.replace(/\/{2,}/g, "/");
+    return (
+      <img
+        src={src}
+        alt=""
+        className={[className, "chart-ai-insight-icon--bitmap"].filter(Boolean).join(" ")}
+        aria-hidden
+        draggable={false}
+      />
+    );
+  }
+
   const gradId = `ai-chip-g-${uid}`;
   return (
     <svg

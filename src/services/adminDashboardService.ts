@@ -37,7 +37,7 @@ async function queryNum(sql: string, params: unknown[] = []): Promise<number> {
   }
 }
 
-/** UTC midnight boundaries for “today” (same idea as daily investment yield). */
+/** UTC midnight boundaries for “today”. */
 function utcCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabel: string } {
   const now = new Date();
   const y = now.getUTCFullYear();
@@ -67,8 +67,6 @@ export type AdminDashboardStatsPayload = {
   pendingWithdrawalsCount: number;
   totalLiveWalletInr: number;
   totalDemoWalletInr: number;
-  investorsWithPrincipal: number;
-  totalInvestmentPrincipalInr: number;
   /** Distinct users table rows with `last_login_at` in today’s UTC window (successful logins only). */
   usersLoggedInTodayUtc: number;
   /** YYYY-MM-DD (UTC) for the window above. */
@@ -92,7 +90,7 @@ export type AdminDashboardStatsPayload = {
   todayCompanyBinaryGrossInr: number;
   /** Referral / level income paid today (UTC), INR — company cost. */
   todayCompanyReferralCostInr: number;
-  /** Binary gross minus referral cost (rough P/L; excludes withdrawals, investment yield, etc.). */
+  /** Binary gross minus referral cost (rough P/L; excludes withdrawals, fees, etc.). */
   todayCompanyNetProfitInr: number;
   /** UTC calendar days, newest first: submitted = new requests that day; completed = marked completed that day. */
   withdrawalsLast7Days: WithdrawalDayReportRow[];
@@ -171,9 +169,6 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
   const w = await dbGet<{ live: unknown; demo: unknown }>(
     `SELECT COALESCE(SUM(balance), 0) AS live, COALESCE(SUM(demo_balance), 0) AS demo FROM wallets`
   );
-  const inv = await dbGet<{ c: unknown; p: unknown }>(
-    `SELECT COUNT(*) AS c, COALESCE(SUM(principal), 0) AS p FROM user_investments WHERE principal > 0.0000001`
-  );
 
   const { startIso, endIso, dateLabel } = utcCalendarDayBoundsIso();
   const logins = await dbGet<{ c: unknown }>(
@@ -240,8 +235,6 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     pendingWithdrawalsCount: num(pw?.c),
     totalLiveWalletInr: num(w?.live),
     totalDemoWalletInr: num(w?.demo),
-    investorsWithPrincipal: num(inv?.c),
-    totalInvestmentPrincipalInr: num(inv?.p),
     usersLoggedInTodayUtc: loginCount,
     usersLoggedInTodayUtcDate: dateLabel,
     usersLoggedInTodayUtcIds,

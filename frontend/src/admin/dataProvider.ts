@@ -27,12 +27,7 @@ const adminApiRoot = (): string => {
 const baseAdminDataProvider = simpleRestProvider(adminApiRoot(), httpClient, "X-Total-Count");
 
 /** Custom admin pages (no React-Admin REST list backend). */
-const STUB_LIST_RESOURCES = new Set([
-  "user_insights",
-  "team_business",
-  "referral_level_settings",
-  "investment_roi_settings"
-]);
+const STUB_LIST_RESOURCES = new Set(["user_insights", "team_business", "referral_level_settings"]);
 
 /** Normalize id on edit (may arrive as number/with spaces) so URL + server stay consistent. */
 export const adminDataProvider: DataProvider = {

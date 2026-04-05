@@ -1573,7 +1573,112 @@ a.landing-ot-btn-ghost {
   box-shadow: 0 8px 38px rgba(234, 179, 8, 0.52), 0 0 0 2px rgba(234, 179, 8, 0.35);
 }
 
-/* Android APK strip (see appBrand APK_DOWNLOAD_URL) */
+/* Chart AI + public candle preview (GET /api/markets/candles — same DB as in-app chart_candles) */
+.landing-chart-ai-band {
+  padding: clamp(36px, 6vw, 52px) 20px;
+  background: linear-gradient(180deg, #0a1218 0%, #0c1016 100%);
+  border-top: 1px solid var(--ot-border);
+  border-bottom: 1px solid var(--ot-border);
+}
+
+.landing-chart-ai-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.landing-chart-ai-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.landing-chart-ai-head-ico {
+  border-radius: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 18px rgba(56, 189, 248, 0.2);
+}
+
+.landing-chart-ai-title {
+  margin: 0;
+  font-size: clamp(22px, 3.5vw, 28px);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.landing-chart-ai-lead {
+  margin: 0 0 18px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ot-muted, #9ca8b3);
+}
+
+.landing-chart-ai-lead strong {
+  color: #e8edf4;
+}
+
+.landing-chart-ai-code {
+  font-size: 0.88em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #bae6fd;
+}
+
+.landing-chart-ai-preview {
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(0, 0, 0, 0.38);
+  padding: 14px 16px 16px;
+}
+
+.landing-chart-ai-preview-label {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.landing-chart-ai-preview-status {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.landing-chart-ai-spark-wrap {
+  width: 100%;
+}
+
+.landing-chart-ai-spark {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 100px;
+}
+
+.landing-chart-ai-last {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.landing-chart-ai-last strong {
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+button.landing-pill-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Android APK strip (see appBrand APK_DOWNLOAD_URL) — single real download link lives here */
 .landing-ot-apk-band {
   padding: clamp(36px, 6vw, 56px) 20px;
   background: linear-gradient(180deg, #0c1016 0%, #080b10 100%);

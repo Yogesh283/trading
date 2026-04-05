@@ -40,6 +40,7 @@ export default function ReferralPage({ token }: Props) {
   }, [refresh]);
 
   const link = data ? buildReferralLink(data.selfReferralCode) : "";
+  const promotionHeroSrc = `${import.meta.env.BASE_URL}brand/I1.png`;
 
   const copyLink = async () => {
     if (!link) return;
@@ -64,14 +65,34 @@ export default function ReferralPage({ token }: Props) {
   return (
     <div className="funds-page referral-page">
       <div className="funds-card referral-card">
-        <div className="funds-title-row investment-title-row">
+        <div className="funds-title-row promotion-title-row">
           <BrandLogo size={40} />
           <h1>Promotion</h1>
+          <button
+            type="button"
+            className="promotion-refresh-btn"
+            onClick={() => void refresh()}
+            disabled={summaryLoading}
+            title="Refresh promotion data"
+            aria-busy={summaryLoading}
+          >
+            {summaryLoading ? "…" : "Refresh"}
+          </button>
         </div>
         <p className="funds-network">
           Share your link. Friends who register join your team. <strong>Level income</strong> and today’s commission totals
           are <strong>today (IST)</strong> only. Team lists show your full network (all time).
         </p>
+
+        <div className="promotion-hero">
+          <img
+            src={promotionHeroSrc}
+            alt=""
+            className="promotion-hero__img"
+            decoding="async"
+            loading="lazy"
+          />
+        </div>
 
         {data ? (
           <>
@@ -129,16 +150,6 @@ export default function ReferralPage({ token }: Props) {
                     <span className="referral-total-earn-src">Trading</span>
                     <span className="referral-total-earn-amt">{formatInr(data.bettingCommissionInr ?? 0)}</span>
                   </li>
-                  <li>
-                    <span className="referral-total-earn-src">Staking (investment add)</span>
-                    <span className="referral-total-earn-amt">{formatInr(data.stakingCommissionInr ?? 0)}</span>
-                  </li>
-                  <li>
-                    <span className="referral-total-earn-src">Investment monthly ROI (upline)</span>
-                    <span className="referral-total-earn-amt">
-                      {formatInr(data.investmentRoiCommissionInr ?? 0)}
-                    </span>
-                  </li>
                 </ul>
               </div>
             </section>
@@ -157,7 +168,7 @@ export default function ReferralPage({ token }: Props) {
                       <th>Level</th>
                       <th>Upline</th>
                       <th>Income (% of trading amount)</th>
-                      <th title="Credited to your live wallet from this level today (trading + staking), IST day">
+                      <th title="Credited to your live wallet from this level today (trading), IST day">
                         Today (INR)
                       </th>
                     </tr>
@@ -171,45 +182,6 @@ export default function ReferralPage({ token }: Props) {
                       </tr>
                     ) : (
                       (data.betStakeLevelSchedule ?? []).map((row) => (
-                        <tr
-                          key={row.level}
-                          className={row.paysOut ? undefined : "referral-schedule-row--off"}
-                        >
-                          <td>{row.level}</td>
-                          <td>{row.uplineLabel}</td>
-                          <td>{row.percentLabel}</td>
-                          <td>{formatInr(row.receivedInr ?? 0)}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section className="referral-section referral-section--schedule">
-              <h2 className="referral-h2">Monthly investment ROI Level Income</h2>
-              <div className="referral-table-wrap">
-                <table className="referral-table referral-schedule-table">
-                  <thead>
-                    <tr>
-                      <th>Level</th>
-                      <th>Upline</th>
-                      <th>Income (% of gross monthly yield)</th>
-                      <th title="Credited to your live wallet from this level today (monthly ROI upline), IST day">
-                        Today (INR)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.monthlyRoiLevelSchedule ?? []).length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="referral-table-empty">
-                          No ROI level schedule loaded.
-                        </td>
-                      </tr>
-                    ) : (
-                      (data.monthlyRoiLevelSchedule ?? []).map((row) => (
                         <tr
                           key={row.level}
                           className={row.paysOut ? undefined : "referral-schedule-row--off"}
@@ -351,8 +323,12 @@ export default function ReferralPage({ token }: Props) {
             </section>
           </>
         ) : summaryLoading ? (
-          <p className="muted">Loading…</p>
-        ) : null}
+          <p className="promotion-loading muted">Loading promotion data…</p>
+        ) : (
+          <p className="promotion-error muted" role="status">
+            Could not load promotion data. Tap <strong>Refresh</strong> to try again.
+          </p>
+        )}
       </div>
     </div>
   );

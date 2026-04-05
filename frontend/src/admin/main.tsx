@@ -4,11 +4,9 @@ import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import PeopleIcon from "@mui/icons-material/People";
 import SearchIcon from "@mui/icons-material/Search";
 import PaymentsIcon from "@mui/icons-material/Payments";
-import SavingsIcon from "@mui/icons-material/Savings";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShowChartIcon from "@mui/icons-material/ShowChart";
 import WalletIcon from "@mui/icons-material/Wallet";
-import PercentIcon from "@mui/icons-material/Percent";
 import GroupsIcon from "@mui/icons-material/Groups";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import React from "react";
@@ -20,7 +18,6 @@ import { adminDataProvider } from "./dataProvider";
 import { AdminLoginPage } from "./AdminLogin";
 import { AdminDashboard } from "./AdminDashboard";
 import { ReferralLevelSettingsPage } from "./ReferralLevelSettingsPage";
-import { InvestmentRoiSettingsPage } from "./InvestmentRoiSettingsPage";
 import {
   DepositList,
   MarketTickList,
@@ -29,7 +26,6 @@ import {
   SupportTicketShow,
   TransactionList,
   UserEdit,
-  UserInvestmentList,
   UserList,
   WalletEdit,
   WalletList,
@@ -94,12 +90,6 @@ ReactDOM.createRoot(adminMount).render(
           options={{ label: "Wallets" }}
         />
         <Resource name="transactions" list={TransactionList} icon={ReceiptLongIcon} options={{ label: "Transactions" }} />
-        <Resource
-          name="user_investments"
-          list={UserInvestmentList}
-          icon={SavingsIcon}
-          options={{ label: "User investments" }}
-        />
         <Resource name="market_ticks" list={MarketTickList} icon={ShowChartIcon} options={{ label: "Market ticks" }} />
         <Resource
           name="user_insights"
@@ -118,12 +108,6 @@ ReactDOM.createRoot(adminMount).render(
           list={ReferralLevelSettingsPage}
           icon={AccountTreeIcon}
           options={{ label: "Referral / level %" }}
-        />
-        <Resource
-          name="investment_roi_settings"
-          list={InvestmentRoiSettingsPage}
-          icon={PercentIcon}
-          options={{ label: "Investment ROI %" }}
         />
       </Admin>
     </ThemeProvider>

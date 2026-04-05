@@ -1248,6 +1248,72 @@
   padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
 }
 
+.referral-page .promotion-title-row {
+  margin-top: 4px;
+  align-items: center;
+}
+
+.referral-page .promotion-title-row h1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.referral-page .promotion-refresh-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.1);
+  color: #fde68a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.referral-page .promotion-refresh-btn:hover:not(:disabled) {
+  background: rgba(234, 179, 8, 0.2);
+  border-color: rgba(234, 179, 8, 0.55);
+}
+
+.referral-page .promotion-refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.referral-page .promotion-hero {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 12px 0 8px;
+}
+
+.referral-page .promotion-hero__img {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 14px;
+  border: 1px solid rgba(234, 179, 8, 0.22);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.referral-page .promotion-loading,
+.referral-page .promotion-error {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.referral-page .promotion-error strong {
+  color: #fde68a;
+  font-weight: 700;
+}
+
 .referral-page .referral-card.funds-card {
   background: #1a1c1e;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1260,10 +1326,6 @@
   color: #ffffff;
   font-weight: 800;
   letter-spacing: -0.02em;
-}
-
-.referral-page .investment-title-row {
-  margin-top: 4px;
 }
 
 .referral-page .funds-network {

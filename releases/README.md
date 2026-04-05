@@ -8,18 +8,18 @@ releases/Iqfxpro.apk
 
 Same folder level as **`frontend/`** and **`src/`** (repo root).
 
-## PC par auto-copy (Android Studio build ke baad)
+## Auto-copy on PC (after an Android Studio build)
 
 ```bash
-# Pehle Studio se APK build, phir:
+# Build the APK in Studio first, then:
 npm run copy-apk          # → frontend/public/downloads/Iqfxpro.apk
 npm run copy-apk:releases # → releases/Iqfxpro.apk
 
-# Ya ek saath:
+# Or both at once:
 npm run apk:sync
 ```
 
-Phir **`releases/Iqfxpro.apk`** ko SFTP se VPS par bhejo:
+Then upload **`releases/Iqfxpro.apk`** to the VPS via SFTP, for example:
 
 ` /home/user/htdocs/site/releases/Iqfxpro.apk `
 

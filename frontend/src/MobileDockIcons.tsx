@@ -151,7 +151,7 @@ export function DockIconPromotionDiamond(props: IconProps = {}) {
   );
 }
 
-/** Price tag — Offers */
+/** Price tag — legacy / other */
 export function DockIconTag(props: IconProps = {}) {
   const { className } = props;
   return (
@@ -164,6 +164,22 @@ export function DockIconTag(props: IconProps = {}) {
         strokeLinejoin="round"
       />
       <circle cx="8.2" cy="8.2" r="0.95" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Sparkle / hub — AI tab (bottom dock) */
+export function DockIconAi(props: IconProps = {}) {
+  const { className } = props;
+  return (
+    <svg className={cx(cls, className)} viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="2.25" fill="none" stroke="currentColor" strokeWidth="1.35" />
+      <path
+        d="M12 5.5v2.4M12 16.1v2.4M5.5 12h2.4M16.1 12h2.4M7.6 7.6l1.7 1.7M14.7 14.7l1.7 1.7M7.6 16.4l1.7-1.7M14.7 9.3l1.7-1.7"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

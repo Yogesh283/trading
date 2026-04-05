@@ -84,43 +84,6 @@ export async function listTransactionsForAdmin(): Promise<Record<string, unknown
   }
 }
 
-export async function listUserInvestmentsForAdmin(): Promise<Record<string, unknown>[]> {
-  await initAppDb();
-  try {
-    const rows = await dbAll<{
-      user_id: string;
-      principal: number;
-      locked_until: string | null;
-      last_yield_date: string | null;
-      last_monthly_yield_ym: string | null;
-      phone_country_code: string | null;
-      phone_local: string | null;
-    }>(
-      `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
-              u.phone_country_code, u.phone_local
-       FROM user_investments ui
-       LEFT JOIN users u ON u.id = ui.user_id
-       ORDER BY ui.user_id`
-    );
-    return rows.map((r) => ({
-      id: r.user_id,
-      user_id: r.user_id,
-      principal: Number(r.principal),
-      locked_until: r.locked_until,
-      last_yield_date: r.last_yield_date,
-      last_monthly_yield_ym: r.last_monthly_yield_ym,
-      user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
-    }));
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("no such table") || msg.includes("doesn't exist") || msg.includes("Unknown table")) {
-      logger.warn({ err: msg }, "user_investments table missing — admin list empty");
-      return [];
-    }
-    throw err;
-  }
-}
-
 /** React-Admin `getOne` / `getMany` single row: GET /api/admin/ra/:resource/:id */
 export async function getAdminRaOne(
   resource: string,
@@ -138,51 +101,6 @@ export async function getAdminRaOne(
     : "TRIM(CAST(user_id AS TEXT)) = TRIM(?)";
 
   switch (resource) {
-    case "user_investments": {
-      let row: {
-        user_id: string | number;
-        principal: number | string | null;
-        locked_until: string | null;
-        last_yield_date: string | null;
-        last_monthly_yield_ym: string | null;
-        phone_country_code: string | null;
-        phone_local: string | null;
-      } | undefined;
-      try {
-        row = await dbGet(
-          mysql
-            ? `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
-                      u.phone_country_code, u.phone_local
-               FROM user_investments ui
-               LEFT JOIN users u ON u.id = ui.user_id
-               WHERE ui.user_id = ? OR ${trimUserId.replace(/user_id/g, "ui.user_id")} LIMIT 1`
-            : `SELECT ui.user_id, ui.principal, ui.locked_until, ui.last_yield_date, ui.last_monthly_yield_ym,
-                      u.phone_country_code, u.phone_local
-               FROM user_investments ui
-               LEFT JOIN users u ON u.id = ui.user_id
-               WHERE ui.user_id = ? OR ${trimUserId.replace(/user_id/g, "ui.user_id")}`,
-          [id, id]
-        );
-      } catch (e) {
-        if (isMissingTableError(e)) {
-          return null;
-        }
-        throw e;
-      }
-      if (!row) {
-        return null;
-      }
-      const uid = String(row.user_id).trim();
-      return {
-        id: uid,
-        user_id: uid,
-        principal: Number(row.principal),
-        locked_until: row.locked_until,
-        last_yield_date: row.last_yield_date,
-        last_monthly_yield_ym: row.last_monthly_yield_ym,
-        user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
-      };
-    }
     case "wallets": {
       const wTrim = trimUserId.replace(/user_id/g, "w.user_id");
       let row: {

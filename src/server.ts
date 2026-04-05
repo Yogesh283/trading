@@ -6,7 +6,6 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
-import cron from "node-cron";
 import { DEFAULT_DEMO_BALANCE_INR } from "./config/demo";
 import { env } from "./config/env";
 import {
@@ -85,22 +84,8 @@ import {
   listMarketTicksForAdmin,
   listSupportTicketsForAdmin,
   listTransactionsForAdmin,
-  listUserInvestmentsForAdmin,
   listWalletsForAdmin
 } from "./services/adminTablesStore";
-import {
-  getOrCreateInvestment,
-  investFromWallet,
-  investmentSnapshot,
-  runInvestmentMonthlyYield,
-  withdrawToWallet
-} from "./services/investmentStore";
-import {
-  getInvestmentMonthlyRoiFraction,
-  getInvestmentRoiAdminPayload,
-  updateInvestmentRoiAdminPayload
-} from "./services/investmentRoiConfigService";
-import { getUplineFractionSumOfGrossYield } from "./services/investmentRoiLevelService";
 import {
   beginWithdrawalTotpSetup,
   confirmWithdrawalTotpSetup,
@@ -469,6 +454,7 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
+    await initAppDb();
     const email = String(req.body?.email ?? "").trim();
     const countryCode = String(req.body?.countryCode ?? req.body?.phoneCountryCode ?? "").trim();
     const phone = String(req.body?.phone ?? req.body?.phoneLocal ?? "").trim();
@@ -1522,7 +1508,6 @@ const ADMIN_RA_LIST_RESOURCES = [
   "users",
   "wallets",
   "transactions",
-  "user_investments",
   "support_tickets",
   "market_ticks"
 ] as const;
@@ -1567,8 +1552,6 @@ async function handleAdminReactAdminList(
     rows = await listWalletsForAdmin();
   } else if (resource === "transactions") {
     rows = await listTransactionsForAdmin();
-  } else if (resource === "user_investments") {
-    rows = await listUserInvestmentsForAdmin();
   } else if (resource === "support_tickets") {
     rows = await listSupportTicketsForAdmin();
   } else {
@@ -1866,58 +1849,6 @@ app.put("/api/admin/referral-level-settings", (req, res) => {
   })();
 });
 
-app.get("/api/admin/investment-roi-settings", (req, res) => {
-  void (async () => {
-    try {
-      await requireAdminSession(req.headers.authorization);
-    } catch (e) {
-      const m = e instanceof Error ? e.message : "";
-      if (m === "Forbidden") {
-        return res.status(403).json({ message: "Admin role required" });
-      }
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const payload = await getInvestmentRoiAdminPayload();
-      return res.json(payload);
-    } catch (err) {
-      logger.error({ err }, "admin investment-roi get");
-      return res.status(500).json({ message: "Failed" });
-    }
-  })();
-});
-
-app.put("/api/admin/investment-roi-settings", (req, res) => {
-  void (async () => {
-    try {
-      await requireAdminSession(req.headers.authorization);
-    } catch (e) {
-      const m = e instanceof Error ? e.message : "";
-      if (m === "Forbidden") {
-        return res.status(403).json({ message: "Admin role required" });
-      }
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const body = req.body as {
-        monthlyRoiFraction?: number;
-        levels?: { level: number; percentOfGrossYield: number; enabled: boolean }[];
-      };
-      const fracRaw = body.monthlyRoiFraction;
-      const hasFrac = fracRaw !== undefined && fracRaw !== null && String(fracRaw).trim() !== "";
-      await updateInvestmentRoiAdminPayload({
-        monthlyRoiFraction: hasFrac ? Number(fracRaw) : undefined,
-        levels: Array.isArray(body.levels) ? body.levels : undefined
-      });
-      const payload = await getInvestmentRoiAdminPayload();
-      return res.json(payload);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Update failed";
-      return res.status(400).json({ message: msg });
-    }
-  })();
-});
-
 app.post("/api/admin/user-block", (req, res) => {
   void (async () => {
     let admin: { id: string; email: string };
@@ -2027,7 +1958,7 @@ app.get("/api/admin/team-business-report", (req, res) => {
 
 /**
  * React-Admin `getOne` / internal fetches: GET /api/admin/ra/:resource/:id
- * Register before GET /api/admin/ra/:resource so `.../user_investments/5` is not swallowed as list.
+ * Register before GET /api/admin/ra/:resource so `.../users/5` is not swallowed as list.
  */
 app.get("/api/admin/ra/:resource/:id", (req, res) => {
   void (async () => {
@@ -2063,7 +1994,6 @@ app.get("/api/admin/ra/:resource/:id", (req, res) => {
       "withdrawals",
       "wallets",
       "transactions",
-      "user_investments",
       "support_tickets",
       "market_ticks"
     ]);
@@ -2435,85 +2365,6 @@ setInterval(() => {
   });
 }, 1000);
 
-app.get("/api/investment", (req, res) => {
-  void (async () => {
-    const user = await requireSession(req.headers.authorization);
-    const row = await getOrCreateInvestment(user.id);
-    const live = await getWalletBalance(user.id);
-    const roi = await getInvestmentMonthlyRoiFraction();
-    const uplineSum = await getUplineFractionSumOfGrossYield();
-    return res.json(investmentSnapshot(row, live, roi, uplineSum));
-  })().catch((error) => {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    logger.error({ error }, "investment get");
-    res.status(500).json({ message: "Failed" });
-  });
-});
-
-app.post("/api/investment/deposit", (req, res) => {
-  void (async () => {
-    const user = await requireSession(req.headers.authorization);
-    const amount = Number(req.body?.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ message: "Amount must be greater than 0" });
-    }
-    const row = await investFromWallet(user.id, amount);
-    await hydrateLiveAccountFromWallet(user.id);
-    const live = await getWalletBalance(user.id);
-    const roi = await getInvestmentMonthlyRoiFraction();
-    const uplineSum = await getUplineFractionSumOfGrossYield();
-    return res.json(investmentSnapshot(row, live, roi, uplineSum));
-  })().catch((error) => {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const msg = error instanceof Error ? error.message : "Failed";
-    res.status(400).json({ message: msg });
-  });
-});
-
-app.post("/api/investment/withdraw", (req, res) => {
-  void (async () => {
-    const user = await requireSession(req.headers.authorization);
-    const amount = Number(req.body?.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ message: "Amount must be greater than 0" });
-    }
-    const row = await withdrawToWallet(user.id, amount);
-    await hydrateLiveAccountFromWallet(user.id);
-    const live = await getWalletBalance(user.id);
-    const roi = await getInvestmentMonthlyRoiFraction();
-    const uplineSum = await getUplineFractionSumOfGrossYield();
-    return res.json(investmentSnapshot(row, live, roi, uplineSum));
-  })().catch((error) => {
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    const msg = error instanceof Error ? error.message : "Failed";
-    res.status(400).json({ message: msg });
-  });
-});
-
-app.post("/api/system/investment-yield", (req, res) => {
-  void (async () => {
-    const secret = env.INVESTMENT_CRON_SECRET?.trim();
-    if (!secret) {
-      return res.status(503).json({ message: "Set INVESTMENT_CRON_SECRET in .env to enable this endpoint" });
-    }
-    const got = String(req.body?.secret ?? req.query?.secret ?? "");
-    if (got !== secret) {
-      return res.status(403).json({ message: "Forbidden" });
-    }
-    const result = await runInvestmentMonthlyYield();
-    return res.json(result);
-  })().catch((error) => {
-    logger.error({ error }, "investment-yield system");
-    res.status(500).json({ message: "Failed" });
-  });
-});
-
 app.get("/api/wallet/transactions", (req, res) => {
   void (async () => {
     const user = await requireSession(req.headers.authorization);
@@ -2725,16 +2576,6 @@ export async function startServer(): Promise<http.Server> {
           }
         })
         .catch((e) => logger.warn({ e }, "chart_candles external seed skipped"));
-      if (env.INVESTMENT_CRON_IN_PROCESS) {
-        cron.schedule(
-          "5 0 1 * *",
-          () => {
-            void runInvestmentMonthlyYield().catch((e) => logger.error({ e }, "investment monthly cron"));
-          },
-          { timezone: "UTC" }
-        );
-        logger.info("Investment yield cron: 1st of month 00:05 UTC (monthly ROI from DB + 5-level on yield)");
-      }
       resolve(server);
     });
   });

@@ -77,13 +77,11 @@ export async function getLevelIncomeRecipientIds(bettorUserId: string): Promise<
   return recipients;
 }
 
-type LevelIncomeKind = "level_income" | "level_income_staking" | "level_income_roi";
-
 async function distributeLevelIncomeToUpline(
   sourceUserId: string,
   stakeAmount: number,
   referenceBase: string,
-  ledgerTxnType: LevelIncomeKind,
+  ledgerTxnType: "level_income",
   logLabel: string
 ): Promise<void> {
   if (!Number.isFinite(stakeAmount) || stakeAmount <= 0) return;
@@ -118,30 +116,4 @@ export async function distributeBinaryBetLevelIncome(
   tradeId: string
 ): Promise<void> {
   return distributeLevelIncomeToUpline(bettorUserId, stakeAmount, tradeId, "level_income", "binary");
-}
-
-/** Commission to upline when a referral adds principal to staking (investment) from live wallet. */
-export async function distributeInvestmentStakeLevelIncome(
-  investorUserId: string,
-  stakeAmount: number,
-  investmentRef: string
-): Promise<void> {
-  return distributeLevelIncomeToUpline(
-    investorUserId,
-    stakeAmount,
-    investmentRef,
-    "level_income_staking",
-    "staking"
-  );
-}
-
-/**
- * @deprecated Monthly ROI upline split uses `investment_roi_level_distribution` in `runInvestmentMonthlyYield` instead of referral stake %.
- */
-export async function distributeInvestmentRoiLevelIncome(
-  investorUserId: string,
-  yieldAmount: number,
-  yieldRef: string
-): Promise<void> {
-  return distributeLevelIncomeToUpline(investorUserId, yieldAmount, yieldRef, "level_income_roi", "roi-yield");
 }

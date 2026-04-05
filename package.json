@@ -30,7 +30,6 @@
     "copy-apk:releases": "node scripts/copy-apk-to-releases.mjs",
     "apk:sync": "npm run copy-apk && npm run copy-apk:releases",
     "frontend:build": "npm --prefix frontend run build",
-    "cron:investment": "tsx scripts/investment-cron.ts",
     "promote-admin": "tsx scripts/promote-admin.ts",
     "test:live-admin": "tsx scripts/test-live-admin.ts",
     "test:user-side": "tsx scripts/test-user-side.ts"
@@ -44,7 +43,6 @@
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "mysql2": "^3.20.0",
-    "node-cron": "^4.2.1",
     "openai": "^6.33.0",
     "otplib": "^13.4.0",
     "pino": "^10.3.1",

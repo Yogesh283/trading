@@ -144,13 +144,6 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((s) => s === "1" || String(s).toLowerCase() === "true"),
-  /** Optional: POST /api/system/investment-yield with { "secret": "..." } or ?secret= */
-  INVESTMENT_CRON_SECRET: z.string().optional(),
-  /** Set to "0" to disable in-process daily investment yield cron (use npm run cron:investment). */
-  INVESTMENT_CRON_IN_PROCESS: z
-    .string()
-    .optional()
-    .transform((s) => s === "0" || String(s).toLowerCase() === "false"),
   /**
    * Absolute path (or path relative to repo root) to `Iqfxpro.apk` for GET /api/system/android-apk, /api/android-app.apk, /downloads/Iqfxpro.apk, /api/mobile-app.
    * If unset, server looks for releases/Iqfxpro.apk, frontend/dist/downloads/Iqfxpro.apk, frontend/public/downloads/Iqfxpro.apk.
@@ -203,7 +196,6 @@ export const env = {
   USE_MYSQL: Boolean(parsed.USE_MYSQL),
   SKIP_CLEAR_CACHE_ON_REGISTER: Boolean(parsed.SKIP_CLEAR_CACHE_ON_REGISTER),
   SEED_CHROME_USER: Boolean(parsed.SEED_CHROME_USER),
-  INVESTMENT_CRON_IN_PROCESS: !parsed.INVESTMENT_CRON_IN_PROCESS,
   FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY),
   ANDROID_APP_VERSION_CODE: androidVersionCodeParsed,
   ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0",

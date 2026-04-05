@@ -5,6 +5,7 @@ import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
 import { isCapacitorNativeClient } from "./androidAppUpdate";
 import { brandApkIcon, brandLogo, landingBrandI3, landingBrandI6, landingBrandI9 } from "./brandUrls";
+import { LandingChartAiCandlesPreview } from "./LandingChartAiCandlesPreview";
 
 const PILL_ITEMS = [
   "Forex & metals markets",
@@ -17,6 +18,7 @@ const PILL_ITEMS = [
   "Trusted experience"
 ];
 
+/** Single APK download target — `APK_DOWNLOAD_URL` (see `appBrand.ts`). Use `ApkScrollLink` elsewhere on this page. */
 function ApkDownloadLink({
   className,
   children,
@@ -206,7 +208,7 @@ type Props = {
   onPrivacy: () => void;
 };
 
-export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPrivacy }: Props) {
+function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPrivacy }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
 
@@ -258,7 +260,13 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
                 Trading
               </button>
               {hideApkDownloadUi ? null : (
-                <ApkDownloadLink className="landing-pill-link landing-pill-link--app">Download App</ApkDownloadLink>
+                <button
+                  type="button"
+                  className="landing-pill-link landing-pill-link--app"
+                  onClick={() => scrollTo("landing-apk")}
+                >
+                  Download App
+                </button>
               )}
               <button type="button" className="landing-pill-link" onClick={() => go(onAbout)}>
                 About
@@ -332,14 +340,16 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
                   <span className="landing-drawer-item__txt">Trading</span>
                 </button>
                 {hideApkDownloadUi ? null : (
-                  <ApkDownloadLink className="landing-drawer-item" showBrandIcon={false}>
-                    <>
-                      <span className="landing-drawer-item__ico" aria-hidden>
-                        <img src={brandApkIcon} alt="" width={22} height={22} className="landing-drawer-ico" />
-                      </span>
-                      <span className="landing-drawer-item__txt">Download App</span>
-                    </>
-                  </ApkDownloadLink>
+                  <button
+                    type="button"
+                    className="landing-drawer-item"
+                    onClick={() => scrollTo("landing-apk")}
+                  >
+                    <span className="landing-drawer-item__ico" aria-hidden>
+                      <img src={brandApkIcon} alt="" width={22} height={22} className="landing-drawer-ico" />
+                    </span>
+                    <span className="landing-drawer-item__txt">Download App</span>
+                  </button>
                 )}
                 <button type="button" className="landing-drawer-item" onClick={() => go(onAbout)}>
                   <span className="landing-drawer-item__ico" aria-hidden>
@@ -411,9 +421,13 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
               Learn more
             </button>
             {hideApkDownloadUi ? null : (
-              <ApkDownloadLink className="landing-ot-btn-ghost landing-ot-btn-apk-highlight">
+              <button
+                type="button"
+                className="landing-ot-btn-ghost landing-ot-btn-apk-highlight"
+                onClick={() => scrollTo("landing-apk")}
+              >
                 Download Android APK
-              </ApkDownloadLink>
+              </button>
             )}
           </div>
         </div>
@@ -453,9 +467,9 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
           <div className="landing-ot-apk-inner">
             <h2>Get the Android app</h2>
             <p>
-              Download the {APP_NAME} APK for your phone — same web trading experience in an installable app. If your
-              browser blocks the file, use &quot;Download APK&quot; in the menu above or allow installs from this source
-              in Android settings.
+              Download the {APP_NAME} APK for your phone — same web trading experience in an installable app. Use the
+              button below (single download link). If your browser blocks the file, allow installs from this source in
+              Android settings.
             </p>
             <ApkDownloadLink className="landing-ot-btn-main landing-ot-btn-xl">Download APK</ApkDownloadLink>
           </div>
@@ -524,6 +538,8 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
           </div>
         </div>
       </section>
+
+      <LandingChartAiCandlesPreview />
 
       <section className="landing-ot-subband">
         <h2 className="landing-ot-h2 landing-ot-center">Care, reliability & usability</h2>
@@ -687,3 +703,5 @@ export default function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, o
     </div>
   );
 }
+
+export default LandingPage;

@@ -362,31 +362,6 @@ export async function loadWalletTransactions(token: string) {
   return parseJson<{ transactions: WalletLedgerRow[] }>(response);
 }
 
-export interface InvestmentInfo {
-  principal: number;
-  lockedUntil: string | null;
-  locked: boolean;
-  secondsUntilUnlock: number;
-  liveWalletBalance: number;
-  monthlyYieldPercent: number;
-  /** Legacy; daily accrual removed — 0. */
-  dailyYieldPercent: number;
-  estimatedMonthlyIncome: number;
-  /** principal × monthly ROI % (before upline split). */
-  estimatedMonthlyGrossYield?: number;
-  /** Sum of admin upline shares of gross (0–1). */
-  uplinePercentOfMonthlyGrossSum?: number;
-  /** Investor’s share of gross (0–1). */
-  investorNetFractionOfGross?: number;
-  /** Legacy — 0; use estimatedMonthlyIncome. */
-  estimatedDailyIncome: number;
-  lastYieldDate: string | null;
-  /** Last calendar month (YYYY-MM UTC) when monthly ROI was credited. */
-  lastMonthlyYieldYm: string | null;
-  payoutDayUtc: number;
-  explanation: string;
-}
-
 export interface ReferralTeamMember {
   id: string;
   name: string;
@@ -407,17 +382,7 @@ export interface BetStakeLevelScheduleRow {
   percentLabel: string;
   paysOut: boolean;
   exampleIncomeInr: number;
-  /** Total INR you received from this upline depth (binary + staking commissions). */
-  receivedInr?: number;
-}
-
-export interface MonthlyRoiLevelScheduleRow {
-  level: number;
-  uplineLabel: string;
-  fractionOfGrossYield: number;
-  percentLabel: string;
-  paysOut: boolean;
-  /** Total INR you received from monthly ROI upline at this depth. */
+  /** Total INR you received from this upline depth (binary level income). */
   receivedInr?: number;
 }
 
@@ -442,16 +407,11 @@ export interface ReferralSummary {
   totalReferralCommissionInr?: number;
   /** From referrals’ live binary stakes. */
   bettingCommissionInr?: number;
-  /** From referrals’ staking (investment) deposits. */
-  stakingCommissionInr?: number;
-  /** From referrals’ monthly investment ROI (level_income_roi). */
-  investmentRoiCommissionInr?: number;
   /** Master switch: level income on stakes not paid when false. */
   referralProgramEnabled?: boolean;
-  /** Stake used for example INR column (live binary + investment add). */
+  /** Stake used for example INR column (live binary). */
   levelIncomeExampleStakeInr?: number;
   betStakeLevelSchedule?: BetStakeLevelScheduleRow[];
-  monthlyRoiLevelSchedule?: MonthlyRoiLevelScheduleRow[];
 }
 
 export async function loadReferralSummary(token: string) {
@@ -529,43 +489,6 @@ export async function createSupportTicket(token: string, subject: string, body: 
     throw new Error((j as { message?: string }).message ?? "Failed to create ticket");
   }
   return (j as { ticket: SupportTicket }).ticket;
-}
-
-export async function loadInvestment(token: string) {
-  const response = await fetch(`${apiBase()}/api/investment`, {
-    headers: { ...requestHeaders(token) }
-  });
-  if (!response.ok) {
-    const j = await response.json().catch(() => ({}));
-    throw new Error((j as { message?: string }).message ?? "Failed to load investment");
-  }
-  return (await response.json()) as InvestmentInfo;
-}
-
-export async function investmentDeposit(token: string, amount: number) {
-  const response = await fetch(`${apiBase()}/api/investment/deposit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...requestHeaders(token) },
-    body: JSON.stringify({ amount })
-  });
-  const j = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error((j as { message?: string }).message ?? "Deposit failed");
-  }
-  return j as InvestmentInfo;
-}
-
-export async function investmentWithdraw(token: string, amount: number) {
-  const response = await fetch(`${apiBase()}/api/investment/withdraw`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...requestHeaders(token) },
-    body: JSON.stringify({ amount })
-  });
-  const j = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error((j as { message?: string }).message ?? "Withdraw failed");
-  }
-  return j as InvestmentInfo;
 }
 
 export interface DepositRecord {
