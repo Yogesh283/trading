@@ -101,6 +101,7 @@ async function main() {
       user_id VARCHAR(64) NOT NULL PRIMARY KEY,
       balance DOUBLE NOT NULL DEFAULT 0,
       demo_balance DOUBLE NOT NULL DEFAULT 10000,
+      locked_bonus_inr DOUBLE NOT NULL DEFAULT 0,
       updated_at VARCHAR(64) NOT NULL,
       CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
@@ -202,6 +203,34 @@ async function main() {
       [lv]
     );
   }
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      subject VARCHAR(512) NOT NULL,
+      body TEXT NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'open',
+      created_at VARCHAR(64) NOT NULL,
+      INDEX idx_support_tickets_user (user_id),
+      CONSTRAINT fk_support_tickets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: support_tickets");
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_otps (
+      id VARCHAR(64) NOT NULL PRIMARY KEY,
+      phone_country_code VARCHAR(8) NOT NULL,
+      phone_local VARCHAR(20) NOT NULL,
+      otp_hash VARCHAR(128) NOT NULL,
+      expires_at VARCHAR(64) NOT NULL,
+      created_at VARCHAR(64) NOT NULL,
+      INDEX idx_password_reset_phone (phone_country_code, phone_local),
+      INDEX idx_password_reset_exp (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  console.log("Table: password_reset_otps");
 
   await conn.end();
   console.log("MySQL ready. Add to .env:\n  MYSQL_DATABASE=" + database);

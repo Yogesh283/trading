@@ -78,6 +78,7 @@ async function init() {
       user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       balance REAL NOT NULL DEFAULT 0,
       demo_balance REAL NOT NULL DEFAULT 10000,
+      locked_bonus_inr REAL NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )
   `);

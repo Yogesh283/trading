@@ -1,4 +1,4 @@
-package com.updowanfx.app;
+package com.iqfxpro.app;
 
 import com.getcapacitor.BridgeActivity;
 

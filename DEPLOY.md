@@ -251,3 +251,15 @@ More detail (Windows paths, cleartext HTTP, cache): **`mobile-apk/README.md`**, 
 ---
 
 *Adjust paths / PM2 names for your server — production defaults above use `iqfxpro` / `www.iqfxpro.com`.*
+
+
+
+<!-- 
+
+
+cd D:\xampp\htdocs\tradeing\mobile-apk
+npm install
+npx cap sync android
+
+cd D:\xampp\htdocs\tradeing\mobile-apk\android
+.\gradlew.bat bundleRelease -->

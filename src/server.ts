@@ -67,11 +67,19 @@ import { createWithdrawal, getWithdrawalById, listAllWithdrawals, listWithdrawal
 import {
   applyLedger,
   ensureWallet,
+  getDemoBalanceFromDb,
+  getLiveWalletBreakdown,
   getWalletBalance,
   listTransactionsForUser,
   saveDemoBalanceToDb,
   setWalletBalancesFromAdmin
 } from "./services/walletStore";
+import {
+  DEMO_CHALLENGE_REWARD_INR,
+  DEMO_CHALLENGE_TARGET_INR,
+  DEMO_PRACTICE_RETRY_BELOW_INR,
+  MIN_WITHDRAWAL_INR
+} from "./config/demoChallenge";
 import { TradeSide } from "./services/demoAccount";
 import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
@@ -659,7 +667,7 @@ app.post("/api/me/withdrawal-tpin/change", (req, res) => {
   })();
 });
 
-/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` to add one default tranche (`DEMO_START_BALANCE`). */
+/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` only refills default when demo ≤ 0; if balance > 0, pass `{ amount }` to add more. */
 app.post("/api/me/demo/add-funds", (req, res) => {
   void (async () => {
     const MIN_ADD = 1;
@@ -680,8 +688,39 @@ app.post("/api/me/demo/add-funds", (req, res) => {
         });
       }
       await ensureWallet(user.id);
+      evictInMemoryAccountsForUser(user.id);
       await prepareAccountForRequest(user.id, "demo");
-      const acc = getAccountForWallet(user.id, "demo");
+      let acc = getAccountForWallet(user.id, "demo");
+
+      /**
+       * Default tranche (no `amount` in body): only when demo is bust (≤ 0) — set to `DEMO_ACCOUNT_DEFAULT_INR`.
+       * If balance is already > 0, do not add virtual funds (avoids +₹10k on top of ₹50k+).
+       * To add more while non-zero, send explicit `{ "amount": <INR> }`.
+       */
+      if (useDefault) {
+        if (acc.balance <= 0) {
+          acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
+          const add = DEFAULT_DEMO_BALANCE_INR;
+          const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
+          if (Math.abs(savedDemo - acc.balance) > 0.01) {
+            await prepareAccountForRequest(user.id, "demo");
+            acc = getAccountForWallet(user.id, "demo");
+          }
+          return res.json({ ok: true, demo_balance: acc.balance, added: add });
+        }
+        const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
+        if (Math.abs(savedDemo - acc.balance) > 0.01) {
+          await prepareAccountForRequest(user.id, "demo");
+          acc = getAccountForWallet(user.id, "demo");
+        }
+        return res.json({
+          ok: true,
+          demo_balance: acc.balance,
+          added: 0,
+          already_at_starting_level: true
+        });
+      }
+
       const room = Math.max(0, MAX_DEMO_BALANCE_TOTAL - acc.balance);
       const add = Math.min(requested, room);
       if (add < 0.01) {
@@ -689,8 +728,14 @@ app.post("/api/me/demo/add-funds", (req, res) => {
           message: `Demo balance is capped at ${MAX_DEMO_BALANCE_TOTAL.toLocaleString("en-IN")} INR`
         });
       }
+
       acc.creditDeposit(add);
-      await saveDemoBalanceToDb(user.id, acc.balance);
+
+      const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
+      if (Math.abs(savedDemo - acc.balance) > 0.01) {
+        await prepareAccountForRequest(user.id, "demo");
+        acc = getAccountForWallet(user.id, "demo");
+      }
       return res.json({ ok: true, demo_balance: acc.balance, added: add });
     } catch (e) {
       if (e instanceof Error && e.message === "Unauthorized") {
@@ -700,6 +745,47 @@ app.post("/api/me/demo/add-funds", (req, res) => {
       return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
     }
   })();
+});
+
+/** Unlimited practice: when demo balance is nearly zero, reset virtual balance to the default starting amount. */
+app.post("/api/me/demo/claim-practice-reset", (req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(req.headers.authorization);
+      await ensureWallet(user.id);
+      const demo = await getDemoBalanceFromDb(user.id);
+      if (demo > DEMO_PRACTICE_RETRY_BELOW_INR + 1e-9) {
+        return res.status(400).json({
+          message: `Practice reset is only when demo balance is at or below ₹${DEMO_PRACTICE_RETRY_BELOW_INR}. Current: ₹${demo.toFixed(2)}`
+        });
+      }
+      await prepareAccountForRequest(user.id, "demo");
+      const acc = getAccountForWallet(user.id, "demo");
+      acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
+      await saveDemoBalanceToDb(user.id, DEFAULT_DEMO_BALANCE_INR);
+      return res.json({ ok: true, demo_balance: DEFAULT_DEMO_BALANCE_INR });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      logger.error({ e }, "demo claim-practice-reset");
+      return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
+    }
+  })();
+});
+
+/** Public copy for marketing / UI — demo challenge parameters. */
+app.get("/api/system/demo-challenge", (_req, res) => {
+  const start = DEFAULT_DEMO_BALANCE_INR;
+  res.json({
+    target_inr: DEMO_CHALLENGE_TARGET_INR,
+    reward_inr: DEMO_CHALLENGE_REWARD_INR,
+    /** @deprecated use demo_account_default_inr */
+    start_inr: start,
+    demo_account_default_inr: start,
+    practice_retry_below_inr: DEMO_PRACTICE_RETRY_BELOW_INR,
+    min_withdrawal_inr: MIN_WITHDRAWAL_INR
+  });
 });
 
 app.get("/api/referrals/summary", (req, res) => {
@@ -916,10 +1002,23 @@ app.get("/api/account", (_req, res) => {
     const user = await resolveDemoUser(_req.headers.authorization);
     const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
     await prepareAccountForRequest(user.id, wallet);
-    const account = getAccountForWallet(user.id, wallet);
-    const snap = account.snapshot(forexFeed.snapshot());
+    let account = getAccountForWallet(user.id, wallet);
+    let snap = account.snapshot(forexFeed.snapshot());
     if (user.id !== getGuestUser().id && wallet === "demo") {
-      await saveDemoBalanceToDb(user.id, account.balance);
+      const savedDemo = await saveDemoBalanceToDb(user.id, account.balance);
+      if (Math.abs(savedDemo - account.balance) > 0.01) {
+        await prepareAccountForRequest(user.id, "demo");
+        account = getAccountForWallet(user.id, wallet);
+        snap = account.snapshot(forexFeed.snapshot());
+      }
+    }
+    if (user.id !== getGuestUser().id && wallet === "live") {
+      const br = await getLiveWalletBreakdown(user.id);
+      return res.json({
+        ...snap,
+        locked_bonus_inr: br.locked_bonus_inr,
+        withdrawable_inr: br.withdrawable_inr
+      });
     }
     res.json(snap);
   })().catch((error) => {
@@ -933,9 +1032,13 @@ app.get("/api/trades", (_req, res) => {
     const user = await resolveDemoUser(_req.headers.authorization);
     const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
     await prepareAccountForRequest(user.id, wallet);
-    const account = getAccountForWallet(user.id, wallet);
+    let account = getAccountForWallet(user.id, wallet);
     if (user.id !== getGuestUser().id && wallet === "demo") {
-      await saveDemoBalanceToDb(user.id, account.balance);
+      const savedDemo = await saveDemoBalanceToDb(user.id, account.balance);
+      if (Math.abs(savedDemo - account.balance) > 0.01) {
+        await prepareAccountForRequest(user.id, "demo");
+        account = getAccountForWallet(user.id, wallet);
+      }
     }
     res.json({ trades: account.listTrades() });
   })().catch((error) => {
@@ -1723,15 +1826,22 @@ app.put("/api/admin/ra/wallets/:id", (req, res) => {
         return res.status(404).json({ message: "User not found" });
       }
 
-      const payload: { balance?: number; demo_balance?: number } = {};
+      const payload: { balance?: number; demo_balance?: number; locked_bonus_inr?: number } = {};
       if (body.balance !== undefined && body.balance !== null) {
         payload.balance = Number(body.balance);
       }
       if (body.demo_balance !== undefined && body.demo_balance !== null) {
         payload.demo_balance = Number(body.demo_balance);
       }
-      if (payload.balance === undefined && payload.demo_balance === undefined) {
-        return res.status(400).json({ message: "Provide balance and/or demo_balance" });
+      if (body.locked_bonus_inr !== undefined && body.locked_bonus_inr !== null) {
+        payload.locked_bonus_inr = Number(body.locked_bonus_inr);
+      }
+      if (
+        payload.balance === undefined &&
+        payload.demo_balance === undefined &&
+        payload.locked_bonus_inr === undefined
+      ) {
+        return res.status(400).json({ message: "Provide balance and/or demo_balance and/or locked_bonus_inr" });
       }
 
       await setWalletBalancesFromAdmin(canonical, payload);
@@ -2035,7 +2145,10 @@ app.get("/api/admin/ra/:resource", (req, res) => {
   });
 });
 
-const MIN_WITHDRAWAL_USDT = 10;
+const MIN_WITHDRAWAL_USDT = Math.max(
+  1e-8,
+  MIN_WITHDRAWAL_INR / Math.max(1, INR_PER_USDT)
+);
 const MAX_WITHDRAWAL_USDT = 1_000_000;
 
 app.post("/api/withdrawals", (req, res) => {
@@ -2054,20 +2167,27 @@ app.post("/api/withdrawals", (req, res) => {
       return res.status(400).json({ message: msg });
     }
 
-    if (
-      !Number.isFinite(amount) ||
-      amount < MIN_WITHDRAWAL_USDT ||
-      amount > MAX_WITHDRAWAL_USDT
-    ) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_WITHDRAWAL_USDT) {
       return res.status(400).json({
-        message: `Amount must be between ${MIN_WITHDRAWAL_USDT} and ${MAX_WITHDRAWAL_USDT} USDT`
+        message: `Amount must be between a small positive value and ${MAX_WITHDRAWAL_USDT} USDT`
+      });
+    }
+    const inrHold = inrDebitForUsdtWithdraw(amount);
+    if (!Number.isFinite(amount) || amount < MIN_WITHDRAWAL_USDT - 1e-12 || inrHold + 1e-9 < MIN_WITHDRAWAL_INR) {
+      return res.status(400).json({
+        message: `Minimum withdrawal is ₹${MIN_WITHDRAWAL_INR.toLocaleString("en-IN")} (~${MIN_WITHDRAWAL_USDT.toFixed(4)} USDT at ₹${INR_PER_USDT}/USDT)`
       });
     }
     if (!toAddress.startsWith("0x") || toAddress.length < 42) {
       return res.status(400).json({ message: "Valid BEP20 (0x...) address required" });
     }
 
-    const inrHold = inrDebitForUsdtWithdraw(amount);
+    const breakdown = await getLiveWalletBreakdown(user.id);
+    if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
+      return res.status(400).json({
+        message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
+      });
+    }
     try {
       await applyLedger(user.id, -inrHold, "withdrawal_pending", null);
     } catch {
@@ -2199,7 +2319,10 @@ app.post("/api/demo/orders", (req, res) => {
       return res.status(400).json({ message: "Insufficient balance for this amount" });
     }
 
-    await saveDemoBalanceToDb(user.id, account.balance);
+    const savedDemo = await saveDemoBalanceToDb(user.id, account.balance);
+    if (Math.abs(savedDemo - account.balance) > 0.01) {
+      await prepareAccountForRequest(user.id, "demo");
+    }
 
     logger.info({ trade, userId: user.id }, "Demo trade opened");
 
@@ -2345,6 +2468,18 @@ setInterval(() => {
           } else {
             const settled = account.settleExpiredTrade(trade.id, tick.price);
             if (settled) {
+              if (wallet === "demo" && userId !== getGuestUser().id) {
+                void (async () => {
+                  try {
+                    const savedDemo = await saveDemoBalanceToDb(userId, account.balance);
+                    if (Math.abs(savedDemo - account.balance) > 0.01) {
+                      await prepareAccountForRequest(userId, "demo");
+                    }
+                  } catch {
+                    /* ignore */
+                  }
+                })();
+              }
               logger.info(
                 { tradeId: settled.id, symbol: settled.symbol, pnl: settled.pnl, wallet },
                 "Binary trade settled"

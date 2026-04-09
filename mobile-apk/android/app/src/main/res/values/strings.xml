@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
+<!-- Launcher + recents title — must match product brand (not the Java package id). -->
 <resources>
     <string name="app_name">IQFX Pro</string>
-    <string name="title_activity_main">IQFX Pro</string>
-    <string name="package_name">com.updowanfx.app</string>
-    <string name="custom_url_scheme">com.updowanfx.app</string>
+    <string name="package_name">com.iqfxpro.app</string>
+    <string name="custom_url_scheme">com.iqfxpro.app</string>
 </resources>

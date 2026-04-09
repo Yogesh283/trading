@@ -407,7 +407,9 @@ export default function App() {
   const tradingPageWalletWrapRef = useRef<HTMLDivElement>(null);
   const [tradingPageWalletMenuOpen, setTradingPageWalletMenuOpen] = useState(false);
   const [demoTopUpBusy, setDemoTopUpBusy] = useState(false);
-  const [demoFundsSuccessPopup, setDemoFundsSuccessPopup] = useState<null | { added: number; balance: number }>(null);
+  const [demoFundsSuccessPopup, setDemoFundsSuccessPopup] = useState<
+    null | { added: number; balance: number; alreadyAtStartingLevel?: boolean }
+  >(null);
   const demoFundsPopupTimeoutRef = useRef<number | null>(null);
   const [postAuthWelcome, setPostAuthWelcome] = useState<
     null | { kind: "login" | "register"; name: string; userId: string; detail?: string }
@@ -1017,7 +1019,11 @@ export default function App() {
       if (demoFundsPopupTimeoutRef.current != null) {
         window.clearTimeout(demoFundsPopupTimeoutRef.current);
       }
-      setDemoFundsSuccessPopup({ added: out.added, balance: out.demo_balance });
+      setDemoFundsSuccessPopup({
+        added: out.added,
+        balance: out.demo_balance,
+        alreadyAtStartingLevel: Boolean(out.already_at_starting_level)
+      });
       demoFundsPopupTimeoutRef.current = window.setTimeout(() => {
         setDemoFundsSuccessPopup(null);
         demoFundsPopupTimeoutRef.current = null;
@@ -3737,10 +3743,21 @@ export default function App() {
             </div>
             <p className="order-placed-direction order-placed-direction--up">Balance updated</p>
             <h2 id="demo-funds-success-title" className="order-placed-title">
-              Good — funds added
+              {demoFundsSuccessPopup.alreadyAtStartingLevel || demoFundsSuccessPopup.added < 0.01
+                ? "Already at starting level"
+                : "Good — funds added"}
             </h2>
             <p id="demo-funds-success-desc" className="order-placed-summary">
-              {formatInr(demoFundsSuccessPopup.added)} added · New balance {formatInr(demoFundsSuccessPopup.balance)}
+              {demoFundsSuccessPopup.alreadyAtStartingLevel || demoFundsSuccessPopup.added < 0.01 ? (
+                <>
+                  Demo is already at or above {formatInr(DEFAULT_DEMO_BALANCE_INR)} — no extra default tranche was
+                  added. Current balance {formatInr(demoFundsSuccessPopup.balance)}.
+                </>
+              ) : (
+                <>
+                  {formatInr(demoFundsSuccessPopup.added)} added · New balance {formatInr(demoFundsSuccessPopup.balance)}
+                </>
+              )}
             </p>
             <button type="button" className="order-placed-ok" onClick={dismissDemoFundsSuccessPopup}>
               OK

@@ -380,6 +380,11 @@ export function WalletList() {
         <TextField source="user_mobile" label="Mobile" emptyText="—" />
         <NumberField source="balance" label="Live USDT" options={{ maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
+        <NumberField
+          source="locked_bonus_inr"
+          label="Locked bonus (INR)"
+          options={{ maximumFractionDigits: 2 }}
+        />
         <DateField source="updated_at" label="Updated" showTime />
       </Datagrid>
     </List>
@@ -397,6 +402,12 @@ export function WalletEdit() {
         <TextInput source="updated_at" label="Last updated (read-only)" disabled fullWidth />
         <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
         <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
+        <NumberInput
+          source="locked_bonus_inr"
+          label="Locked bonus (INR, non-withdrawable)"
+          min={0}
+          step={1}
+        />
       </SimpleForm>
     </Edit>
   );

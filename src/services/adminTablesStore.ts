@@ -22,11 +22,12 @@ export async function listWalletsForAdmin(): Promise<Record<string, unknown>[]> 
     user_id: string;
     balance: number;
     demo_balance: number;
+    locked_bonus_inr: number | null;
     updated_at: string;
     phone_country_code: string | null;
     phone_local: string | null;
   }>(
-    `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at,
+    `SELECT w.user_id, w.balance, w.demo_balance, w.locked_bonus_inr, w.updated_at,
             u.phone_country_code, u.phone_local
      FROM wallets w
      LEFT JOIN users u ON u.id = w.user_id
@@ -37,6 +38,7 @@ export async function listWalletsForAdmin(): Promise<Record<string, unknown>[]> 
     user_id: r.user_id,
     balance: Number(r.balance),
     demo_balance: Number(r.demo_balance),
+    locked_bonus_inr: Number(r.locked_bonus_inr ?? 0),
     updated_at: r.updated_at,
     user_mobile: formatAdminMobile(r.phone_country_code, r.phone_local)
   }));
@@ -107,6 +109,7 @@ export async function getAdminRaOne(
         user_id: string | number;
         balance: number | string | null;
         demo_balance: number | string | null;
+        locked_bonus_inr?: number | string | null;
         updated_at: string;
         phone_country_code: string | null;
         phone_local: string | null;
@@ -114,11 +117,11 @@ export async function getAdminRaOne(
       try {
         row = await dbGet(
           mysql
-            ? `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at, u.phone_country_code, u.phone_local
+            ? `SELECT w.user_id, w.balance, w.demo_balance, w.locked_bonus_inr, w.updated_at, u.phone_country_code, u.phone_local
                FROM wallets w
                LEFT JOIN users u ON u.id = w.user_id
                WHERE w.user_id = ? OR ${wTrim} LIMIT 1`
-            : `SELECT w.user_id, w.balance, w.demo_balance, w.updated_at, u.phone_country_code, u.phone_local
+            : `SELECT w.user_id, w.balance, w.demo_balance, w.locked_bonus_inr, w.updated_at, u.phone_country_code, u.phone_local
                FROM wallets w
                LEFT JOIN users u ON u.id = w.user_id
                WHERE w.user_id = ? OR ${wTrim}`,
@@ -139,6 +142,7 @@ export async function getAdminRaOne(
         user_id: uid,
         balance: Number(row.balance),
         demo_balance: Number(row.demo_balance),
+        locked_bonus_inr: Number(row.locked_bonus_inr ?? 0),
         updated_at: row.updated_at,
         user_mobile: formatAdminMobile(row.phone_country_code, row.phone_local)
       };

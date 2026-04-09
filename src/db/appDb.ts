@@ -455,6 +455,30 @@ async function migrateWalletsDemoBalance(): Promise<void> {
   await dbRun("ALTER TABLE wallets ADD COLUMN demo_balance REAL NOT NULL DEFAULT 10000");
 }
 
+async function migrateWalletsLockedBonus(): Promise<void> {
+  if (mysqlMode) {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'wallets' AND COLUMN_NAME = 'locked_bonus_inr'`,
+      [dbName]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(
+        "ALTER TABLE wallets ADD COLUMN locked_bonus_inr DOUBLE NOT NULL DEFAULT 0 AFTER demo_balance"
+      );
+    } catch {
+      await dbRun("ALTER TABLE wallets ADD COLUMN locked_bonus_inr DOUBLE NOT NULL DEFAULT 0");
+    }
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(wallets)");
+  if (cols.some((c) => c.name === "locked_bonus_inr")) return;
+  await dbRun("ALTER TABLE wallets ADD COLUMN locked_bonus_inr REAL NOT NULL DEFAULT 0");
+}
+
 async function migrateUsersReferral(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -1065,6 +1089,7 @@ export function initAppDb(): Promise<void> {
         await getPool().execute(WALLETS_SQL_MYSQL);
         await getPool().execute(TRANSACTIONS_SQL_MYSQL);
         await migrateWalletsDemoBalance();
+        await migrateWalletsLockedBonus();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
@@ -1090,6 +1115,7 @@ export function initAppDb(): Promise<void> {
           USER_INVESTMENTS_SQL
         ]);
         await migrateWalletsDemoBalance();
+        await migrateWalletsLockedBonus();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();

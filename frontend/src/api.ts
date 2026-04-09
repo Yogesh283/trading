@@ -322,7 +322,7 @@ export async function loadAccount(token?: string | null, wallet: WalletType = "d
   return (await response.json()) as AccountSnapshot;
 }
 
-/** Add virtual INR to the demo wallet (logged-in only). Omit `amount` to add one default tranche (server `DEMO_START_BALANCE`). */
+/** Add virtual INR to the demo wallet (logged-in only). Omit `amount` to add one default tranche (server `DEMO_ACCOUNT_DEFAULT_INR`). */
 export async function addDemoFunds(token: string, amount?: number) {
   const response = await fetch(`${apiBase()}/api/me/demo/add-funds`, {
     method: "POST",
@@ -332,7 +332,12 @@ export async function addDemoFunds(token: string, amount?: number) {
     },
     body: JSON.stringify(amount === undefined ? {} : { amount })
   });
-  return parseJson<{ ok: true; demo_balance: number; added: number }>(response);
+  return parseJson<{
+    ok: true;
+    demo_balance: number;
+    added: number;
+    already_at_starting_level?: boolean;
+  }>(response);
 }
 
 export async function loadTrades(token?: string | null, wallet: WalletType = "demo") {

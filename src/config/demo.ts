@@ -1,11 +1,20 @@
 /**
- * Virtual INR in `wallets.demo_balance` for new signups and safe fallbacks when the column is missing.
- * Set `DEMO_START_BALANCE` in `.env` to override (0–1e12).
+ * Virtual INR for the demo wallet: new users, bust-to-zero top-up, default “Add demo funds” tranche, etc.
+ *
+ * Set in `.env` (restart Node after change):
+ * - **`DEMO_ACCOUNT_DEFAULT_INR`** — preferred name (0–1e12).
+ * - **`DEMO_START_BALANCE`** — legacy alias; used only if `DEMO_ACCOUNT_DEFAULT_INR` is unset.
+ *
+ * If neither is set, **10_000** is used.
  */
 export const DEFAULT_DEMO_BALANCE_INR = (() => {
-  const raw = Number(process.env.DEMO_START_BALANCE);
-  if (Number.isFinite(raw) && raw >= 0) {
-    return Math.min(raw, 1e12);
+  const primary = Number(process.env.DEMO_ACCOUNT_DEFAULT_INR);
+  if (Number.isFinite(primary) && primary >= 0) {
+    return Math.min(primary, 1e12);
+  }
+  const legacy = Number(process.env.DEMO_START_BALANCE);
+  if (Number.isFinite(legacy) && legacy >= 0) {
+    return Math.min(legacy, 1e12);
   }
   return 10_000;
 })();

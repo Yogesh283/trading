@@ -400,12 +400,12 @@ export async function registerUser(input: {
       try {
         if (isMysqlMode()) {
           await getPool().execute(
-            `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
+            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, updated_at) VALUES (?, 0, ?, 0, ?)`,
             [id, DEFAULT_DEMO_BALANCE_INR, now]
           );
         } else {
           await dbRun(
-            `INSERT INTO wallets (user_id, balance, demo_balance, updated_at) VALUES (?, 0, ?, ?)`,
+            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, updated_at) VALUES (?, 0, ?, 0, ?)`,
             [id, DEFAULT_DEMO_BALANCE_INR, now]
           );
         }
