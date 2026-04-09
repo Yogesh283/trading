@@ -115,8 +115,9 @@ function HomeIconFire() {
 }
 
 export function MobileHomePage(props: {
-  accountWallet: "demo" | "live";
+  accountWallet: "demo" | "live" | "bonus";
   demoBal: number | null;
+  bonusBal: number | null;
   liveBal: number | null;
   markets: MarketTick[];
   /** Per-symbol quote ticks (newest last) — used for up/down price color on the home list. */
@@ -134,6 +135,7 @@ export function MobileHomePage(props: {
   const {
     accountWallet,
     demoBal,
+    bonusBal,
     liveBal,
     markets,
     tickHistory,
@@ -189,9 +191,15 @@ export function MobileHomePage(props: {
           <span className="mobile-dash-home__wallet-line-label">Demo (practice)</span>
           <strong className="mobile-dash-home__wallet-line-val">{walletInr(demoBal)}</strong>
         </div>
+        <div className="mobile-dash-home__wallet-line">
+          <span className="mobile-dash-home__wallet-line-label">Bonus (challenge)</span>
+          <strong className="mobile-dash-home__wallet-line-val">{walletInr(bonusBal)}</strong>
+        </div>
         <p className="mobile-dash-home__wallet-active-note">
           Active for trading:{" "}
-          <strong>{accountWallet === "live" ? "Live" : "Demo"}</strong>{" "}
+          <strong>
+            {accountWallet === "live" ? "Live" : accountWallet === "bonus" ? "Bonus" : "Demo"}
+          </strong>{" "}
           <span className="muted">— switch from header menu</span>
         </p>
       </div>
@@ -386,14 +394,15 @@ export function MobileOffersPage(props: {
 }
 
 export function MobileAssetsPage(props: {
-  accountWallet: "demo" | "live";
+  accountWallet: "demo" | "live" | "bonus";
   demoBal: number | null;
+  bonusBal: number | null;
   liveBal: number | null;
   onDeposit: () => void;
   onWithdraw: () => void;
   onWalletActivity: () => void;
 }) {
-  const { accountWallet, demoBal, liveBal, onDeposit, onWithdraw, onWalletActivity } = props;
+  const { accountWallet, demoBal, bonusBal, liveBal, onDeposit, onWithdraw, onWalletActivity } = props;
 
   function fmtBal(n: number | null): string {
     return n == null ? "—" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);
@@ -414,6 +423,15 @@ export function MobileAssetsPage(props: {
           >
             <span className="mobile-dash-asset-tile__label">Demo</span>
             <strong className="mobile-dash-asset-tile__val">{fmtBal(demoBal)}</strong>
+          </div>
+          <div
+            className={cx(
+              "mobile-dash-asset-tile",
+              accountWallet === "bonus" && "mobile-dash-asset-tile--active"
+            )}
+          >
+            <span className="mobile-dash-asset-tile__label">Bonus</span>
+            <strong className="mobile-dash-asset-tile__val">{fmtBal(bonusBal)}</strong>
           </div>
           <div
             className={cx(

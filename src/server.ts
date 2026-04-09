@@ -43,7 +43,8 @@ import {
   requireAdminSession,
   requireSession,
   resolveDemoUser,
-  resolveWallet,
+  resolveWalletForHttpRequest,
+  type WalletType,
   updateUserFromAdmin,
   setUserBlockedByAdmin,
   resolveAdminUserPrimaryKey,
@@ -67,10 +68,14 @@ import { createWithdrawal, getWithdrawalById, listAllWithdrawals, listWithdrawal
 import {
   applyLedger,
   ensureWallet,
+  getBonusBalanceFromDb,
   getDemoBalanceFromDb,
   getLiveWalletBreakdown,
+  getWalletChallengeMeta,
   getWalletBalance,
   listTransactionsForUser,
+  redeemDemoChallengeReward,
+  saveBonusBalanceToDb,
   saveDemoBalanceToDb,
   setWalletBalancesFromAdmin
 } from "./services/walletStore";
@@ -80,7 +85,7 @@ import {
   DEMO_PRACTICE_RETRY_BELOW_INR,
   MIN_WITHDRAWAL_INR
 } from "./config/demoChallenge";
-import { TradeSide } from "./services/demoAccount";
+import { DemoAccount, TradeSide } from "./services/demoAccount";
 import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
@@ -136,6 +141,21 @@ export const useUnifiedDevPort =
   String(process.env.SEPARATE_FRONTEND ?? "").trim() !== "1";
 
 const app = express();
+
+/**
+ * Bonus row must reflect `wallets.bonus_balance_inr` only (redeem + bonus-wallet P&L), never demo cash.
+ * When there are no open bonus trades, force in-memory cash from DB so a mis-resolved wallet cannot stick.
+ */
+async function alignIdleBonusAccountCashWithDb(userId: string, wallet: WalletType, account: DemoAccount): Promise<void> {
+  if (wallet !== "bonus" || userId === getGuestUser().id) {
+    return;
+  }
+  const hasOpen = account.listTrades().some((t) => t.status === "open");
+  if (hasOpen) {
+    return;
+  }
+  account.setBalance(await getBonusBalanceFromDb(userId));
+}
 
 /** Android APK for landing “Download APK” — avoids 404 when file is not inside frontend build. */
 function resolveAndroidApkPath(): string | null {
@@ -723,6 +743,28 @@ app.post("/api/me/demo/add-funds", (req, res) => {
   })();
 });
 
+/** After demo hits the challenge target: move configured reward to bonus wallet and set demo to ₹0. */
+app.post("/api/me/demo-challenge/redeem", (_req, res) => {
+  void (async () => {
+    try {
+      const user = await requireSession(_req.headers.authorization);
+      const out = await redeemDemoChallengeReward(user.id);
+      return res.json({ ok: true, bonus_balance_inr: out.bonus_balance_inr, demo_balance: out.demo_balance });
+    } catch (e) {
+      if (e instanceof Error && e.message === "Unauthorized") {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const msg = e instanceof Error ? e.message : "Failed";
+      const code =
+        /no challenge reward/i.test(msg) || /bonus reward unlocks only/i.test(msg) ? 400 : 500;
+      if (code === 500) {
+        logger.error({ e }, "demo-challenge redeem");
+      }
+      return res.status(code).json({ message: msg });
+    }
+  })();
+});
+
 /** Unlimited practice: when demo balance is nearly zero, reset virtual balance to the default starting amount. */
 app.post("/api/me/demo/claim-practice-reset", (req, res) => {
   void (async () => {
@@ -795,7 +837,7 @@ app.post("/api/ai/explain-signal", (req, res) => {
     } catch {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    const wallet = resolveWallet(user.id, req.headers["x-account-type"] as string | undefined);
+    const wallet = resolveWalletForHttpRequest(user.id, req.headers["x-account-type"], req.query);
     if (wallet !== "live") {
       return res.status(403).json({
         message:
@@ -976,9 +1018,12 @@ app.get("/api/markets/candles", (req, res) => {
 app.get("/api/account", (_req, res) => {
   void (async () => {
     const user = await resolveDemoUser(_req.headers.authorization);
-    const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
+    res.setHeader("Cache-Control", "no-store, private");
+    res.setHeader("Vary", "Authorization, X-Account-Type");
+    const wallet = resolveWalletForHttpRequest(user.id, _req.headers["x-account-type"], _req.query);
     await prepareAccountForRequest(user.id, wallet);
     let account = getAccountForWallet(user.id, wallet);
+    await alignIdleBonusAccountCashWithDb(user.id, wallet, account);
     let snap = account.snapshot(forexFeed.snapshot());
     if (user.id !== getGuestUser().id && wallet === "demo") {
       const savedDemo = await saveDemoBalanceToDb(user.id, account.balance);
@@ -988,15 +1033,19 @@ app.get("/api/account", (_req, res) => {
         snap = account.snapshot(forexFeed.snapshot());
       }
     }
+    /** Bonus must not mutate on read-only endpoints; bonus writes happen only on redeem/open/settle flows. */
+    const challengeMeta =
+      user.id !== getGuestUser().id ? await getWalletChallengeMeta(user.id) : undefined;
     if (user.id !== getGuestUser().id && wallet === "live") {
       const br = await getLiveWalletBreakdown(user.id);
       return res.json({
         ...snap,
+        ...challengeMeta,
         locked_bonus_inr: br.locked_bonus_inr,
         withdrawable_inr: br.withdrawable_inr
       });
     }
-    res.json(snap);
+    res.json(challengeMeta ? { ...snap, ...challengeMeta } : snap);
   })().catch((error) => {
     logger.error({ error }, "Unable to load account");
     res.status(500).json({ message: "Unable to load account" });
@@ -1006,9 +1055,12 @@ app.get("/api/account", (_req, res) => {
 app.get("/api/trades", (_req, res) => {
   void (async () => {
     const user = await resolveDemoUser(_req.headers.authorization);
-    const wallet = resolveWallet(user.id, _req.headers["x-account-type"] as string | undefined);
+    res.setHeader("Cache-Control", "no-store, private");
+    res.setHeader("Vary", "Authorization, X-Account-Type");
+    const wallet = resolveWalletForHttpRequest(user.id, _req.headers["x-account-type"], _req.query);
     await prepareAccountForRequest(user.id, wallet);
     let account = getAccountForWallet(user.id, wallet);
+    await alignIdleBonusAccountCashWithDb(user.id, wallet, account);
     if (user.id !== getGuestUser().id && wallet === "demo") {
       const savedDemo = await saveDemoBalanceToDb(user.id, account.balance);
       if (Math.abs(savedDemo - account.balance) > 0.01) {
@@ -1016,6 +1068,7 @@ app.get("/api/trades", (_req, res) => {
         account = getAccountForWallet(user.id, wallet);
       }
     }
+    /** Bonus must not mutate on read-only endpoints; bonus writes happen only on redeem/open/settle flows. */
     res.json({ trades: account.listTrades() });
   })().catch((error) => {
     logger.error({ error }, "Unable to load trades");
@@ -2309,6 +2362,78 @@ app.post("/api/demo/orders", (req, res) => {
   });
 });
 
+/** Binary trades from bonus wallet — stake from bonus; wins credit main wallet (`bonus_trade_win`). */
+app.post("/api/bonus/orders", (req, res) => {
+  void (async () => {
+    const symbol = String(req.body?.symbol ?? "").toUpperCase();
+    const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
+    const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
+    const timeframeSec = Number(req.body?.timeframe);
+    const user = await requireSession(req.headers.authorization);
+
+    if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
+      return res.status(400).json({ message: "Unsupported symbol" });
+    }
+    if (direction !== "up" && direction !== "down") {
+      return res.status(400).json({ message: "Direction must be up or down" });
+    }
+    if (
+      !Number.isFinite(timeframeSec) ||
+      !(TRADE_TIMEFRAMES_SEC as readonly number[]).includes(timeframeSec)
+    ) {
+      return res.status(400).json({
+        message: "Timeframe must be one of: 5s, 10s, 30s, 1m, 3m, 5m"
+      });
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+      return res.status(400).json({
+        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+      });
+    }
+
+    const tick = forexFeed.getTick(symbol);
+    if (!tick) {
+      return res.status(409).json({ message: "No live price available yet" });
+    }
+
+    await prepareAccountForRequest(user.id, "bonus");
+    const account = getAccountForWallet(user.id, "bonus");
+
+    const nowMs = Date.now();
+    const expiryAt = binaryCandleExpiresAtMs(nowMs, timeframeSec);
+    const trade = account.openTrade({
+      symbol,
+      side: "buy",
+      quantity,
+      entryPrice: tick.price,
+      direction: direction as "up" | "down",
+      expiryAt,
+      timeframeSeconds: timeframeSec
+    });
+
+    if (!trade) {
+      return res.status(400).json({ message: "Insufficient balance for this amount" });
+    }
+
+    const saved = await saveBonusBalanceToDb(user.id, account.balance);
+    if (Math.abs(saved - account.balance) > 0.01) {
+      await prepareAccountForRequest(user.id, "bonus");
+    }
+
+    logger.info({ trade, userId: user.id }, "Bonus wallet binary trade opened");
+    return res.status(201).json({ trade });
+  })().catch((error) => {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    logger.error({ error }, "Unable to open bonus trade");
+    res.status(500).json({ message: "Unable to open bonus trade" });
+  });
+});
+
 app.post("/api/orders", (req, res) => {
   void (async () => {
     const user = await requireSession(req.headers.authorization);
@@ -2441,6 +2566,36 @@ setInterval(() => {
                 }
               })()
             );
+          } else if (wallet === "bonus" && userId !== getGuestUser().id) {
+            const win =
+              trade.direction === "up"
+                ? tick.price > trade.entryPrice
+                : tick.price < trade.entryPrice;
+            const settled = account.settleExpiredTradeRecordOnly(trade.id, tick.price);
+            if (settled) {
+              void (async () => {
+                try {
+                  if (win) {
+                    await applyLedger(
+                      userId,
+                      trade.quantity * BINARY_WIN_PAYOUT_MULTIPLIER,
+                      "bonus_trade_win",
+                      trade.id
+                    );
+                  }
+                  const savedB = await saveBonusBalanceToDb(userId, account.balance);
+                  if (Math.abs(savedB - account.balance) > 0.01) {
+                    await prepareAccountForRequest(userId, "bonus");
+                  }
+                } catch (e) {
+                  logger.error({ e, tradeId: trade.id }, "Bonus binary settle failed");
+                }
+              })();
+              logger.info(
+                { tradeId: settled.id, symbol: settled.symbol, pnl: settled.pnl, wallet: "bonus" },
+                "Binary trade settled"
+              );
+            }
           } else {
             const settled = account.settleExpiredTrade(trade.id, tick.price);
             if (settled) {
@@ -2583,12 +2738,15 @@ async function sendTradingWsSnapshot(socket: WebSocket, req: IncomingMessage) {
   try {
     const u = new URL(rawUrl, "http://127.0.0.1");
     const qpToken = u.searchParams.get("token")?.trim();
-    const qpWallet = u.searchParams.get("wallet")?.trim().toLowerCase() === "live" ? "live" : "demo";
+    const wRaw = u.searchParams.get("wallet")?.trim().toLowerCase();
+    const qpWallet: "demo" | "live" | "bonus" =
+      wRaw === "live" ? "live" : wRaw === "bonus" ? "bonus" : "demo";
     if (qpToken) {
       const user = await getUserFromToken(qpToken);
       if (user) {
         await prepareAccountForRequest(user.id, qpWallet);
         const account = getAccountForWallet(user.id, qpWallet);
+        await alignIdleBonusAccountCashWithDb(user.id, qpWallet, account);
         socket.send(
           JSON.stringify({
             type: "snapshot",

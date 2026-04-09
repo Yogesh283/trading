@@ -80,11 +80,14 @@ export class DemoAccount {
   ) {
     const isBinary = input.direction === "up" || input.direction === "down";
     const skipStake = Boolean(input.skipBinaryStakeDebit && isBinary);
-    if (isBinary && !skipStake && (input.quantity <= 0 || this.cash < input.quantity)) {
+    if (isBinary && !skipStake && (input.quantity <= 0 || this.cash + 1e-9 < input.quantity)) {
       return null;
     }
     if (isBinary && !skipStake) {
-      this.cash -= input.quantity;
+      this.cash = Number((this.cash - input.quantity).toFixed(8));
+      if (this.cash < 0 && this.cash > -1e-8) {
+        this.cash = 0;
+      }
     }
 
     /** Spot buy/sell: no leverage — full notional (qty × price) must be paid from balance. */

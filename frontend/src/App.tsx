@@ -39,8 +39,10 @@ import {
   type ChartTimeframeSec,
   coerceTradeTimeframeSec,
   addDemoFunds,
+  createBonusOrder,
   createDemoOrder,
   createLiveOrder,
+  redeemDemoChallenge,
   explainSignalAI,
   loadAccount,
   loadMarketCandles,
@@ -122,6 +124,15 @@ function formatAuthUserContact(u: AuthUser): string {
     return em;
   }
   return `User ID ${u.id}`;
+}
+
+/** Bonus menu row: prefer `bonus_balance_inr` when idle so it never mirrors demo `balance`. */
+function bonusWalletRowInr(acc: AccountSnapshot): number {
+  const hasOpen = Array.isArray(acc.openTrades) && acc.openTrades.some((t) => t.status === "open");
+  if (!hasOpen && typeof acc.bonus_balance_inr === "number" && Number.isFinite(acc.bonus_balance_inr)) {
+    return acc.bonus_balance_inr;
+  }
+  return acc.balance;
 }
 
 type AuthView = "login" | "register" | "forgot";
@@ -285,6 +296,9 @@ function walletLedgerAmountPrimary(tx: WalletLedgerRow): string {
 }
 
 function walletLedgerTypeLabel(tx: WalletLedgerRow): string {
+  if (tx.txn_type === "bonus_trade_win") {
+    return "Bonus trade → main wallet";
+  }
   if (tx.txn_type === "demo" || tx.txn_type === "demo_challenge_reward") {
     return "Demo → main wallet";
   }
@@ -292,6 +306,9 @@ function walletLedgerTypeLabel(tx: WalletLedgerRow): string {
 }
 
 function walletLedgerAmountHint(tx: WalletLedgerRow): string | null {
+  if (tx.txn_type === "bonus_trade_win") {
+    return "Win from bonus-wallet trade — credited to your main (live) balance";
+  }
   if (tx.txn_type === "demo" || tx.txn_type === "demo_challenge_reward") {
     return "Demo target reached — credit to main wallet (locked bonus until profit)";
   }
@@ -391,10 +408,10 @@ export default function App() {
   const [walletTxs, setWalletTxs] = useState<WalletLedgerRow[]>([]);
   const [walletTxLoading, setWalletTxLoading] = useState(false);
   /** Logged-in: whether trading UI uses virtual demo wallet or live wallet. */
-  const [userAccountWallet, setUserAccountWallet] = useState<"demo" | "live">(() => {
+  const [userAccountWallet, setUserAccountWallet] = useState<"demo" | "live" | "bonus">(() => {
     try {
       const v = window.localStorage.getItem(USER_ACCOUNT_WALLET_STORAGE_KEY);
-      if (v === "demo" || v === "live") return v;
+      if (v === "demo" || v === "live" || v === "bonus") return v;
     } catch {
       /* ignore */
     }
@@ -402,10 +419,18 @@ export default function App() {
   });
   const [timerTick, setTimerTick] = useState(0);
   /** Logged-in: both wallets’ balances for header (always load demo + live so DB migration applies). */
-  const [dualBalances, setDualBalances] = useState<{ demo: number | null; live: number | null }>({
+  const [dualBalances, setDualBalances] = useState<{
+    demo: number | null;
+    live: number | null;
+    bonus: number | null;
+  }>({
     demo: null,
-    live: null
+    live: null,
+    bonus: null
   });
+  const [demoChallengePending, setDemoChallengePending] = useState(false);
+  const [demoChallengeRedeemBusy, setDemoChallengeRedeemBusy] = useState(false);
+  const [demoChallengeModalDismissed, setDemoChallengeModalDismissed] = useState(false);
   const symbolRef = useRef(symbol);
   symbolRef.current = symbol;
   const chartTimeframeRef = useRef(chartTimeframe);
@@ -749,7 +774,17 @@ export default function App() {
   }, [session]);
 
   const sessionToken = session?.token;
-  const accountWallet: "demo" | "live" = session ? userAccountWallet : "demo";
+  const accountWallet: "demo" | "live" | "bonus" = session ? userAccountWallet : "demo";
+
+  useEffect(() => {
+    if (!session) return;
+    try {
+      window.localStorage.setItem(USER_ACCOUNT_WALLET_STORAGE_KEY, userAccountWallet);
+    } catch {
+      /* ignore */
+    }
+  }, [session, userAccountWallet]);
+
   /** Prefer `dualBalances.demo`; if still null while on demo, use `account.balance` so ₹0 shows as enabled. */
   const demoBalanceForTopUp = useMemo(() => {
     if (dualBalances.demo != null) return dualBalances.demo;
@@ -958,7 +993,7 @@ export default function App() {
     };
   }, [booting, symbol, chartTimeframe, chartSessionKey]);
 
-  const refresh = async (walletOverride?: "demo" | "live", options?: { skipMarketTicks?: boolean }) => {
+  const refresh = async (walletOverride?: "demo" | "live" | "bonus", options?: { skipMarketTicks?: boolean }) => {
     const mySeq = ++refreshSeqRef.current;
     const wallet = walletOverride ?? accountWallet;
     const skipMarketTicks = Boolean(options?.skipMarketTicks);
@@ -983,23 +1018,29 @@ export default function App() {
       if (!sessionToken) {
         setAccount(null);
         setTrades([]);
-        setDualBalances({ demo: null, live: null });
+        setDualBalances({ demo: null, live: null, bonus: null });
+        setDemoChallengePending(false);
       } else {
-        const [demoAcc, liveAcc, tradeData] = await Promise.all([
+        const [demoAcc, liveAcc, bonusAcc, tradeData] = await Promise.all([
           loadAccount(sessionToken, "demo"),
           loadAccount(sessionToken, "live"),
+          loadAccount(sessionToken, "bonus"),
           loadTrades(sessionToken, wallet)
         ]);
         if (mySeq !== refreshSeqRef.current) {
           return;
         }
-        const accountData = wallet === "demo" ? demoAcc : liveAcc;
+        const accountData = wallet === "demo" ? demoAcc : wallet === "live" ? liveAcc : bonusAcc;
         setAccount(accountData);
         setTrades(tradeData.trades);
         setDualBalances({
           demo: demoAcc.balance,
-          live: liveAcc.balance
+          live: liveAcc.balance,
+          bonus: bonusWalletRowInr(bonusAcc)
         });
+        const p = Boolean(demoAcc.demo_challenge_pending);
+        setDemoChallengePending(p);
+        if (p) setDemoChallengeModalDismissed(false);
       }
 
       if (mySeq !== refreshSeqRef.current) {
@@ -1042,6 +1083,21 @@ export default function App() {
     void refreshRef.current().catch(() => undefined);
     showAlert("Data refreshed.", "info");
   }, [showAlert]);
+
+  const handleRedeemDemoChallenge = useCallback(async () => {
+    if (!session?.token) return;
+    setDemoChallengeRedeemBusy(true);
+    try {
+      await redeemDemoChallenge(session.token);
+      setDemoChallengePending(false);
+      showAlert("Reward moved to your Bonus wallet. Demo is ₹0 until you add demo funds.", "info");
+      await refreshRef.current();
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Redeem failed", "error");
+    } finally {
+      setDemoChallengeRedeemBusy(false);
+    }
+  }, [session, showAlert]);
 
   const handleAddDemoFunds = useCallback(async () => {
     if (!session?.token) {
@@ -1127,8 +1183,9 @@ export default function App() {
 
       if (payload.type === "snapshot") {
         setMarkets(payload.data.markets);
-        const snapWallet = (payload.data as { wallet?: "demo" | "live" }).wallet;
-        const isPersonalSnap = snapWallet === "demo" || snapWallet === "live";
+        const snapWallet = (payload.data as { wallet?: "demo" | "live" | "bonus" }).wallet;
+        const isPersonalSnap =
+          snapWallet === "demo" || snapWallet === "live" || snapWallet === "bonus";
         const accountSnap = payload.data.account;
         if (session != null && isPersonalSnap && accountSnap && snapWallet) {
           if (snapWallet === accountWallet) {
@@ -1139,14 +1196,26 @@ export default function App() {
           }
           setDualBalances((prev) => ({
             ...prev,
-            [snapWallet]: accountSnap.balance
+            [snapWallet]:
+              snapWallet === "bonus" ? bonusWalletRowInr(accountSnap) : accountSnap.balance
           }));
-          const otherWallet: "demo" | "live" = snapWallet === "demo" ? "live" : "demo";
-          void loadAccount(session.token, otherWallet)
-            .then((acc) => {
-              setDualBalances((prev) => ({ ...prev, [otherWallet]: acc.balance }));
-            })
-            .catch(() => undefined);
+          if (typeof accountSnap.demo_challenge_pending === "boolean") {
+            setDemoChallengePending(accountSnap.demo_challenge_pending);
+          }
+          const others = (["demo", "live", "bonus"] as const).filter((w) => w !== snapWallet);
+          for (const w of others) {
+            void loadAccount(session.token, w)
+              .then((acc) => {
+                setDualBalances((prev) => ({
+                  ...prev,
+                  [w]: w === "bonus" ? bonusWalletRowInr(acc) : acc.balance
+                }));
+                if (w === "demo" && typeof acc.demo_challenge_pending === "boolean") {
+                  setDemoChallengePending(acc.demo_challenge_pending);
+                }
+              })
+              .catch(() => undefined);
+          }
         }
         setHistory((current) => mergeSnapshot(current, payload.data.markets));
         return;
@@ -1445,28 +1514,48 @@ export default function App() {
       showAlert("Log in to place trades.", "error");
       return;
     }
-    if (accountWallet !== "demo") return;
+    if (accountWallet !== "demo" && accountWallet !== "bonus") return;
     const base = Number(quantity);
     const amount = opts?.stake ?? base;
     if (!Number.isFinite(amount) || amount <= 0) {
       showAlert("Enter a valid amount.", "error");
       return;
     }
+    if (accountWallet === "demo" && (dualBalances.demo ?? 0) <= 0) {
+      try {
+        await addDemoFunds(session.token);
+        await refresh(accountWallet, { skipMarketTicks: true });
+      } catch (e) {
+        showAlert(e instanceof Error ? e.message : "Could not add demo funds.", "error");
+        return;
+      }
+    }
     if (xauWeekendOrdersBlocked) {
       showAlert("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.", "error");
       return;
     }
     try {
-      const { trade } = await createDemoOrder(
-        {
-          symbol,
-          direction,
-          amount,
-          timeframe: binaryTimeframe
-        },
-        session.token,
-        "demo"
-      );
+      const { trade } =
+        accountWallet === "bonus"
+          ? await createBonusOrder(
+              {
+                symbol,
+                direction,
+                amount,
+                timeframe: binaryTimeframe
+              },
+              session.token
+            )
+          : await createDemoOrder(
+              {
+                symbol,
+                direction,
+                amount,
+                timeframe: binaryTimeframe
+              },
+              session.token,
+              "demo"
+            );
       setTrades((current) => [trade, ...current]);
       flashBinaryCreated(direction);
       await refresh();
@@ -1540,7 +1629,12 @@ export default function App() {
       const base =
         Number.isFinite(parsed) && parsed >= 1 ? Math.max(1, Math.floor(parsed)) : 1;
       const raw = base * mult;
-      const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
+      const bal =
+        accountWallet === "demo"
+          ? dualBalances.demo
+          : accountWallet === "bonus"
+            ? dualBalances.bonus
+            : dualBalances.live;
       if (bal != null && Number.isFinite(bal) && bal > 0) {
         const cap = Math.max(1, Math.floor(bal));
         setQuantity(String(Math.min(Math.max(1, raw), cap)));
@@ -1548,19 +1642,24 @@ export default function App() {
         setQuantity(String(Math.max(1, raw)));
       }
     },
-    [quantity, accountWallet, dualBalances.demo, dualBalances.live]
+    [quantity, accountWallet, dualBalances.demo, dualBalances.live, dualBalances.bonus]
   );
 
   const setBalancePreset = useCallback(
     (n: number) => {
       let v = Math.max(1, Math.floor(n));
-      const bal = accountWallet === "demo" ? dualBalances.demo : dualBalances.live;
+      const bal =
+        accountWallet === "demo"
+          ? dualBalances.demo
+          : accountWallet === "bonus"
+            ? dualBalances.bonus
+            : dualBalances.live;
       if (bal != null && Number.isFinite(bal) && bal > 0) {
         v = Math.min(v, Math.max(1, Math.floor(bal)));
       }
       setQuantity(String(v));
     },
-    [accountWallet, dualBalances.demo, dualBalances.live]
+    [accountWallet, dualBalances.demo, dualBalances.live, dualBalances.bonus]
   );
 
   const handleAuth = async (event: FormEvent) => {
@@ -1632,7 +1731,8 @@ export default function App() {
     setAndroidAppInfo(null);
     setNativeAndroidVersionCode(null);
     setSession(null);
-    setDualBalances({ demo: null, live: null });
+    setDualBalances({ demo: null, live: null, bonus: null });
+    setDemoChallengePending(false);
     setTrades([]);
     setAccount(null);
     setHistory({});
@@ -1797,7 +1897,7 @@ export default function App() {
     );
   }
 
-  const tradingAsDemo = accountWallet === "demo";
+  const tradingAsDemo = accountWallet === "demo" || accountWallet === "bonus";
   /** Demo + live: stake and wallet shown in INR (same numeric units as server demo/live wallets). */
   const fmtWallet = (n: number) => formatInr(n);
   const fmtHeaderWallet = (n: number | null) => (n == null ? "—" : fmtWallet(n));
@@ -1830,8 +1930,12 @@ export default function App() {
               <span className="app-nav-brand-fx"> FX</span>
             </span>
             {!isPhone ? (
-              <span className={`app-nav-mode-pill ${tradingAsDemo ? "demo" : "live"}`}>
-                {tradingAsDemo ? "Demo" : "Live"}
+              <span
+                className={`app-nav-mode-pill ${
+                  accountWallet === "live" ? "live" : accountWallet === "bonus" ? "demo" : "demo"
+                }`}
+              >
+                {accountWallet === "live" ? "Live" : accountWallet === "bonus" ? "Bonus" : "Demo"}
               </span>
             ) : null}
             {!isPhone ? (
@@ -1845,6 +1949,16 @@ export default function App() {
                   }}
                 >
                   Demo
+                </button>
+                <button
+                  type="button"
+                  className={accountWallet === "bonus" ? "on demo-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("bonus");
+                    void refresh("bonus").catch(() => undefined);
+                  }}
+                >
+                  Bonus
                 </button>
                 <button
                   type="button"
@@ -1959,7 +2073,7 @@ export default function App() {
           ) : null}
           <div className="app-nav-right">
             <GlobalRefreshButton title="Refresh data" onClick={handleGlobalRefresh} />
-            <div className="app-nav-dual-balances" role="group" aria-label="Demo and live wallet balances">
+            <div className="app-nav-dual-balances" role="group" aria-label="Demo, bonus, and live wallet balances">
               <button
                 type="button"
                 className={`app-nav-balance-col app-nav-balance-col--demo${accountWallet === "demo" ? " is-active" : ""}`}
@@ -1971,6 +2085,18 @@ export default function App() {
               >
                 <span className="app-nav-balance-col-label">Demo</span>
                 <span className="app-nav-balance-col-amt">{fmtHeaderWallet(dualBalances.demo)}</span>
+              </button>
+              <button
+                type="button"
+                className={`app-nav-balance-col app-nav-balance-col--demo${accountWallet === "bonus" ? " is-active" : ""}`}
+                title="Bonus — challenge reward wallet. Wins credit to Live."
+                onClick={() => {
+                  setUserAccountWallet("bonus");
+                  void refresh("bonus").catch(() => undefined);
+                }}
+              >
+                <span className="app-nav-balance-col-label">Bonus</span>
+                <span className="app-nav-balance-col-amt">{fmtHeaderWallet(dualBalances.bonus)}</span>
               </button>
               <button
                 type="button"
@@ -2006,7 +2132,11 @@ export default function App() {
                 >
                   Add demo funds
                 </button>
-                {" · "}switch to Live for your funded balance
+                {" · "}Bonus / Live in header
+              </>
+            ) : accountWallet === "bonus" ? (
+              <>
+                Bonus — challenge rewards; wins go to Live · switch to Demo or Live in header
               </>
             ) : (
               formatAuthUserContact(session.user)
@@ -2064,6 +2194,17 @@ export default function App() {
                   }}
                 >
                   Demo
+                </button>
+                <button
+                  type="button"
+                  className={accountWallet === "bonus" ? "on demo-on" : ""}
+                  onClick={() => {
+                    setUserAccountWallet("bonus");
+                    void refresh("bonus").catch(() => undefined);
+                    setMainNavOpen(false);
+                  }}
+                >
+                  Bonus
                 </button>
                 <button
                   type="button"
@@ -2290,14 +2431,26 @@ export default function App() {
                 onClick={() => setTradingPageWalletMenuOpen((o) => !o)}
               >
                 <span className="mobile-tpn-balance">
-                  {fmtHeaderWallet(accountWallet === "demo" ? dualBalances.demo : dualBalances.live)}
+                  {fmtHeaderWallet(
+                    accountWallet === "demo"
+                      ? dualBalances.demo
+                      : accountWallet === "bonus"
+                        ? dualBalances.bonus
+                        : dualBalances.live
+                  )}
                 </span>
                 <span
                   className={`mobile-tpn-account-line${
-                    accountWallet === "demo" ? " mobile-tpn-account-line--demo" : " mobile-tpn-account-line--live"
+                    accountWallet === "live"
+                      ? " mobile-tpn-account-line--live"
+                      : " mobile-tpn-account-line--demo"
                   }`}
                 >
-                  {accountWallet === "demo" ? "Demo account" : "Live account"}
+                  {accountWallet === "demo"
+                    ? "Demo account"
+                    : accountWallet === "bonus"
+                      ? "Bonus account"
+                      : "Live account"}
                   <span className="mobile-tpn-chevron" aria-hidden>
                     ▾
                   </span>
@@ -2318,6 +2471,19 @@ export default function App() {
                     <span>Demo</span>
                     <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.demo)}</span>
                 </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={accountWallet === "bonus" ? "active" : ""}
+                    onClick={() => {
+                      setUserAccountWallet("bonus");
+                      void refresh("bonus").catch(() => undefined);
+                      setTradingPageWalletMenuOpen(false);
+                    }}
+                  >
+                    <span>Bonus</span>
+                    <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.bonus)}</span>
+                  </button>
                 <button
                   type="button"
                     role="menuitem"
@@ -2358,10 +2524,11 @@ export default function App() {
             <button
               type="button"
               className="mobile-tpn-wallet-fab"
-              aria-label={accountWallet === "demo" ? "Switch to live account" : "Switch to demo account"}
-              title={accountWallet === "demo" ? "Switch to live" : "Switch to demo"}
+              aria-label="Cycle Demo → Bonus → Live"
+              title="Next wallet: Demo → Bonus → Live"
               onClick={() => {
-                const next = accountWallet === "demo" ? "live" : "demo";
+                const next =
+                  accountWallet === "demo" ? "bonus" : accountWallet === "bonus" ? "live" : "demo";
                 setUserAccountWallet(next);
                 void refresh(next).catch(() => undefined);
                 setTradingPageWalletMenuOpen(false);
@@ -2413,6 +2580,7 @@ export default function App() {
         <MobileHomePage
           accountWallet={accountWallet}
           demoBal={dualBalances.demo}
+          bonusBal={dualBalances.bonus}
           liveBal={dualBalances.live}
           markets={markets}
           tickHistory={history}
@@ -2464,6 +2632,7 @@ export default function App() {
         <MobileAssetsPage
           accountWallet={accountWallet}
           demoBal={dualBalances.demo}
+          bonusBal={dualBalances.bonus}
           liveBal={dualBalances.live}
           onDeposit={() => {
             setAssetPickerOpen(false);
@@ -3762,6 +3931,45 @@ export default function App() {
               >
                 OK
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {session && demoChallengePending && !demoChallengeModalDismissed ? (
+        <div className="order-placed-backdrop" role="presentation">
+          <div
+            className="order-placed-modal order-placed-modal--up"
+            role="alertdialog"
+            aria-labelledby="demo-challenge-redeem-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="order-placed-modal-inner">
+              <h2 id="demo-challenge-redeem-title" className="order-placed-title">
+                Demo target reached
+              </h2>
+              <p className="order-placed-summary">
+                The challenge bonus (e.g. ₹100) goes only to your <strong>Bonus</strong> wallet — and only while demo is
+                still at least <strong>₹1,00,000</strong> when you tap Redeem. After redeem, demo becomes ₹0 until{" "}
+                <strong>Add demo funds</strong>. Bonus trades credit wins to <strong>Live</strong>.
+              </p>
+              <div className="order-placed-actions-row" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="order-placed-ok"
+                  disabled={demoChallengeRedeemBusy}
+                  onClick={() => void handleRedeemDemoChallenge()}
+                >
+                  {demoChallengeRedeemBusy ? "…" : "Redeem to Bonus"}
+                </button>
+                <button
+                  type="button"
+                  className="order-placed-ok order-placed-ok--loss"
+                  disabled={demoChallengeRedeemBusy}
+                  onClick={() => setDemoChallengeModalDismissed(true)}
+                >
+                  Later
+                </button>
+              </div>
             </div>
           </div>
         </div>

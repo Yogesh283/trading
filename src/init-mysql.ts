@@ -102,6 +102,9 @@ async function main() {
       balance DOUBLE NOT NULL DEFAULT 0,
       demo_balance DOUBLE NOT NULL DEFAULT 10000,
       locked_bonus_inr DOUBLE NOT NULL DEFAULT 0,
+      bonus_balance_inr DOUBLE NOT NULL DEFAULT 0,
+      demo_challenge_pending TINYINT(1) NOT NULL DEFAULT 0,
+      demo_hold_zero TINYINT(1) NOT NULL DEFAULT 0,
       updated_at VARCHAR(64) NOT NULL,
       CONSTRAINT fk_wallets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

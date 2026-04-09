@@ -20,6 +20,10 @@ export interface AccountSnapshot {
     status: "open" | "closed";
   }>;
   tradeCount: number;
+  /** Logged-in: bonus wallet INR (same on any wallet’s account response). */
+  bonus_balance_inr?: number;
+  /** Logged-in: demo target hit — user should redeem to bonus wallet. */
+  demo_challenge_pending?: boolean;
 }
 
 export interface Trade {
@@ -78,7 +82,7 @@ function apiBase(): string {
   return getBackendHttpOrigin();
 }
 
-export type WalletType = "demo" | "live";
+export type WalletType = "demo" | "live" | "bonus";
 
 function requestHeaders(token?: string | null, wallet?: WalletType): Record<string, string> {
   const headers: Record<string, string> = {};
@@ -118,6 +122,51 @@ const FETCH_MARKETS_LIVE: RequestInit = {
   headers: { Accept: "application/json" }
 };
 
+const FLAP_RETRY_DELAYS_MS = [120, 400];
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isLocalDevClient(): boolean {
+  if (!import.meta.env.DEV || typeof window === "undefined") {
+    return false;
+  }
+  const h = window.location.hostname.toLowerCase();
+  return h === "localhost" || h === "127.0.0.1";
+}
+
+/**
+ * Chrome shows `net::ERR_NETWORK_CHANGED` when the network path changes (Wi‑Fi/VPN, adapter reset, sleep/wake).
+ * Retry briefly for idempotent GET/HEAD only — not for POST (avoids duplicate trades / side effects).
+ */
+async function fetchWithFlapRetry(url: string, init?: RequestInit): Promise<Response> {
+  const method = String(init?.method ?? "GET").toUpperCase();
+  const isSafeMethod = method === "GET" || method === "HEAD";
+  const maxAttempts = isSafeMethod ? 1 + FLAP_RETRY_DELAYS_MS.length : 1;
+  let lastErr: unknown;
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      return await fetch(url, init);
+    } catch (e) {
+      lastErr = e;
+      if (!(e instanceof TypeError) || i >= maxAttempts - 1) {
+        break;
+      }
+      await sleepMs(FLAP_RETRY_DELAYS_MS[i] ?? 500);
+    }
+  }
+  if (lastErr instanceof TypeError) {
+    if (isLocalDevClient()) {
+      throw new Error("Local network/API hiccup. Retry in 1-2 seconds; ensure backend `npm run dev` is running.");
+    }
+    throw new Error(
+      "Network interrupted (Wi‑Fi/VPN change, adapter reset, or sleep/wake). Wait a moment and retry. If it keeps failing, confirm the API is running (`npm run dev` on port 3000)."
+    );
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
 /**
  * Live deployments sometimes mis-route `/api/*` to the SPA (HTML). Detect that so fixes point at nginx.
  * See DEPLOY.md — `location /api/` must be before the SPA catch‑all and proxy to Node.
@@ -138,7 +187,7 @@ async function readJsonFromOkResponse(response: Response, endpoint: string): Pro
 }
 
 export async function loadMarkets() {
-  const response = await fetch(`${apiBase()}/api/markets`, FETCH_MARKETS_LIVE);
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/markets`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load markets");
   }
@@ -155,7 +204,7 @@ export async function loadMarketsHistory(symbol?: string, limit = 500) {
   const params = new URLSearchParams();
   if (symbol) params.set("symbol", symbol);
   params.set("limit", String(limit));
-  const response = await fetch(`${apiBase()}/api/markets/history?${params}`, FETCH_MARKETS_LIVE);
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/markets/history?${params}`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load chart history");
   }
@@ -169,7 +218,7 @@ export async function loadMarketCandles(symbol: string, timeframeSec: number, li
     timeframe: String(timeframeSec),
     limit: String(limit)
   });
-  const response = await fetch(`${apiBase()}/api/markets/candles?${params}`, FETCH_MARKETS_LIVE);
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/markets/candles?${params}`, FETCH_MARKETS_LIVE);
   if (!response.ok) {
     throw new Error("Unable to load chart candles");
   }
@@ -189,16 +238,7 @@ export async function loadMarketCandles(symbol: string, timeframeSec: number, li
 }
 
 async function fetchJsonOrThrow(url: string, init: RequestInit): Promise<Response> {
-  try {
-    return await fetch(url, init);
-  } catch (e) {
-    if (e instanceof TypeError) {
-      throw new Error(
-        "API server not reachable. Start backend: in project root run `npm run dev` (port 3000), then use frontend with `npm run frontend:dev`."
-      );
-    }
-    throw e;
-  }
+  return fetchWithFlapRetry(url, init);
 }
 
 export async function registerUser(input: {
@@ -300,7 +340,7 @@ export async function resetPasswordByPhoneApi(input: {
 }
 
 export async function loadSession(token: string) {
-  const response = await fetch(`${apiBase()}/api/auth/me`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/auth/me`, {
     headers: {
       ...requestHeaders(token)
     }
@@ -310,7 +350,8 @@ export async function loadSession(token: string) {
 }
 
 export async function loadAccount(token?: string | null, wallet: WalletType = "demo") {
-  const response = await fetch(`${apiBase()}/api/account`, {
+  const q = new URLSearchParams({ wallet });
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/account?${q}`, {
     headers: {
       ...requestHeaders(token, token ? wallet : undefined)
     }
@@ -323,8 +364,23 @@ export async function loadAccount(token?: string | null, wallet: WalletType = "d
 }
 
 /** Add virtual INR to the demo wallet (logged-in only). Omit `amount` to add one default tranche (server `DEMO_ACCOUNT_DEFAULT_INR`). */
+export async function redeemDemoChallenge(token: string) {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/demo-challenge/redeem`, {
+    method: "POST",
+    headers: {
+      ...requestHeaders(token),
+      "Content-Type": "application/json"
+    }
+  });
+  return parseJson<{
+    ok: true;
+    bonus_balance_inr: number;
+    demo_balance: number;
+  }>(response);
+}
+
 export async function addDemoFunds(token: string, amount?: number) {
-  const response = await fetch(`${apiBase()}/api/me/demo/add-funds`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/demo/add-funds`, {
     method: "POST",
     headers: {
       ...requestHeaders(token),
@@ -341,7 +397,8 @@ export async function addDemoFunds(token: string, amount?: number) {
 }
 
 export async function loadTrades(token?: string | null, wallet: WalletType = "demo") {
-  const response = await fetch(`${apiBase()}/api/trades`, {
+  const q = new URLSearchParams({ wallet });
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/trades?${q}`, {
     headers: {
       ...requestHeaders(token, token ? wallet : undefined)
     }
@@ -361,7 +418,7 @@ export interface WalletLedgerRow {
 }
 
 export async function loadWalletTransactions(token: string) {
-  const response = await fetch(`${apiBase()}/api/wallet/transactions`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/wallet/transactions`, {
     headers: { ...requestHeaders(token) }
   });
   return parseJson<{ transactions: WalletLedgerRow[] }>(response);
@@ -420,7 +477,7 @@ export interface ReferralSummary {
 }
 
 export async function loadReferralSummary(token: string) {
-  const response = await fetch(`${apiBase()}/api/referrals/summary`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/referrals/summary`, {
     headers: { ...requestHeaders(token) }
   });
   const j = await response.json().catch(() => ({}));
@@ -442,7 +499,7 @@ export async function explainSignalAI(
   feeInr?: number;
   balanceAfter?: number;
 }> {
-  const response = await fetch(`${apiBase()}/api/ai/explain-signal`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/ai/explain-signal`, {
     method: "POST",
     headers: { ...requestHeaders(token, wallet), "Content-Type": "application/json" },
     body: JSON.stringify({ signal, ...(locale ? { locale } : {}) })
@@ -473,7 +530,7 @@ export interface SupportTicket {
 }
 
 export async function loadSupportTickets(token: string): Promise<SupportTicket[]> {
-  const response = await fetch(`${apiBase()}/api/support/tickets`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/support/tickets`, {
     headers: { ...requestHeaders(token) }
   });
   const j = await response.json().catch(() => ({}));
@@ -484,7 +541,7 @@ export async function loadSupportTickets(token: string): Promise<SupportTicket[]
 }
 
 export async function createSupportTicket(token: string, subject: string, body: string): Promise<SupportTicket> {
-  const response = await fetch(`${apiBase()}/api/support/tickets`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/support/tickets`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token) },
     body: JSON.stringify({ subject, body })
@@ -533,7 +590,7 @@ export type WithdrawalTpinStatus = {
 };
 
 export async function loadWithdrawalTpinStatus(token: string): Promise<WithdrawalTpinStatus> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/status`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-tpin/status`, {
     headers: { ...requestHeaders(token, "live") }
   });
   const j = await response.json().catch(() => ({}));
@@ -548,7 +605,7 @@ export async function setWithdrawalTpinApi(
   pin: string,
   confirmPin: string
 ): Promise<void> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/set`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-tpin/set`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
     body: JSON.stringify({ pin, confirmPin })
@@ -565,7 +622,7 @@ export async function changeWithdrawalTpinApi(
   pin: string,
   confirmPin: string
 ): Promise<void> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-tpin/change`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-tpin/change`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
     body: JSON.stringify({ currentPin, pin, confirmPin })
@@ -577,7 +634,7 @@ export async function changeWithdrawalTpinApi(
 }
 
 export async function loadWithdrawalTotpStatus(token: string): Promise<WithdrawalTotpStatus> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/status`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-totp/status`, {
     headers: { ...requestHeaders(token, "live") }
   });
   const j = await response.json().catch(() => ({}));
@@ -588,7 +645,7 @@ export async function loadWithdrawalTotpStatus(token: string): Promise<Withdrawa
 }
 
 export async function beginWithdrawalTotpSetup(token: string): Promise<{ secret: string; otpauthUrl: string }> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/begin`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-totp/begin`, {
     method: "POST",
     headers: { ...requestHeaders(token, "live") }
   });
@@ -600,7 +657,7 @@ export async function beginWithdrawalTotpSetup(token: string): Promise<{ secret:
 }
 
 export async function confirmWithdrawalTotpSetup(token: string, code: string): Promise<void> {
-  const response = await fetch(`${apiBase()}/api/me/withdrawal-totp/confirm`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/me/withdrawal-totp/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
     body: JSON.stringify({ code })
@@ -617,7 +674,7 @@ export async function submitWithdrawalRequest(
   toAddress: string,
   tpinOrTotp: string
 ) {
-  const response = await fetch(`${apiBase()}/api/withdrawals`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/withdrawals`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
     body: JSON.stringify({ amount, toAddress, tpin: tpinOrTotp })
@@ -630,7 +687,7 @@ export async function submitWithdrawalRequest(
 }
 
 export async function loadMyWithdrawals(token: string) {
-  const response = await fetch(`${apiBase()}/api/withdrawals/my`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/withdrawals/my`, {
     headers: { ...requestHeaders(token, "live") }
   });
   return parseJson<{ withdrawals: WithdrawalRecord[] }>(response);
@@ -646,7 +703,7 @@ export type DepositPublicInfo = {
 /** No login — show platform receive address on deposit screen. */
 export async function loadDepositPublicInfo(): Promise<DepositPublicInfo | null> {
   try {
-    const response = await fetch(`${apiBase()}/api/deposits/public-info`);
+    const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/public-info`);
     if (!response.ok) return null;
     return (await response.json()) as DepositPublicInfo;
   } catch {
@@ -659,7 +716,7 @@ export async function createDepositIntent(
   amount: number,
   walletProvider: string
 ) {
-  const response = await fetch(`${apiBase()}/api/deposits/intent`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/intent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token) },
     body: JSON.stringify({ amount, walletProvider })
@@ -694,7 +751,7 @@ export async function submitDepositTx(
   fromAddress: string,
   amountUsdt?: number
 ) {
-  const response = await fetch(`${apiBase()}/api/deposits/submit-tx`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/submit-tx`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...requestHeaders(token) },
     body: JSON.stringify({
@@ -708,7 +765,7 @@ export async function submitDepositTx(
 }
 
 export async function adminApproveDeposit(adminToken: string, depositId: string) {
-  const response = await fetch(`${apiBase()}/api/deposits/admin-approve`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/admin-approve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -731,7 +788,7 @@ export async function adminApproveDeposit(adminToken: string, depositId: string)
 }
 
 export async function adminApproveWithdrawal(adminToken: string, withdrawalId: string) {
-  const response = await fetch(`${apiBase()}/api/admin/withdrawals/approve`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/admin/withdrawals/approve`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -747,7 +804,7 @@ export async function adminApproveWithdrawal(adminToken: string, withdrawalId: s
 }
 
 export async function adminRejectWithdrawal(adminToken: string, withdrawalId: string) {
-  const response = await fetch(`${apiBase()}/api/admin/withdrawals/reject`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/admin/withdrawals/reject`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -769,7 +826,7 @@ export async function adminSetWithdrawalStatus(
   withdrawalId: string,
   status: AdminWithdrawalStatus
 ) {
-  const response = await fetch(`${apiBase()}/api/admin/withdrawals/set-status`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/admin/withdrawals/set-status`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -792,14 +849,14 @@ export async function adminSetWithdrawalStatus(
 }
 
 export async function loadMyDeposits(token: string) {
-  const response = await fetch(`${apiBase()}/api/deposits/my`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/my`, {
     headers: { ...requestHeaders(token) }
   });
   return parseJson<{ deposits: DepositRecord[] }>(response);
 }
 
 export async function loadAdminDeposits(adminToken: string) {
-  const response = await fetch(`${apiBase()}/api/deposits/admin-all`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/admin-all`, {
     headers: { Authorization: `Bearer ${adminToken}` }
   });
   if (!response.ok) {
@@ -852,7 +909,7 @@ export async function createDemoOrder(
     }),
     ...(input.side != null && { side: input.side, quantity: input.quantity ?? 0 })
   };
-  const response = await fetch(`${apiBase()}/api/demo/orders`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/demo/orders`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -870,13 +927,38 @@ export async function createLiveOrder(input: {
   amount: number;
   timeframe: number;
 }, token: string) {
-  const response = await fetch(`${apiBase()}/api/orders`, {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/orders`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...requestHeaders(token, "live")
     },
     body: JSON.stringify(input)
+  });
+  return parseJson<{ trade: Trade }>(response);
+}
+
+export async function createBonusOrder(
+  input: {
+    symbol: string;
+    direction: "up" | "down";
+    amount: number;
+    timeframe: number;
+  },
+  token: string
+) {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/bonus/orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...requestHeaders(token)
+    },
+    body: JSON.stringify({
+      symbol: input.symbol,
+      direction: input.direction,
+      amount: input.amount,
+      timeframe: input.timeframe
+    })
   });
   return parseJson<{ trade: Trade }>(response);
 }

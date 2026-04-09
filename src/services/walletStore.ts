@@ -169,36 +169,187 @@ async function applyLedgerMutationUnqueued(
   return { beforeBalance: before, afterBalance: after };
 }
 
-/** Persists demo INR; may apply challenge reward, or auto top-up when balance is zero. Returns final stored demo balance. */
+export async function getBonusBalanceFromDb(userId: string): Promise<number> {
+  await initAppDb();
+  await ensureWallet(userId);
+  const row = await dbGet<{
+    bonus_balance_inr: number | null;
+    demo_balance: number | null;
+    demo_challenge_pending: number | null;
+    demo_hold_zero: number | null;
+  }>(
+    "SELECT COALESCE(bonus_balance_inr, 0) AS bonus_balance_inr, COALESCE(demo_balance, 0) AS demo_balance, COALESCE(demo_challenge_pending, 0) AS demo_challenge_pending, COALESCE(demo_hold_zero, 0) AS demo_hold_zero FROM wallets WHERE user_id = ?",
+    [userId]
+  );
+  const bonus = Number(row?.bonus_balance_inr ?? 0);
+  const demo = Number(row?.demo_balance ?? 0);
+  const pending = Number(row?.demo_challenge_pending ?? 0) === 1;
+  const holdZero = Number(row?.demo_hold_zero ?? 0) === 1;
+  const looksLikeLegacyDemoCopy =
+    bonus > 0.009 &&
+    demo > 0.009 &&
+    Math.abs(bonus - demo) < 0.01 &&
+    !pending &&
+    !holdZero;
+  if (looksLikeLegacyDemoCopy) {
+    const now = new Date().toISOString();
+    await dbRun("UPDATE wallets SET bonus_balance_inr = 0, updated_at = ? WHERE user_id = ?", [now, userId]);
+    return 0;
+  }
+  return bonus;
+}
+
+export async function getWalletChallengeMeta(userId: string): Promise<{
+  bonus_balance_inr: number;
+  demo_challenge_pending: boolean;
+}> {
+  await initAppDb();
+  await ensureWallet(userId);
+  const row = await dbGet<{
+    bonus_balance_inr: number | null;
+    demo_challenge_pending: number | null;
+  }>(
+    "SELECT COALESCE(bonus_balance_inr, 0) AS bonus_balance_inr, COALESCE(demo_challenge_pending, 0) AS demo_challenge_pending FROM wallets WHERE user_id = ?",
+    [userId]
+  );
+  return {
+    bonus_balance_inr: Number(row?.bonus_balance_inr ?? 0),
+    demo_challenge_pending: Number(row?.demo_challenge_pending ?? 0) === 1
+  };
+}
+
+/**
+ * Persists demo INR. At/above challenge target sets `demo_challenge_pending` (user redeems → bonus wallet).
+ * Bust to default unless `demo_hold_zero` (after redeem).
+ */
 export async function saveDemoBalanceToDb(userId: string, demoBalance: number): Promise<number> {
   return enqueue(userId, async () => {
     await initAppDb();
     await ensureWallet(userId);
     let b = Number(demoBalance.toFixed(2));
+    const now = new Date().toISOString();
+    const holdRow = await dbGet<{ h: number }>(
+      "SELECT COALESCE(demo_hold_zero, 0) AS h FROM wallets WHERE user_id = ?",
+      [userId]
+    );
+    const holdZero = Number(holdRow?.h ?? 0) === 1;
     let shouldEvict = false;
+    let demoHoldZeroOut = 0;
+
     if (b >= DEMO_CHALLENGE_TARGET_INR) {
-      if (DEMO_CHALLENGE_REWARD_INR > 0) {
-        await applyLedgerMutationUnqueued(
-          userId,
-          DEMO_CHALLENGE_REWARD_INR,
-          "demo",
-          `demo-challenge-${userId}`
-        );
-      }
-      b = DEFAULT_DEMO_BALANCE_INR;
-      shouldEvict = true;
-    } else if (b <= 0) {
-      /** Busted to zero: auto set demo back to default starting balance (e.g. ₹10,000). */
-      b = DEFAULT_DEMO_BALANCE_INR;
-      shouldEvict = true;
+      await dbRun("UPDATE wallets SET demo_challenge_pending = 1, updated_at = ? WHERE user_id = ?", [
+        now,
+        userId
+      ]);
     }
+
+    if (b <= 0) {
+      if (holdZero) {
+        b = 0;
+        demoHoldZeroOut = 1;
+      } else {
+        b = DEFAULT_DEMO_BALANCE_INR;
+        shouldEvict = true;
+      }
+    }
+
     if (shouldEvict) {
       const { evictInMemoryAccountsForUser } = await import("./authService");
       evictInMemoryAccountsForUser(userId);
     }
-    const now = new Date().toISOString();
-    await dbRun("UPDATE wallets SET demo_balance = ?, updated_at = ? WHERE user_id = ?", [b, now, userId]);
+    await dbRun(
+      "UPDATE wallets SET demo_balance = ?, demo_hold_zero = ?, updated_at = ? WHERE user_id = ?",
+      [b, demoHoldZeroOut, now, userId]
+    );
     return b;
+  });
+}
+
+export async function saveBonusBalanceToDb(userId: string, bonusBalance: number): Promise<number> {
+  return enqueue(userId, async () => {
+    await initAppDb();
+    await ensureWallet(userId);
+    const b = Number(bonusBalance.toFixed(2));
+    const now = new Date().toISOString();
+    await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [b, now, userId]);
+    return b;
+  });
+}
+
+/** Redeem demo challenge: ₹100 (config) to bonus wallet only while DB demo ≥ target (e.g. ₹1,00,000). */
+export async function redeemDemoChallengeReward(userId: string): Promise<{
+  bonus_balance_inr: number;
+  demo_balance: number;
+}> {
+  return enqueue(userId, async () => {
+    await initAppDb();
+    await ensureWallet(userId);
+    const reward = DEMO_CHALLENGE_REWARD_INR;
+    if (reward <= 1e-9) {
+      throw new Error("Challenge reward is disabled");
+    }
+    const now = new Date().toISOString();
+    const target = DEMO_CHALLENGE_TARGET_INR;
+
+    if (isMysqlMode()) {
+      const pool = getPool();
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const [rows] = await conn.execute(
+          "SELECT COALESCE(demo_challenge_pending, 0) AS p, COALESCE(bonus_balance_inr, 0) AS bonus, COALESCE(demo_balance, 0) AS demo FROM wallets WHERE user_id = ? FOR UPDATE",
+          [userId]
+        );
+        const arr = rows as mysql.RowDataPacket[];
+        if (Number(arr[0]?.p ?? 0) !== 1) {
+          await conn.rollback();
+          throw new Error("No challenge reward to redeem");
+        }
+        const demoBal = Number(arr[0]?.demo ?? 0);
+        if (demoBal + 1e-9 < target) {
+          await conn.rollback();
+          throw new Error(
+            `Bonus reward unlocks only when demo balance reaches at least ₹${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
+          );
+        }
+        const newBonus = Number(arr[0]?.bonus ?? 0) + reward;
+        await conn.execute(
+          `UPDATE wallets SET bonus_balance_inr = ?, demo_balance = 0, demo_challenge_pending = 0, demo_hold_zero = 1, updated_at = ? WHERE user_id = ?`,
+          [newBonus, now, userId]
+        );
+        await conn.commit();
+        const { evictInMemoryAccountsForUser } = await import("./authService");
+        evictInMemoryAccountsForUser(userId);
+        return { bonus_balance_inr: newBonus, demo_balance: 0 };
+      } catch (e) {
+        await conn.rollback();
+        throw e;
+      } finally {
+        conn.release();
+      }
+    }
+
+    const row = await dbGet<{ p: number; bonus: number; demo: number }>(
+      "SELECT COALESCE(demo_challenge_pending, 0) AS p, COALESCE(bonus_balance_inr, 0) AS bonus, COALESCE(demo_balance, 0) AS demo FROM wallets WHERE user_id = ?",
+      [userId]
+    );
+    if (Number(row?.p ?? 0) !== 1) {
+      throw new Error("No challenge reward to redeem");
+    }
+    const demoBal = Number(row?.demo ?? 0);
+    if (demoBal + 1e-9 < target) {
+      throw new Error(
+        `Bonus reward unlocks only when demo balance reaches at least ₹${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
+      );
+    }
+    const newBonus = Number(row?.bonus ?? 0) + reward;
+    await dbRun(
+      `UPDATE wallets SET bonus_balance_inr = ?, demo_balance = 0, demo_challenge_pending = 0, demo_hold_zero = 1, updated_at = ? WHERE user_id = ?`,
+      [newBonus, now, userId]
+    );
+    const { evictInMemoryAccountsForUser } = await import("./authService");
+    evictInMemoryAccountsForUser(userId);
+    return { bonus_balance_inr: newBonus, demo_balance: 0 };
   });
 }
 

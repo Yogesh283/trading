@@ -6,6 +6,7 @@ import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appD
 import { DemoAccount } from "./demoAccount";
 import {
   ensureWallet,
+  getBonusBalanceFromDb,
   getDemoBalanceFromDb,
   getWalletBalance
 } from "./walletStore";
@@ -667,15 +668,49 @@ export async function promoteAdminFromEnv() {
   }
 }
 
-export type WalletType = "demo" | "live";
+export type WalletType = "demo" | "live" | "bonus";
 
-/** Guest = demo-only (try before login). Logged-in = separate demo + real wallets. */
+/** Guest = demo-only (try before login). Logged-in = separate demo + bonus + real wallets. */
 export function resolveWallet(userId: string, headerValue: string | undefined): WalletType {
   if (userId === GUEST_USER.id) {
     return "demo";
   }
   const raw = String(headerValue ?? "demo").toLowerCase();
-  return raw === "live" ? "live" : "demo";
+  if (raw === "live") return "live";
+  if (raw === "bonus") return "bonus";
+  return "demo";
+}
+
+/** Normalize `X-Account-Type` (Express may surface duplicates as `string[]`). */
+export function normalizeAccountTypeHeader(header: string | string[] | undefined): string | undefined {
+  if (header == null) return undefined;
+  const raw = Array.isArray(header) ? header[0] : header;
+  const s = String(raw).trim();
+  if (!s) return undefined;
+  const first = s.split(",")[0]?.trim();
+  return first || undefined;
+}
+
+function parseWalletQueryFromUnknown(query: unknown): string | undefined {
+  if (!query || typeof query !== "object") return undefined;
+  const w = (query as { wallet?: unknown }).wallet;
+  if (typeof w !== "string") return undefined;
+  const t = w.trim().toLowerCase();
+  if (t === "demo" || t === "live" || t === "bonus") return t;
+  return undefined;
+}
+
+/**
+ * Wallet from `X-Account-Type`, with `?wallet=` fallback. Some mobile stacks / proxies omit custom headers on GET.
+ */
+export function resolveWalletForHttpRequest(
+  userId: string,
+  header: string | string[] | undefined,
+  query: unknown
+): WalletType {
+  const h = normalizeAccountTypeHeader(header);
+  const q = parseWalletQueryFromUnknown(query);
+  return resolveWallet(userId, h ?? q);
 }
 
 function walletStorageKey(userId: string, wallet: WalletType) {
@@ -686,6 +721,7 @@ function walletStorageKey(userId: string, wallet: WalletType) {
 export function evictInMemoryAccountsForUser(userId: string) {
   demoAccounts.delete(walletStorageKey(userId, "demo"));
   demoAccounts.delete(walletStorageKey(userId, "live"));
+  demoAccounts.delete(walletStorageKey(userId, "bonus"));
 }
 
 /** Load account state from DB before handling the request (no stale RAM after register). */
@@ -697,8 +733,28 @@ export async function prepareAccountForRequest(userId: string, wallet: WalletTyp
     await hydrateLiveAccountFromWallet(userId);
     return;
   }
+  if (wallet === "bonus") {
+    const bKey = walletStorageKey(userId, "bonus");
+    const bonusBal = await getBonusBalanceFromDb(userId);
+    const existing = demoAccounts.get(bKey);
+    if (!existing) {
+      demoAccounts.set(bKey, new DemoAccount(bonusBal));
+      return;
+    }
+    const hasOpen = existing.listTrades().some((t) => t.status === "open");
+    if (!hasOpen) {
+      existing.setBalance(bonusBal);
+    }
+    return;
+  }
   const key = walletStorageKey(userId, "demo");
-  if (demoAccounts.has(key)) {
+  const existingDemo = demoAccounts.get(key);
+  if (existingDemo) {
+    const hasOpen = existingDemo.listTrades().some((t) => t.status === "open");
+    if (!hasOpen) {
+      const demoBal = await getDemoBalanceFromDb(userId);
+      existingDemo.setBalance(demoBal);
+    }
     return;
   }
   const demoBal = await getDemoBalanceFromDb(userId);

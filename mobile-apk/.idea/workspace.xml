@@ -4,7 +4,22 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8b7087b2-cab7-4702-bb14-285569787491" name="Changes" comment="" />
+    <list default="true" id="8b7087b2-cab7-4702-bb14-285569787491" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../DEPLOY.md" beforeDir="false" afterPath="$PROJECT_DIR$/../DEPLOY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/MobileDashboardPages.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/MobileDashboardPages.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/ProfilePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/ProfilePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../frontend/src/backendOrigin.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../frontend/src/backendOrigin.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/db/appDb.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/db/appDb.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/init-mysql.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/init-mysql.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/server.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/services/authService.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/services/authService.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/services/demoAccount.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/services/demoAccount.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../src/services/walletStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../src/services/walletStore.ts" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,9 +28,12 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 4
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
   <component name="ProjectId" id="3BIQP37vy4NWQcVTcDL2Gv0UC07" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -30,6 +48,7 @@
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "D:/xampp/htdocs/tradeing/mobile-apk"
   }

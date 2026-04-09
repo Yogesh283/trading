@@ -19,11 +19,12 @@ function fmtBal(n: number | null): string {
 
 export default function ProfilePage(props: {
   user: AuthUser;
-  accountWallet: "demo" | "live";
+  accountWallet: "demo" | "live" | "bonus";
   demoBal: number | null;
+  bonusBal: number | null;
   liveBal: number | null;
 }) {
-  const { user, accountWallet, demoBal, liveBal } = props;
+  const { user, accountWallet, demoBal, bonusBal, liveBal } = props;
 
   return (
     <main className="mobile-dash-page profile-page">
@@ -64,8 +65,14 @@ export default function ProfilePage(props: {
               <dd>{fmtBal(demoBal)}</dd>
             </div>
             <div className="profile-page__row">
+              <dt>Bonus (INR)</dt>
+              <dd>{fmtBal(bonusBal)}</dd>
+            </div>
+            <div className="profile-page__row">
               <dt>Active for trading</dt>
-              <dd>{accountWallet === "live" ? "Live" : "Demo"}</dd>
+              <dd>
+                {accountWallet === "live" ? "Live" : accountWallet === "bonus" ? "Bonus" : "Demo"}
+              </dd>
             </div>
           </dl>
         </section>

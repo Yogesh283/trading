@@ -479,6 +479,51 @@ async function migrateWalletsLockedBonus(): Promise<void> {
   await dbRun("ALTER TABLE wallets ADD COLUMN locked_bonus_inr REAL NOT NULL DEFAULT 0");
 }
 
+async function migrateWalletsBonusChallenge(): Promise<void> {
+  const addColMysql = async (name: string, sql: string) => {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'wallets' AND COLUMN_NAME = ?`,
+      [dbName, name]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(sql);
+    } catch {
+      await dbRun(sql.replace(/AFTER\s+\S+\s*$/i, ""));
+    }
+  };
+
+  if (mysqlMode) {
+    await addColMysql(
+      "bonus_balance_inr",
+      "ALTER TABLE wallets ADD COLUMN bonus_balance_inr DOUBLE NOT NULL DEFAULT 0 AFTER locked_bonus_inr"
+    );
+    await addColMysql(
+      "demo_challenge_pending",
+      "ALTER TABLE wallets ADD COLUMN demo_challenge_pending TINYINT(1) NOT NULL DEFAULT 0 AFTER bonus_balance_inr"
+    );
+    await addColMysql(
+      "demo_hold_zero",
+      "ALTER TABLE wallets ADD COLUMN demo_hold_zero TINYINT(1) NOT NULL DEFAULT 0 AFTER demo_challenge_pending"
+    );
+    return;
+  }
+  const addSqlite = async (col: string, sql: string) => {
+    const cols = await dbAll<{ name: string }>("PRAGMA table_info(wallets)");
+    if (cols.some((c) => c.name === col)) return;
+    await dbRun(sql);
+  };
+  await addSqlite("bonus_balance_inr", "ALTER TABLE wallets ADD COLUMN bonus_balance_inr REAL NOT NULL DEFAULT 0");
+  await addSqlite(
+    "demo_challenge_pending",
+    "ALTER TABLE wallets ADD COLUMN demo_challenge_pending INTEGER NOT NULL DEFAULT 0"
+  );
+  await addSqlite("demo_hold_zero", "ALTER TABLE wallets ADD COLUMN demo_hold_zero INTEGER NOT NULL DEFAULT 0");
+}
+
 async function migrateUsersReferral(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -1090,6 +1135,7 @@ export function initAppDb(): Promise<void> {
         await getPool().execute(TRANSACTIONS_SQL_MYSQL);
         await migrateWalletsDemoBalance();
         await migrateWalletsLockedBonus();
+        await migrateWalletsBonusChallenge();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
@@ -1116,6 +1162,7 @@ export function initAppDb(): Promise<void> {
         ]);
         await migrateWalletsDemoBalance();
         await migrateWalletsLockedBonus();
+        await migrateWalletsBonusChallenge();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();

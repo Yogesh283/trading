@@ -45,7 +45,7 @@ export function getBackendHttpOrigin(): string {
   return "";
 }
 
-export type BackendWsAuth = { token: string; wallet: "demo" | "live" };
+export type BackendWsAuth = { token: string; wallet: "demo" | "live" | "bonus" };
 
 /**
  * Logged-in: pass `auth` so `/ws` sends your demo or live account snapshot (not guest demo).
