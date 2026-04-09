@@ -667,7 +667,7 @@ app.post("/api/me/withdrawal-tpin/change", (req, res) => {
   })();
 });
 
-/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` only refills default when demo ≤ 0; if balance > 0, pass `{ amount }` to add more. */
+/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` to add one default tranche (`DEMO_ACCOUNT_DEFAULT_INR`). If demo ≤ 0, balance is set to that default; if demo > 0, that amount is credited on top (still capped). */
 app.post("/api/me/demo/add-funds", (req, res) => {
   void (async () => {
     const MIN_ADD = 1;
@@ -692,44 +692,20 @@ app.post("/api/me/demo/add-funds", (req, res) => {
       await prepareAccountForRequest(user.id, "demo");
       let acc = getAccountForWallet(user.id, "demo");
 
-      /**
-       * Default tranche (no `amount` in body): only when demo is bust (≤ 0) — set to `DEMO_ACCOUNT_DEFAULT_INR`.
-       * If balance is already > 0, do not add virtual funds (avoids +₹10k on top of ₹50k+).
-       * To add more while non-zero, send explicit `{ "amount": <INR> }`.
-       */
-      if (useDefault) {
-        if (acc.balance <= 0) {
-          acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
-          const add = DEFAULT_DEMO_BALANCE_INR;
-          const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
-          if (Math.abs(savedDemo - acc.balance) > 0.01) {
-            await prepareAccountForRequest(user.id, "demo");
-            acc = getAccountForWallet(user.id, "demo");
-          }
-          return res.json({ ok: true, demo_balance: acc.balance, added: add });
-        }
-        const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
-        if (Math.abs(savedDemo - acc.balance) > 0.01) {
-          await prepareAccountForRequest(user.id, "demo");
-          acc = getAccountForWallet(user.id, "demo");
-        }
-        return res.json({
-          ok: true,
-          demo_balance: acc.balance,
-          added: 0,
-          already_at_starting_level: true
-        });
-      }
-
       const room = Math.max(0, MAX_DEMO_BALANCE_TOTAL - acc.balance);
-      const add = Math.min(requested, room);
+      let add = Math.min(requested, room);
       if (add < 0.01) {
         return res.status(400).json({
           message: `Demo balance is capped at ${MAX_DEMO_BALANCE_TOTAL.toLocaleString("en-IN")} INR`
         });
       }
 
-      acc.creditDeposit(add);
+      if (useDefault && acc.balance <= 0) {
+        acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
+        add = DEFAULT_DEMO_BALANCE_INR;
+      } else {
+        acc.creditDeposit(add);
+      }
 
       const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
       if (Math.abs(savedDemo - acc.balance) > 0.01) {

@@ -56,7 +56,7 @@
 
 .about-qx-hero-label {
   margin: 0 0 0.5rem;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--ot-gold, #eab308);
@@ -64,7 +64,7 @@
 
 .about-qx-hero-title {
   margin: 0 0 1rem;
-  font-size: clamp(1.75rem, 4.5vw, 2.35rem);
+  font-size: clamp(1.45rem, 3.6vw, 1.95rem);
   font-weight: 800;
   color: #ffffff;
   line-height: 1.15;
@@ -72,8 +72,8 @@
 
 .about-qx-hero-lead {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 0.9rem;
+  line-height: 1.6;
   color: #cbd5e1;
 }
 
@@ -106,7 +106,7 @@
 
 .about-qx-stat-val {
   display: block;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: #fcd34d;
   letter-spacing: 0.02em;
@@ -115,7 +115,7 @@
 .about-qx-stat-label {
   display: block;
   margin-top: 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: #94a3b8;
   line-height: 1.35;
 }
@@ -135,7 +135,7 @@
 
 .about-qx-h2 {
   margin: 0 0 1rem;
-  font-size: clamp(1.15rem, 2.5vw, 1.35rem);
+  font-size: clamp(1.02rem, 2.1vw, 1.2rem);
   font-weight: 800;
   color: #ffffff;
 }
@@ -147,8 +147,8 @@
 .about-qx-prose {
   margin: 0;
   max-width: 42rem;
-  font-size: 0.95rem;
-  line-height: 1.65;
+  font-size: 0.875rem;
+  line-height: 1.58;
   color: #cbd5e1;
 }
 
@@ -175,15 +175,15 @@
 
 .about-qx-value-title {
   margin: 0 0 0.4rem;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #fde68a;
 }
 
 .about-qx-value-desc {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 0.78rem;
+  line-height: 1.48;
   color: #b8c4ce;
 }
 
@@ -206,15 +206,15 @@
 
 .about-qx-why-title {
   margin: 0 0 0.45rem;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: #ffffff;
 }
 
 .about-qx-why-desc {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.55;
+  font-size: 0.78rem;
+  line-height: 1.5;
   color: #aeb8c3;
 }
 
@@ -230,7 +230,7 @@
 
 .about-qx-contact-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   color: #cbd5e1;
   line-height: 1.55;
 }
@@ -307,7 +307,7 @@
   gap: 0.5rem;
   font-weight: 700;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .about-top-logo {
@@ -409,7 +409,7 @@
 
 .about-block h2 {
   margin: 0 0 0.85rem;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   color: #ffffff;
 }
 
@@ -417,8 +417,8 @@
   margin: 0;
   padding-left: 1.2rem;
   color: #dce2e9;
-  line-height: 1.58;
-  font-size: 0.875rem;
+  line-height: 1.55;
+  font-size: 0.8125rem;
 }
 
 .about-list strong {
@@ -479,8 +479,8 @@
 .about-income-intro {
   margin: 0 0 1rem;
   color: #b8c4ce;
-  font-size: 0.82rem;
-  line-height: 1.52;
+  font-size: 0.78rem;
+  line-height: 1.48;
   text-align: justify;
   text-align-last: left;
   hyphens: auto;

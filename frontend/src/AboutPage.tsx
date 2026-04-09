@@ -125,6 +125,45 @@ export default function AboutPage(props: Props) {
           </p>
         </section>
 
+        <section className="about-qx-section about-qx-section--muted" aria-labelledby="about-demo-challenge">
+          <h2 id="about-demo-challenge" className="about-qx-h2">
+            Demo challenge → live wallet &amp; withdrawals
+          </h2>
+          <p className="about-qx-prose">
+            {APP_NAME} supports a <strong>skill-based demo challenge</strong>: you practice on a{" "}
+            <strong>virtual demo balance</strong>, then may unlock a small <strong>real</strong> credit on your{" "}
+            <strong>live</strong> wallet when you hit the platform target. Exact numbers are set by the operator and
+            shown in-app; typical defaults are described below.
+          </p>
+          <ul className="about-list">
+            <li>
+              <strong>Demo trading</strong> — use virtual funds to trade on the same style of charts and contracts as
+              live. No real money is at risk on demo; outcomes do not guarantee live results.
+            </li>
+            <li>
+              <strong>Challenge target (often ₹1,00,000)</strong> — grow your <strong>demo balance</strong> to the target
+              (for example one lakh INR) through trading. Hitting the target is <strong>not guaranteed</strong> and depends
+              on skill and market conditions.
+            </li>
+            <li>
+              <strong>Live reward (often ₹100+)</strong> — when the target is reached, a <strong>small reward</strong> may
+              be credited to your <strong>main / live wallet</strong> (for example ₹100 INR), subject to system rules. You
+              can then use that live balance for real-money trading on the platform.
+            </li>
+            <li>
+              <strong>Withdrawals — winnings only</strong> — the reward amount may be <strong>non-withdrawable</strong> as
+              principal; you can usually <strong>withdraw only the profit</strong> you earn from trading above that
+              locked portion (your &quot;winning&quot; / withdrawable balance). Minimum withdrawal amount and payout method
+              (for example USDT) are shown in the withdrawal flow. Nothing on this page is a promise of profit or payout.
+            </li>
+          </ul>
+          <p className="about-income-intro">
+            Targets, reward sizes, locks, and limits can change with operator configuration — always rely on your{" "}
+            <strong>in-app wallet</strong>, <strong>ledger</strong>, and <strong>withdrawal screens</strong> for what
+            applies to your account.
+          </p>
+        </section>
+
         <section className="about-qx-section about-qx-section--muted" aria-labelledby="about-values">
           <h2 id="about-values" className="about-qx-h2">
             What we stand for
@@ -169,7 +208,13 @@ export default function AboutPage(props: Props) {
               deposits and withdrawals follow the flows and checks enabled for your jurisdiction or operator.
             </li>
             <li>
-              <strong>Demo</strong> — same interface with practice balance; no real money at risk and no real payouts.
+              <strong>Demo</strong> — same interface with practice balance; no real money at risk on demo. A{" "}
+              <strong>demo challenge</strong> (grow virtual balance to a set target) may unlock a small live-wallet reward;
+              see{" "}
+              <a href="#about-demo-challenge" className="about-inline-link">
+                Demo challenge → live wallet
+              </a>{" "}
+              above.
             </li>
             <li>
               <strong>Chart AI insight</strong> — optional on-chart hint (see{" "}

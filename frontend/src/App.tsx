@@ -284,7 +284,17 @@ function walletLedgerAmountPrimary(tx: WalletLedgerRow): string {
   return formatInr(a);
 }
 
+function walletLedgerTypeLabel(tx: WalletLedgerRow): string {
+  if (tx.txn_type === "demo" || tx.txn_type === "demo_challenge_reward") {
+    return "Demo → main wallet";
+  }
+  return tx.txn_type.replace(/_/g, " ");
+}
+
 function walletLedgerAmountHint(tx: WalletLedgerRow): string | null {
+  if (tx.txn_type === "demo" || tx.txn_type === "demo_challenge_reward") {
+    return "Demo target reached — credit to main wallet (locked bonus until profit)";
+  }
   if (tx.txn_type === "binary_settle_win") {
     return "Total credited (trading amount + profit)";
   }
@@ -300,6 +310,15 @@ function formatTradeCloseCell(trade: Trade): string {
     return formatFxPrice(trade.symbol, trade.closePrice);
   }
   return "—";
+}
+
+/** Add demo funds stays off while demo balance ≥ ₹1; enabled for ₹0.00–₹0.99… */
+const DEMO_TOPUP_DISABLE_MIN_INR = 1;
+const DEMO_TOPUP_EPS = 1e-9;
+
+function shouldBlockDemoTopUp(demo: number | null): boolean {
+  if (demo === null) return true;
+  return demo >= DEMO_TOPUP_DISABLE_MIN_INR - DEMO_TOPUP_EPS;
 }
 
 export default function App() {
@@ -731,6 +750,22 @@ export default function App() {
 
   const sessionToken = session?.token;
   const accountWallet: "demo" | "live" = session ? userAccountWallet : "demo";
+  /** Prefer `dualBalances.demo`; if still null while on demo, use `account.balance` so ₹0 shows as enabled. */
+  const demoBalanceForTopUp = useMemo(() => {
+    if (dualBalances.demo != null) return dualBalances.demo;
+    if (accountWallet === "demo" && account != null) return account.balance;
+    return null;
+  }, [dualBalances.demo, accountWallet, account]);
+  /** Add demo funds disabled when demo balance ≥ ₹1; below ₹1 (e.g. ₹0.40) it is enabled. */
+  const demoAddFundsDisabled = useMemo(
+    () => demoTopUpBusy || shouldBlockDemoTopUp(demoBalanceForTopUp),
+    [demoTopUpBusy, demoBalanceForTopUp]
+  );
+  const demoAddFundsDisabledTitle =
+    demoBalanceForTopUp != null &&
+    demoBalanceForTopUp >= DEMO_TOPUP_DISABLE_MIN_INR - DEMO_TOPUP_EPS
+      ? "Add demo funds unlocks when demo balance is below ₹1."
+      : undefined;
   /** Re-run chart history when user logs in (deps were only booting+symbol before). */
   const chartSessionKey = session == null ? "" : `u:${session.user.id}`;
 
@@ -1012,6 +1047,9 @@ export default function App() {
     if (!session?.token) {
       return;
     }
+    if (shouldBlockDemoTopUp(demoBalanceForTopUp)) {
+      return;
+    }
     setDemoTopUpBusy(true);
     try {
       const out = await addDemoFunds(session.token);
@@ -1033,7 +1071,7 @@ export default function App() {
     } finally {
       setDemoTopUpBusy(false);
     }
-  }, [session, accountWallet, showAlert]);
+  }, [session, accountWallet, showAlert, demoBalanceForTopUp]);
 
   useEffect(() => {
     if (!walletActivityOpen || !session) {
@@ -1962,7 +2000,8 @@ export default function App() {
                 <button
                   type="button"
                   className="app-nav-inline-link"
-                  disabled={demoTopUpBusy}
+                  disabled={demoAddFundsDisabled}
+                  title={demoAddFundsDisabledTitle}
                   onClick={() => void handleAddDemoFunds()}
                 >
                   Add demo funds
@@ -2044,7 +2083,8 @@ export default function App() {
               <button
                 type="button"
                 className="app-nav-drawer-demo-topup-btn"
-                disabled={demoTopUpBusy}
+                disabled={demoAddFundsDisabled}
+                title={demoAddFundsDisabledTitle}
                 onClick={() => {
                   setMainNavOpen(false);
                   void handleAddDemoFunds();
@@ -2295,7 +2335,8 @@ export default function App() {
                     type="button"
                     role="menuitem"
                     className="mobile-tpn-dd-add-demo"
-                    disabled={demoTopUpBusy}
+                    disabled={demoAddFundsDisabled}
+                    title={demoAddFundsDisabledTitle}
                     onClick={() => {
                       setTradingPageWalletMenuOpen(false);
                       void handleAddDemoFunds();
@@ -3652,7 +3693,7 @@ export default function App() {
                   return (
                   <div key={tx.id} className="wallet-tx-row">
                     <div className="wallet-tx-row-main">
-                      <strong>{tx.txn_type.replace(/_/g, " ")}</strong>
+                      <strong>{walletLedgerTypeLabel(tx)}</strong>
                         <span
                           className={lossRow ? "wallet-tx-muted" : pos ? "wallet-tx-pos" : "wallet-tx-neg"}
                           title={hint ?? undefined}

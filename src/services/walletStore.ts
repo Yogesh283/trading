@@ -88,7 +88,7 @@ function nextLockedBonusInr(
   txnType: string
 ): number {
   let next = Number.isFinite(locked) ? locked : 0;
-  if (txnType === "demo_challenge_reward" && delta > 0) {
+  if ((txnType === "demo_challenge_reward" || txnType === "demo") && delta > 0) {
     next += delta;
   } else if (delta < 0) {
     next = Math.max(0, next + delta);
@@ -181,8 +181,8 @@ export async function saveDemoBalanceToDb(userId: string, demoBalance: number): 
         await applyLedgerMutationUnqueued(
           userId,
           DEMO_CHALLENGE_REWARD_INR,
-          "demo_challenge_reward",
-          null
+          "demo",
+          `demo-challenge-${userId}`
         );
       }
       b = DEFAULT_DEMO_BALANCE_INR;
