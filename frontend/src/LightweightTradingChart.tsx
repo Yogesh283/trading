@@ -525,7 +525,7 @@ export function LightweightTradingChart({
       vis == null ||
       (Number.isFinite(vis.to) && vis.to >= toR - 1.5);
 
-    setShowLiveRightUi(atLive);
+    setShowLiveRightUi((prev) => (prev === atLive ? prev : atLive));
 
     const gt = graphTypeRef.current;
     if (priceLineRef.current && (gt === "candles" || gt === "line")) {
@@ -533,8 +533,8 @@ export function LightweightTradingChart({
     }
 
     if (!atLive) {
-      setAxisPillTop(null);
-      setLockOverlay(null);
+      setAxisPillTop((prev) => (prev === null ? prev : null));
+      setLockOverlay((prev) => (prev === null ? prev : null));
       return;
     }
     const lastBar = cd[cd.length - 1]!;
@@ -543,7 +543,12 @@ export function LightweightTradingChart({
     const yPrice =
       gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.close : lastBar.close;
     const y = series.priceToCoordinate(yPrice);
-    setAxisPillTop(y != null && Number.isFinite(y) ? y : null);
+    const nextPillTop = y != null && Number.isFinite(y) ? y : null;
+    setAxisPillTop((prev) => {
+      if (prev === null && nextPillTop === null) return prev;
+      if (prev != null && nextPillTop != null && Math.abs(prev - nextPillTop) < 0.25) return prev;
+      return nextPillTop;
+    });
 
     const tag = assetTagRef.current;
     const act = lastChartActivityMsRef.current;
@@ -554,12 +559,17 @@ export function LightweightTradingChart({
         gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.high : lastBar.close;
       const yLock = series.priceToCoordinate(price);
       if (x != null && yLock != null && Number.isFinite(x) && Number.isFinite(yLock)) {
-        setLockOverlay({ left: x, top: yLock });
+        setLockOverlay((prev) => {
+          if (prev && Math.abs(prev.left - x) < 0.25 && Math.abs(prev.top - yLock) < 0.25) {
+            return prev;
+          }
+          return { left: x, top: yLock };
+        });
       } else {
-        setLockOverlay(null);
+        setLockOverlay((prev) => (prev === null ? prev : null));
       }
     } else {
-      setLockOverlay(null);
+      setLockOverlay((prev) => (prev === null ? prev : null));
     }
   }, []);
 

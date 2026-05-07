@@ -10,7 +10,7 @@ import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appD
 
 const BONUS_TO_LIVE_THRESHOLD_INR = 100_000;
 const BONUS_TO_LIVE_REWARD_INR = 100;
-const BONUS_TO_LIVE_REWARD_TXN_TYPE = "bonus_milestone_reward";
+const BONUS_TO_LIVE_TRANSFER_TXN_TYPE = "bonus_to_live_transfer";
 
 export type TransactionRow = {
   id: string;
@@ -275,24 +275,18 @@ export async function saveBonusBalanceToDb(userId: string, bonusBalance: number)
     await ensureWallet(userId);
     const b = Number(bonusBalance.toFixed(2));
     const now = new Date().toISOString();
-    await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [b, now, userId]);
+    let nextBonus = b;
     if (b >= BONUS_TO_LIVE_THRESHOLD_INR) {
-      const alreadyRewarded = await dbGet<{ c: number }>(
-        isMysqlMode()
-          ? "SELECT 1 AS c FROM transactions WHERE user_id = ? AND txn_type = ? LIMIT 1"
-          : "SELECT 1 AS c FROM transactions WHERE user_id = ? AND txn_type = ?",
-        [userId, BONUS_TO_LIVE_REWARD_TXN_TYPE]
+      await applyLedger(
+        userId,
+        BONUS_TO_LIVE_REWARD_INR,
+        BONUS_TO_LIVE_TRANSFER_TXN_TYPE,
+        `bonus-balance-gte-${BONUS_TO_LIVE_THRESHOLD_INR}`
       );
-      if (!alreadyRewarded) {
-        await applyLedger(
-          userId,
-          BONUS_TO_LIVE_REWARD_INR,
-          BONUS_TO_LIVE_REWARD_TXN_TYPE,
-          `bonus-balance-gte-${BONUS_TO_LIVE_THRESHOLD_INR}`
-        );
-      }
+      nextBonus = 0;
     }
-    return b;
+    await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [nextBonus, now, userId]);
+    return nextBonus;
   });
 }
 

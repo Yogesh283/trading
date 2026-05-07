@@ -2,6 +2,6 @@
 <!-- Launcher + recents title — must match product brand (not the Java package id). -->
 <resources>
     <string name="app_name">IQFX Pro</string>
-    <string name="package_name">com.iqfxpro.trade</string>
-    <string name="custom_url_scheme">com.iqfxpro.trade</string>
+    <string name="package_name">com.iqfxpro.app</string>
+    <string name="custom_url_scheme">com.iqfxpro.app</string>
 </resources>

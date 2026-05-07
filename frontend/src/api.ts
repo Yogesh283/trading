@@ -77,7 +77,6 @@ export interface AuthResponse {
 }
 
 import { getBackendHttpOrigin } from "./backendOrigin";
-import { isCapacitorNativeClient } from "./androidAppUpdate";
 
 function apiBase(): string {
   return getBackendHttpOrigin();
@@ -87,7 +86,6 @@ export type WalletType = "demo" | "live" | "bonus";
 
 function requestHeaders(token?: string | null, wallet?: WalletType): Record<string, string> {
   const headers: Record<string, string> = {};
-  headers["X-Client-Platform"] = isCapacitorNativeClient() ? "apk" : "web";
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
