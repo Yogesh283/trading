@@ -277,7 +277,7 @@ export async function saveBonusBalanceToDb(userId: string, bonusBalance: number)
     const now = new Date().toISOString();
     let nextBonus = b;
     if (b >= BONUS_TO_LIVE_THRESHOLD_INR) {
-      await applyLedger(
+      await applyLedgerMutationUnqueued(
         userId,
         BONUS_TO_LIVE_REWARD_INR,
         BONUS_TO_LIVE_TRANSFER_TXN_TYPE,
