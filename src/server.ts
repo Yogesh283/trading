@@ -2181,12 +2181,6 @@ const MIN_WITHDRAWAL_USDT = Math.max(
 const MAX_WITHDRAWAL_USDT = 1_000_000;
 const WITHDRAWAL_TURNOVER_MULTIPLIER = 10;
 
-function isApkTradingClient(req: express.Request): boolean {
-  return String(req.headers["x-client-platform"] ?? "")
-    .trim()
-    .toLowerCase() === "apk";
-}
-
 async function getWithdrawalTurnoverProgress(userId: string): Promise<{
   fundedInr: number;
   completedTradeTurnoverInr: number;
@@ -2314,9 +2308,6 @@ app.get("/api/withdrawals/my", (req, res) => {
 
 app.post("/api/demo/orders", (req, res) => {
   void (async () => {
-    if (!isApkTradingClient(req)) {
-      return res.status(403).json({ message: "Trading is available only in the Android APK." });
-    }
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const side = String(req.body?.side ?? "").toLowerCase() as TradeSide;
     const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
@@ -2414,12 +2405,9 @@ app.post("/api/demo/orders", (req, res) => {
   });
 });
 
-/** Binary trades from bonus wallet — stake from bonus; wins credit main wallet (`bonus_trade_win`). */
+/** Binary trades from bonus wallet — stake and wins remain in bonus wallet. */
 app.post("/api/bonus/orders", (req, res) => {
   void (async () => {
-    if (!isApkTradingClient(req)) {
-      return res.status(403).json({ message: "Trading is available only in the Android APK." });
-    }
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
     const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
@@ -2473,7 +2461,7 @@ app.post("/api/bonus/orders", (req, res) => {
       return res.status(400).json({ message: "Insufficient balance for this amount" });
     }
 
-    const saved = await saveBonusBalanceToDb(user.id, account.balance);
+    const saved = await saveBonusBalanceToDb(user.id, account.balance, { applyThresholdTransfer: false });
     if (Math.abs(saved - account.balance) > 0.01) {
       await prepareAccountForRequest(user.id, "bonus");
     }
@@ -2491,9 +2479,6 @@ app.post("/api/bonus/orders", (req, res) => {
 
 app.post("/api/orders", (req, res) => {
   void (async () => {
-    if (!isApkTradingClient(req)) {
-      return res.status(403).json({ message: "Trading is available only in the Android APK." });
-    }
     const user = await requireSession(req.headers.authorization);
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
@@ -2625,22 +2610,10 @@ setInterval(() => {
               })()
             );
           } else if (wallet === "bonus" && userId !== getGuestUser().id) {
-            const win =
-              trade.direction === "up"
-                ? tick.price > trade.entryPrice
-                : tick.price < trade.entryPrice;
-            const settled = account.settleExpiredTradeRecordOnly(trade.id, tick.price);
+            const settled = account.settleExpiredTrade(trade.id, tick.price);
             if (settled) {
               void (async () => {
                 try {
-                  if (win) {
-                    await applyLedger(
-                      userId,
-                      trade.quantity * BINARY_WIN_PAYOUT_MULTIPLIER,
-                      "bonus_trade_win",
-                      trade.id
-                    );
-                  }
                   const savedB = await saveBonusBalanceToDb(userId, account.balance);
                   if (Math.abs(savedB - account.balance) > 0.01) {
                     await prepareAccountForRequest(userId, "bonus");

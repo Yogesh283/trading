@@ -341,6 +341,7 @@ function shouldBlockDemoTopUp(demo: number | null): boolean {
 export default function App() {
   const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.iqfxpro.trade&pcampaignid=web_share&pli=1";
   const { showAlert } = useGlobalAlert();
+  const showAlertRef = useRef(showAlert);
   const [markets, setMarkets] = useState<MarketTick[]>([]);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
@@ -1137,8 +1138,12 @@ export default function App() {
   }, [walletActivityOpen, session]);
 
   useEffect(() => {
+    showAlertRef.current = showAlert;
+  }, [showAlert]);
+
+  useEffect(() => {
     void refresh().catch((error) =>
-      showAlert(error instanceof Error ? error.message : "Load failed", "error")
+      showAlertRef.current(error instanceof Error ? error.message : "Load failed", "error")
     );
 
     const wsUrl = getBackendWsUrl(session ? { token: session.token, wallet: accountWallet } : undefined);
@@ -1266,7 +1271,7 @@ export default function App() {
         ws.close();
       }
     };
-  }, [session, sessionToken, accountWallet, showAlert]);
+  }, [session, sessionToken, accountWallet]);
 
   const chartSeries = history[symbol] ?? [];
   const spotTickMove = lastTickMove(chartSeries);
@@ -3942,7 +3947,7 @@ export default function App() {
               <p className="order-placed-summary">
                 The challenge bonus (e.g. ₹100) goes only to your <strong>Bonus</strong> wallet — and only while demo is
                 still at least <strong>₹1,00,000</strong> when you tap Redeem. After redeem, demo becomes ₹0 until{" "}
-                <strong>Add demo funds</strong>. Bonus trades credit wins to <strong>Live</strong>.
+                <strong>Add demo funds</strong>. Bonus trades credit wins to <strong>Bonus wallet</strong>.
               </p>
               <div className="order-placed-actions-row" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                 <button

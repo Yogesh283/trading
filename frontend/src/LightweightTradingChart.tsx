@@ -498,20 +498,45 @@ export function LightweightTradingChart({
   const height = useAdaptiveChartPaneHeight(isMobileChart);
 
   const syncLivePriceChrome = useCallback(() => {
+    const setLiveUiIfChanged = (next: boolean) => {
+      setShowLiveRightUi((prev) => (prev === next ? prev : next));
+    };
+    const setAxisPillTopIfChanged = (next: number | null) => {
+      setAxisPillTop((prev) => {
+        if (prev == null && next == null) return prev;
+        if (prev != null && next != null && Math.abs(prev - next) < 0.25) return prev;
+        return next;
+      });
+    };
+    const setLockOverlayIfChanged = (next: { left: number; top: number } | null) => {
+      setLockOverlay((prev) => {
+        if (prev == null && next == null) return prev;
+        if (
+          prev != null &&
+          next != null &&
+          Math.abs(prev.left - next.left) < 0.5 &&
+          Math.abs(prev.top - next.top) < 0.5
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    };
+
     const chart = chartRef.current;
     const series = seriesRef.current;
     if (!chart || !series || seriesRef.current === null) {
-      setShowLiveRightUi(false);
-      setAxisPillTop(null);
-      setLockOverlay(null);
+      setLiveUiIfChanged(false);
+      setAxisPillTopIfChanged(null);
+      setLockOverlayIfChanged(null);
       return;
     }
     const list = candlesRef.current;
     const cd = mergedCandlesForChart(list);
     if (cd.length === 0) {
-      setShowLiveRightUi(false);
-      setAxisPillTop(null);
-      setLockOverlay(null);
+      setLiveUiIfChanged(false);
+      setAxisPillTopIfChanged(null);
+      setLockOverlayIfChanged(null);
       return;
     }
     const n = cd.length;
@@ -525,7 +550,7 @@ export function LightweightTradingChart({
       vis == null ||
       (Number.isFinite(vis.to) && vis.to >= toR - 1.5);
 
-    setShowLiveRightUi(atLive);
+    setLiveUiIfChanged(atLive);
 
     const gt = graphTypeRef.current;
     if (priceLineRef.current && (gt === "candles" || gt === "line")) {
@@ -533,8 +558,8 @@ export function LightweightTradingChart({
     }
 
     if (!atLive) {
-      setAxisPillTop(null);
-      setLockOverlay(null);
+      setAxisPillTopIfChanged(null);
+      setLockOverlayIfChanged(null);
       return;
     }
     const lastBar = cd[cd.length - 1]!;
@@ -543,7 +568,7 @@ export function LightweightTradingChart({
     const yPrice =
       gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.close : lastBar.close;
     const y = series.priceToCoordinate(yPrice);
-    setAxisPillTop(y != null && Number.isFinite(y) ? y : null);
+    setAxisPillTopIfChanged(y != null && Number.isFinite(y) ? y : null);
 
     const tag = assetTagRef.current;
     const act = lastChartActivityMsRef.current;
@@ -554,12 +579,12 @@ export function LightweightTradingChart({
         gt0 === "candles" && rowsForPill.length > 0 ? rowsForPill[rowsForPill.length - 1]!.high : lastBar.close;
       const yLock = series.priceToCoordinate(price);
       if (x != null && yLock != null && Number.isFinite(x) && Number.isFinite(yLock)) {
-        setLockOverlay({ left: x, top: yLock });
+        setLockOverlayIfChanged({ left: x, top: yLock });
       } else {
-        setLockOverlay(null);
+        setLockOverlayIfChanged(null);
       }
     } else {
-      setLockOverlay(null);
+      setLockOverlayIfChanged(null);
     }
   }, []);
 
