@@ -1813,10 +1813,6 @@ export default function App() {
           onAbout={() => setPublicScreen("about")}
           onTerms={() => setPublicScreen("terms")}
           onPrivacy={() => setPublicScreen("privacy")}
-          onLogin={() => {
-            setAuthView("login");
-            setPublicScreen("auth");
-          }}
           onRegister={() => {
             setAuthView("register");
             setPublicScreen("auth");
