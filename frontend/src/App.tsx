@@ -4049,7 +4049,7 @@ export default function App() {
           </div>
         </div>
       ) : null}
-      {postAuthWelcome && !isCapNativeClient ? (
+      {postAuthWelcome ? (
         <div
           className="order-placed-backdrop order-placed-backdrop--celebrate-win"
           role="presentation"
