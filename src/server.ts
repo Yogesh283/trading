@@ -14,7 +14,7 @@ import {
   INR_PER_USDT,
   usdtToInrCredit
 } from "./config/funds";
-import { dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { dbGet, dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
 import { explainSignalWithOpenAI } from "./services/signalExplainService";
@@ -2179,6 +2179,44 @@ const MIN_WITHDRAWAL_USDT = Math.max(
   MIN_WITHDRAWAL_INR / Math.max(1, INR_PER_USDT)
 );
 const MAX_WITHDRAWAL_USDT = 1_000_000;
+const WITHDRAWAL_TURNOVER_MULTIPLIER = 10;
+
+async function getWithdrawalTurnoverProgress(userId: string): Promise<{
+  fundedInr: number;
+  completedTradeTurnoverInr: number;
+  requiredTurnoverInr: number;
+}> {
+  const fundedRow = await dbGet<{ s: number | null }>(
+    `SELECT COALESCE(SUM(amount), 0) AS s
+       FROM transactions
+      WHERE user_id = ?
+        AND amount > 0
+        AND txn_type IN ('deposit_credited', 'bonus_to_live_transfer')`,
+    [userId]
+  );
+  const tradedRow = await dbGet<{ s: number | null }>(
+    `SELECT COALESCE(SUM(ABS(s.amount)), 0) AS s
+       FROM transactions s
+      WHERE s.user_id = ?
+        AND s.txn_type = 'binary_stake'
+        AND s.amount < 0
+        AND EXISTS (
+          SELECT 1
+            FROM transactions t
+           WHERE t.user_id = s.user_id
+             AND t.reference_id = s.reference_id
+             AND t.txn_type IN ('binary_settle_win', 'binary_settle_loss')
+        )`,
+    [userId]
+  );
+  const fundedInr = Number(fundedRow?.s ?? 0);
+  const completedTradeTurnoverInr = Number(tradedRow?.s ?? 0);
+  return {
+    fundedInr,
+    completedTradeTurnoverInr,
+    requiredTurnoverInr: Number((Math.max(0, fundedInr) * WITHDRAWAL_TURNOVER_MULTIPLIER).toFixed(8))
+  };
+}
 
 app.post("/api/withdrawals", (req, res) => {
   void (async () => {
@@ -2215,6 +2253,15 @@ app.post("/api/withdrawals", (req, res) => {
     if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
       return res.status(400).json({
         message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
+      });
+    }
+    const turnover = await getWithdrawalTurnoverProgress(user.id);
+    if (
+      turnover.fundedInr > 1e-9 &&
+      turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
+    ) {
+      return res.status(400).json({
+        message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
       });
     }
     try {
