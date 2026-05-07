@@ -9,7 +9,6 @@ import { DEMO_CHALLENGE_REWARD_INR, DEMO_CHALLENGE_TARGET_INR } from "../config/
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 
 const BONUS_TO_LIVE_THRESHOLD_INR = 100_000;
-const BONUS_TO_LIVE_REWARD_INR = 100;
 const BONUS_TO_LIVE_TRANSFER_TXN_TYPE = "bonus_to_live_transfer";
 
 export type TransactionRow = {
@@ -269,22 +268,18 @@ export async function saveDemoBalanceToDb(userId: string, demoBalance: number): 
   });
 }
 
-export async function saveBonusBalanceToDb(
-  userId: string,
-  bonusBalance: number,
-  opts: { applyThresholdTransfer?: boolean } = {}
-): Promise<number> {
+export async function saveBonusBalanceToDb(userId: string, bonusBalance: number): Promise<number> {
   return enqueue(userId, async () => {
     await initAppDb();
     await ensureWallet(userId);
     const b = Number(bonusBalance.toFixed(2));
     const now = new Date().toISOString();
     let nextBonus = b;
-    const applyThresholdTransfer = opts.applyThresholdTransfer !== false;
-    if (applyThresholdTransfer && b >= BONUS_TO_LIVE_THRESHOLD_INR) {
+    if (b >= BONUS_TO_LIVE_THRESHOLD_INR) {
+      const transferInr = Number(b.toFixed(2));
       await applyLedger(
         userId,
-        BONUS_TO_LIVE_REWARD_INR,
+        transferInr,
         BONUS_TO_LIVE_TRANSFER_TXN_TYPE,
         `bonus-balance-gte-${BONUS_TO_LIVE_THRESHOLD_INR}`
       );
