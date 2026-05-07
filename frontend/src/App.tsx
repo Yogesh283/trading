@@ -339,6 +339,7 @@ function shouldBlockDemoTopUp(demo: number | null): boolean {
 }
 
 export default function App() {
+  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.iqfxpro.trade&pcampaignid=web_share&pli=1";
   const { showAlert } = useGlobalAlert();
   const [markets, setMarkets] = useState<MarketTick[]>([]);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
@@ -499,6 +500,10 @@ export default function App() {
     setPostAuthWelcome(null);
   }, []);
 
+  const openPlayStore = useCallback(() => {
+    window.open(PLAY_STORE_URL, "_blank", "noopener,noreferrer");
+  }, [PLAY_STORE_URL]);
+
   const dismissBinarySettlePopup = useCallback(() => {
     if (binarySettlePopupTimeoutRef.current != null) {
       window.clearTimeout(binarySettlePopupTimeoutRef.current);
@@ -549,15 +554,6 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [binarySettlePopup, dismissBinarySettlePopup]);
-
-  useEffect(() => {
-    if (!postAuthWelcome) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") dismissPostAuthWelcome();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [postAuthWelcome, dismissPostAuthWelcome]);
 
   useEffect(() => {
     setIsCapNativeClient(isCapacitorNativeClient());
@@ -1802,10 +1798,6 @@ export default function App() {
           onAbout={() => setPublicScreen("about")}
           onTerms={() => setPublicScreen("terms")}
           onPrivacy={() => setPublicScreen("privacy")}
-          onLogin={() => {
-            setAuthView("login");
-            setPublicScreen("auth");
-          }}
           onRegister={() => {
             setAuthView("register");
             setPublicScreen("auth");
@@ -4061,7 +4053,6 @@ export default function App() {
         <div
           className="order-placed-backdrop order-placed-backdrop--celebrate-win"
           role="presentation"
-          onClick={dismissPostAuthWelcome}
         >
           <div
             className={`order-placed-modal order-placed-modal--up order-placed-modal--post-auth${
@@ -4106,9 +4097,11 @@ export default function App() {
                   <span className="post-auth-welcome-detail muted">{postAuthWelcome.detail}</span>
                 ) : null}
               </p>
-              <button type="button" className="order-placed-ok" onClick={dismissPostAuthWelcome}>
-                Continue
-            </button>
+              <div className="post-auth-welcome-actions">
+                <button type="button" className="order-placed-ok post-auth-welcome-playstore" onClick={openPlayStore}>
+                  Get app on Play Store
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -4661,11 +4654,11 @@ function AuthScreen({
 
         <p className="auth-footer">
           {authView === "login" ? "New here?" : "Already have an account?"}{" "}
-              <button
-                type="button"
-                className="link-inline"
-                onClick={() => onViewChange(authView === "login" ? "register" : "login")}
-              >
+          <button
+            type="button"
+            className="link-inline"
+            onClick={() => onViewChange(authView === "login" ? "register" : "login")}
+          >
             {authView === "login" ? "Register" : "Login"}
           </button>
         </p>

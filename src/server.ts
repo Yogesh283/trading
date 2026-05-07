@@ -14,7 +14,7 @@ import {
   INR_PER_USDT,
   usdtToInrCredit
 } from "./config/funds";
-import { dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
+import { dbGet, dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
 import { explainSignalWithOpenAI } from "./services/signalExplainService";
@@ -2179,6 +2179,46 @@ const MIN_WITHDRAWAL_USDT = Math.max(
   MIN_WITHDRAWAL_INR / Math.max(1, INR_PER_USDT)
 );
 const MAX_WITHDRAWAL_USDT = 1_000_000;
+const WITHDRAWAL_TURNOVER_MULTIPLIER = 10;
+
+function isApkTradingClient(req: express.Request): boolean {
+  return String(req.headers["x-client-platform"] ?? "")
+    .trim()
+    .toLowerCase() === "apk";
+}
+
+async function getWithdrawalTurnoverProgress(userId: string): Promise<{
+  fundedInr: number;
+  completedTradeTurnoverInr: number;
+  requiredTurnoverInr: number;
+}> {
+  const fundedRow = await dbGet<{ s: number | null }>(
+    "SELECT COALESCE(SUM(amount), 0) AS s FROM transactions WHERE user_id = ? AND txn_type = 'deposit_credited' AND amount > 0",
+    [userId]
+  );
+  const tradedRow = await dbGet<{ s: number | null }>(
+    `SELECT COALESCE(SUM(ABS(s.amount)), 0) AS s
+       FROM transactions s
+      WHERE s.user_id = ?
+        AND s.txn_type = 'binary_stake'
+        AND s.amount < 0
+        AND EXISTS (
+          SELECT 1
+            FROM transactions t
+           WHERE t.user_id = s.user_id
+             AND t.reference_id = s.reference_id
+             AND t.txn_type IN ('binary_win', 'binary_settle_loss')
+        )`,
+    [userId]
+  );
+  const fundedInr = Number(fundedRow?.s ?? 0);
+  const completedTradeTurnoverInr = Number(tradedRow?.s ?? 0);
+  return {
+    fundedInr,
+    completedTradeTurnoverInr,
+    requiredTurnoverInr: Number((Math.max(0, fundedInr) * WITHDRAWAL_TURNOVER_MULTIPLIER).toFixed(8))
+  };
+}
 
 app.post("/api/withdrawals", (req, res) => {
   void (async () => {
@@ -2215,6 +2255,15 @@ app.post("/api/withdrawals", (req, res) => {
     if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
       return res.status(400).json({
         message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
+      });
+    }
+    const turnover = await getWithdrawalTurnoverProgress(user.id);
+    if (
+      turnover.fundedInr > 1e-9 &&
+      turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
+    ) {
+      return res.status(400).json({
+        message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x live-fund turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
       });
     }
     try {
@@ -2265,6 +2314,9 @@ app.get("/api/withdrawals/my", (req, res) => {
 
 app.post("/api/demo/orders", (req, res) => {
   void (async () => {
+    if (!isApkTradingClient(req)) {
+      return res.status(403).json({ message: "Trading is available only in the Android APK." });
+    }
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const side = String(req.body?.side ?? "").toLowerCase() as TradeSide;
     const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
@@ -2365,6 +2417,9 @@ app.post("/api/demo/orders", (req, res) => {
 /** Binary trades from bonus wallet — stake from bonus; wins credit main wallet (`bonus_trade_win`). */
 app.post("/api/bonus/orders", (req, res) => {
   void (async () => {
+    if (!isApkTradingClient(req)) {
+      return res.status(403).json({ message: "Trading is available only in the Android APK." });
+    }
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const quantity = Number(req.body?.quantity ?? req.body?.amount ?? 0);
     const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();
@@ -2436,6 +2491,9 @@ app.post("/api/bonus/orders", (req, res) => {
 
 app.post("/api/orders", (req, res) => {
   void (async () => {
+    if (!isApkTradingClient(req)) {
+      return res.status(403).json({ message: "Trading is available only in the Android APK." });
+    }
     const user = await requireSession(req.headers.authorization);
     const symbol = String(req.body?.symbol ?? "").toUpperCase();
     const direction = (req.body?.direction as "up" | "down" | undefined)?.toLowerCase();

@@ -1,4 +1,4 @@
-package com.iqfxpro.app;
+package com.iqfxpro.trade;
 
 import com.getcapacitor.BridgeActivity;
 

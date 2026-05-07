@@ -5497,6 +5497,18 @@ button.desktop-demo-cta:disabled,
   box-shadow: 0 4px 18px rgba(2, 132, 199, 0.35);
 }
 
+.post-auth-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.post-auth-welcome-playstore {
+  background: linear-gradient(135deg, #f59e0b, #ca8a04);
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35);
+}
+
 /* —— Simple global popup for errors & notices (useGlobalAlert) —— */
 .global-alert-backdrop {
   position: fixed;

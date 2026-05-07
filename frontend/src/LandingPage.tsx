@@ -17,6 +17,8 @@ const PILL_ITEMS = [
   "Quick withdrawals",
   "Trusted experience"
 ];
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.iqfxpro.trade&pcampaignid=web_share&pli=1";
 
 /** Single APK download target — `APK_DOWNLOAD_URL` (see `appBrand.ts`). Use `ApkScrollLink` elsewhere on this page. */
 function ApkDownloadLink({
@@ -40,6 +42,33 @@ function ApkDownloadLink({
         <img src={brandApkIcon} alt="" width={22} height={22} className="landing-apk-btn-ico" />
       ) : null}
       {children}
+    </a>
+  );
+}
+
+function PlayStoreLink({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    <a href={PLAY_STORE_URL} className={className} target="_blank" rel="noopener noreferrer">
+      <span className="landing-playstore-left" aria-hidden>
+        <svg viewBox="0 0 512 512" width={28} height={28} className="landing-apk-btn-ico">
+          <path fill="#34A853" d="M55 43l262 261-262 166z" />
+          <path fill="#4285F4" d="M55 43l292 196-58 65z" />
+          <path fill="#FBBC04" d="M347 239l95 63-125 79-28-77z" />
+          <path fill="#EA4335" d="M55 470l262-166 30 80z" />
+        </svg>
+      </span>
+      <span className="landing-playstore-copy">
+        <span className="landing-playstore-brand">IQFX PRO</span>
+        <span className="landing-playstore-top">GET IT ON</span>
+        <span className="landing-playstore-main">{children}</span>
+      </span>
+      <span className="landing-playstore-right" aria-hidden>
+        <svg viewBox="0 0 24 24" width={20} height={20}>
+          <path d="M12 4v10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M8.5 11.5L12 15l3.5-3.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M6 19h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </span>
     </a>
   );
 }
@@ -98,16 +127,6 @@ function IcoReviews() {
         strokeWidth="2"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function IcoSignIn() {
-  return (
-    <svg className={DI} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M15 3h4v18h-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M11 12H3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M6 9l-3 3 3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -201,14 +220,19 @@ const TESTIMONIALS = [
 
 type Props = {
   onTryDemo: () => void;
-  onLogin: () => void;
   onRegister: () => void;
   onAbout: () => void;
   onTerms: () => void;
   onPrivacy: () => void;
 };
 
-function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPrivacy }: Props) {
+function LandingPage({
+  onTryDemo,
+  onRegister,
+  onAbout,
+  onTerms,
+  onPrivacy
+}: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tIndex, setTIndex] = useState(0);
 
@@ -287,9 +311,6 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
                 <span className="landing-lang-flag" aria-hidden>
                   🇬🇧
                 </span>
-              </button>
-              <button type="button" className="landing-btn-signin" onClick={onLogin}>
-                Sign in
               </button>
               <button type="button" className="landing-btn-tryfree" onClick={onTryDemo}>
                 Try for free
@@ -375,12 +396,6 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
                   </span>
                   <span className="landing-drawer-item__txt">Reviews</span>
                 </button>
-                <button type="button" className="landing-drawer-item" onClick={() => go(onLogin)}>
-                  <span className="landing-drawer-item__ico" aria-hidden>
-                    <IcoSignIn />
-                  </span>
-                  <span className="landing-drawer-item__txt">Sign in</span>
-                </button>
                 <button type="button" className="landing-drawer-item" onClick={() => go(onRegister)}>
                   <span className="landing-drawer-item__ico" aria-hidden>
                     <IcoRegister />
@@ -424,9 +439,9 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
               <button
                 type="button"
                 className="landing-ot-btn-ghost landing-ot-btn-apk-highlight"
-                onClick={() => scrollTo("landing-apk")}
+                onClick={() => window.open(PLAY_STORE_URL, "_blank", "noopener,noreferrer")}
               >
-                Download Android APK
+                Get it on Play Store
               </button>
             )}
           </div>
@@ -457,9 +472,6 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
         <button type="button" className="landing-ot-btn-main landing-ot-btn-xl" onClick={onRegister}>
           Register free
         </button>
-        <button type="button" className="landing-ot-btn-ghost" onClick={onLogin}>
-          Already have an account? Log in
-        </button>
       </section>
 
       {hideApkDownloadUi ? null : (
@@ -471,7 +483,11 @@ function LandingPage({ onTryDemo, onLogin, onRegister, onAbout, onTerms, onPriva
               button below (single download link). If your browser blocks the file, allow installs from this source in
               Android settings.
             </p>
-            <ApkDownloadLink className="landing-ot-btn-main landing-ot-btn-xl">Download APK</ApkDownloadLink>
+            <div className="landing-store-btns">
+              <PlayStoreLink className="landing-ot-btn-main landing-ot-btn-xl landing-playstore-btn">
+                Google Play Store
+              </PlayStoreLink>
+            </div>
           </div>
         </section>
       )}

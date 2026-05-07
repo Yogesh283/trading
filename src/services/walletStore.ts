@@ -8,6 +8,10 @@ import {
 import { DEMO_CHALLENGE_REWARD_INR, DEMO_CHALLENGE_TARGET_INR } from "../config/demoChallenge";
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 
+const BONUS_TO_LIVE_THRESHOLD_INR = 100_000;
+const BONUS_TO_LIVE_REWARD_INR = 100;
+const BONUS_TO_LIVE_REWARD_TXN_TYPE = "bonus_milestone_reward";
+
 export type TransactionRow = {
   id: string;
   user_id: string;
@@ -272,6 +276,22 @@ export async function saveBonusBalanceToDb(userId: string, bonusBalance: number)
     const b = Number(bonusBalance.toFixed(2));
     const now = new Date().toISOString();
     await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [b, now, userId]);
+    if (b >= BONUS_TO_LIVE_THRESHOLD_INR) {
+      const alreadyRewarded = await dbGet<{ c: number }>(
+        isMysqlMode()
+          ? "SELECT 1 AS c FROM transactions WHERE user_id = ? AND txn_type = ? LIMIT 1"
+          : "SELECT 1 AS c FROM transactions WHERE user_id = ? AND txn_type = ?",
+        [userId, BONUS_TO_LIVE_REWARD_TXN_TYPE]
+      );
+      if (!alreadyRewarded) {
+        await applyLedger(
+          userId,
+          BONUS_TO_LIVE_REWARD_INR,
+          BONUS_TO_LIVE_REWARD_TXN_TYPE,
+          `bonus-balance-gte-${BONUS_TO_LIVE_THRESHOLD_INR}`
+        );
+      }
+    }
     return b;
   });
 }
