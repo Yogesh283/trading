@@ -15,6 +15,8 @@ import { getReferralLevelConfigPayload } from "./referralLevelConfigService";
 import { LEVEL_INCOME_DEPTH } from "../config/referral";
 import { formatAdminMobile } from "../utils/adminMobile";
 
+const PLAY_STORE_REFERRAL_BASE_URL = "https://play.google.com/store/apps/details?id=com.iqfxpro.trade";
+
 /** Compare admin URL id vs DB id (spaces, BOM, BigInt vs string, leading zeros on digits). */
 function normalizeAdminIdToken(v: unknown): string {
   return String(v ?? "")
@@ -1065,6 +1067,7 @@ function countDownlineJoinedInWindow(
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */
 export async function getReferralDashboardForUser(userId: string): Promise<{
   selfReferralCode: string;
+  referralLink: string;
   inviter: { name: string; email: string; mobile: string } | null;
   directTeam: ReferralTeamMemberPublic[];
   /** Entire downline (all levels), newest-first within each depth. */
@@ -1112,6 +1115,9 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
     throw new Error("User not found");
   }
   const myCode = String(me.self_referral_code ?? "").trim();
+  const referralLink = myCode
+    ? `${PLAY_STORE_REFERRAL_BASE_URL}&ref=${encodeURIComponent(myCode)}`
+    : "";
   const { startIso, endIso } = getIstDayUtcIsoBounds();
 
   const commissionAgg = await dbGet<{ total: number | string | null }>(
@@ -1252,6 +1258,7 @@ export async function getReferralDashboardForUser(userId: string): Promise<{
 
   return {
     selfReferralCode: myCode || "—",
+    referralLink,
     inviter,
     directTeam,
     downlineTeam,

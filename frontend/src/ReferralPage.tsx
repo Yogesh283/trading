@@ -8,11 +8,12 @@ type Props = {
   token: string;
 };
 
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.iqfxpro.trade";
+
 function buildReferralLink(code: string): string {
   if (!code || code === "—") return "";
-  const u = new URL(window.location.href);
+  const u = new URL(PLAY_STORE_URL);
   u.searchParams.set("ref", code);
-  u.hash = "";
   return u.toString();
 }
 
