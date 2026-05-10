@@ -42,6 +42,12 @@ export interface Trade {
   timeframeSeconds?: number;
 }
 
+/** From GET /api/withdrawals/status or /api/auth/me — server-driven maintenance banner. */
+export type WithdrawalsPublicStatus = {
+  withdrawalsDisabled: boolean;
+  withdrawalsDisabledMessage: string | null;
+};
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -346,7 +352,22 @@ export async function loadSession(token: string) {
     }
   });
 
-  return parseJson<{ user: AuthUser }>(response);
+  return parseJson<{ user: AuthUser } & WithdrawalsPublicStatus>(response);
+}
+
+/** No auth — same withdrawal maintenance fields as /api/auth/me (for withdrawal screen banner). */
+export async function loadWithdrawalsStatus(): Promise<WithdrawalsPublicStatus> {
+  try {
+    const response = await fetchWithFlapRetry(`${apiBase()}/api/withdrawals/status`, {
+      headers: { Accept: "application/json" }
+    });
+    if (!response.ok) {
+      return { withdrawalsDisabled: false, withdrawalsDisabledMessage: null };
+    }
+    return (await response.json()) as WithdrawalsPublicStatus;
+  } catch {
+    return { withdrawalsDisabled: false, withdrawalsDisabledMessage: null };
+  }
 }
 
 export async function loadAccount(token?: string | null, wallet: WalletType = "demo") {

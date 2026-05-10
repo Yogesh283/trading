@@ -4,6 +4,7 @@ import {
   loadMyWithdrawals,
   loadWithdrawalTpinStatus,
   loadWithdrawalTotpStatus,
+  loadWithdrawalsStatus,
   setWithdrawalTpinApi,
   submitWithdrawalRequest
 } from "./api";
@@ -44,6 +45,18 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
     Awaited<ReturnType<typeof loadMyWithdrawals>>["withdrawals"]
   >([]);
   const [refreshBusy, setRefreshBusy] = useState(false);
+  const [withdrawalsBlocked, setWithdrawalsBlocked] = useState<{
+    disabled: boolean;
+    message: string | null;
+  }>({ disabled: false, message: null });
+
+  const refreshWithdrawalAvailability = useCallback(async () => {
+    const s = await loadWithdrawalsStatus();
+    setWithdrawalsBlocked({
+      disabled: s.withdrawalsDisabled,
+      message: s.withdrawalsDisabledMessage
+    });
+  }, []);
 
   const refreshSecurity = useCallback(async () => {
     try {
@@ -64,20 +77,22 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
       .then((r) => setWithdrawals(r.withdrawals))
       .catch(() => undefined);
     void refreshSecurity();
-  }, [token, refreshSecurity]);
+    void refreshWithdrawalAvailability();
+  }, [token, refreshSecurity, refreshWithdrawalAvailability]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshBusy(true);
     try {
       await Promise.allSettled([
         loadMyWithdrawals(token).then((r) => setWithdrawals(r.withdrawals)),
-        refreshSecurity()
+        refreshSecurity(),
+        refreshWithdrawalAvailability()
       ]);
       onSuccess();
     } finally {
       setRefreshBusy(false);
     }
-  }, [token, refreshSecurity, onSuccess]);
+  }, [token, refreshSecurity, refreshWithdrawalAvailability, onSuccess]);
 
   const canWithdraw = pinSet || totpLegacy;
   const codeDigits = pinSet ? 4 : totpLegacy ? 6 : 0;
@@ -217,6 +232,13 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           (~${MIN_WITHDRAW_USDT}).
         </p>
 
+        {withdrawalsBlocked.disabled && withdrawalsBlocked.message ? (
+          <div className="funds-warn withdrawal-maintenance-banner" role="status">
+            <strong>Withdrawals temporarily unavailable</strong>
+            <p className="withdrawal-maintenance-msg">{withdrawalsBlocked.message}</p>
+          </div>
+        ) : null}
+
         <div className="funds-balance">
           <span>Available (live wallet — not demo)</span>
           <strong>{formatInr(balance)}</strong>
@@ -345,7 +367,10 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
         </div>
 
         <form className="funds-form" onSubmit={(e) => void handleSubmit(e)}>
-          <fieldset disabled={!canWithdraw || busy} className="withdrawal-form-fieldset">
+          <fieldset
+            disabled={!canWithdraw || busy || withdrawalsBlocked.disabled}
+            className="withdrawal-form-fieldset"
+          >
             <legend className="sr-only">Withdrawal request</legend>
             <label>
               Amount to receive (USDT)
@@ -394,8 +419,8 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
               />
             </label>
 
-            <button type="submit" disabled={busy || !canWithdraw}>
-              {busy ? "Submitting…" : "Submit withdrawal"}
+            <button type="submit" disabled={busy || !canWithdraw || withdrawalsBlocked.disabled}>
+              {busy ? "Submitting…" : withdrawalsBlocked.disabled ? "Withdrawals paused" : "Submit withdrawal"}
             </button>
           </fieldset>
         </form>

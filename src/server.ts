@@ -578,7 +578,8 @@ app.get("/api/auth/me", async (req, res) => {
         withdrawalTotpEnabled: totpSt.enabled,
         withdrawalTotpSetupPending: totpSt.setupPending,
         withdrawalTpinSet: tpinSt.pinSet
-      }
+      },
+      ...withdrawalsAvailabilityPayload()
     });
   } catch {
     return res.status(401).json({ message: "Unauthorized" });
@@ -2181,6 +2182,19 @@ const MIN_WITHDRAWAL_USDT = Math.max(
 const MAX_WITHDRAWAL_USDT = 1_000_000;
 const WITHDRAWAL_TURNOVER_MULTIPLIER = 10;
 
+function withdrawalsAvailabilityPayload(): {
+  withdrawalsDisabled: boolean;
+  withdrawalsDisabledMessage: string | null;
+} {
+  if (!env.WITHDRAWALS_DISABLED) {
+    return { withdrawalsDisabled: false, withdrawalsDisabledMessage: null };
+  }
+  const msg =
+    env.WITHDRAWALS_DISABLED_MESSAGE ||
+    "Withdrawals are temporarily unavailable. Please try again later.";
+  return { withdrawalsDisabled: true, withdrawalsDisabledMessage: msg };
+}
+
 async function getWithdrawalTurnoverProgress(userId: string): Promise<{
   fundedInr: number;
   completedTradeTurnoverInr: number;
@@ -2218,9 +2232,35 @@ async function getWithdrawalTurnoverProgress(userId: string): Promise<{
   };
 }
 
+/** Idempotent guard: same trade must not credit win/loss twice (multi-process or rare retry). */
+async function liveBinarySettleAlreadyInLedger(userId: string, tradeId: string): Promise<boolean> {
+  await initAppDb();
+  const row = await dbGet<{ c: number }>(
+    `SELECT 1 AS c FROM transactions
+      WHERE user_id = ? AND reference_id = ? AND txn_type IN ('binary_settle_win', 'binary_settle_loss')
+      LIMIT 1`,
+    [userId, tradeId]
+  );
+  return Number(row?.c ?? 0) >= 1;
+}
+
+/** Public — maintenance flag and message for withdrawal UI (no auth). */
+app.get("/api/withdrawals/status", (_req, res) => {
+  res.json(withdrawalsAvailabilityPayload());
+});
+
 app.post("/api/withdrawals", (req, res) => {
   void (async () => {
     const user = await requireSession(req.headers.authorization);
+    const avail = withdrawalsAvailabilityPayload();
+    if (avail.withdrawalsDisabled) {
+      const msg = avail.withdrawalsDisabledMessage ?? "Withdrawals are temporarily unavailable.";
+      return res.status(503).json({
+        message: msg,
+        withdrawalsDisabled: true,
+        withdrawalsDisabledMessage: msg
+      });
+    }
     const amount = Number(req.body?.amount);
     const toAddress = String(req.body?.toAddress ?? "").trim().toLowerCase();
     const tpn = String(
@@ -2585,6 +2625,12 @@ setInterval(() => {
             liveTasks.push(
               (async () => {
                 try {
+                  if (await liveBinarySettleAlreadyInLedger(userId, trade.id)) {
+                    const accSkip = getAccountForWallet(userId, "live");
+                    accSkip.setBalance(await getWalletBalance(userId));
+                    accSkip.settleExpiredTradeRecordOnly(trade.id, tick.price);
+                    return;
+                  }
                   const win =
                     trade.direction === "up"
                       ? tick.price > trade.entryPrice

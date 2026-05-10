@@ -174,7 +174,16 @@ const envSchema = z.object({
    * `responses` = OpenAI Responses API (`openai.responses.create`).
    * `chat` = Chat Completions (`openai.chat.completions.create`) if your org/model only supports that.
    */
-  OPENAI_API_MODE: z.enum(["responses", "chat"]).default("responses")
+  OPENAI_API_MODE: z.enum(["responses", "chat"]).default("responses"),
+  /**
+   * Set to 1 or true to block all user withdrawals (maintenance). Users see WITHDRAWALS_DISABLED_MESSAGE on submit.
+   */
+  WITHDRAWALS_DISABLED: z
+    .string()
+    .optional()
+    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true"),
+  /** Shown when WITHDRAWALS_DISABLED is on (optional; sensible default in server). */
+  WITHDRAWALS_DISABLED_MESSAGE: z.string().optional()
 });
 
 const parsed = envSchema.parse(process.env);
@@ -199,5 +208,7 @@ export const env = {
   FOREX_SIMULATED_ONLY: Boolean(parsed.FOREX_SIMULATED_ONLY),
   ANDROID_APP_VERSION_CODE: androidVersionCodeParsed,
   ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0",
-  FORGOT_PASSWORD_DEBUG_OTP: Boolean(parsed.FORGOT_PASSWORD_DEBUG_OTP)
+  FORGOT_PASSWORD_DEBUG_OTP: Boolean(parsed.FORGOT_PASSWORD_DEBUG_OTP),
+  WITHDRAWALS_DISABLED: Boolean(parsed.WITHDRAWALS_DISABLED),
+  WITHDRAWALS_DISABLED_MESSAGE: parsed.WITHDRAWALS_DISABLED_MESSAGE?.trim() || ""
 };

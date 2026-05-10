@@ -23,7 +23,7 @@
 ## 1) PC → GitHub (Windows — Git Bash)
 
 ```bash
-cd /d/xampp/htdocs/tradeing
+cd /c/xampp/htdocs/tradeing
 git status
 git add .
 git commit -m "your message"
