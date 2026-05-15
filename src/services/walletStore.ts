@@ -9,7 +9,7 @@ import { DEMO_CHALLENGE_REWARD_INR, DEMO_CHALLENGE_TARGET_INR } from "../config/
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 
 const BONUS_TO_LIVE_THRESHOLD_INR = 100_000;
-const BONUS_TO_LIVE_REWARD_INR = 100;
+const BONUS_TO_LIVE_REWARD_INR = 10;
 const BONUS_TO_LIVE_TRANSFER_TXN_TYPE = "bonus_to_live_transfer";
 
 export type TransactionRow = {
