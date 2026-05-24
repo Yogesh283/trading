@@ -56,14 +56,24 @@ import {
   resetPasswordWithOtp
 } from "./services/passwordResetService";
 import {
+  attachNowPaymentsPaymentToDeposit,
   createDepositIntent,
   getDepositById,
   listAllDeposits,
   listDepositsForUser,
+  markDepositCreditedFromNowPayments,
   markDepositCreditedFromTxSent,
   markDepositCreditedIfPendingReview,
   markDepositTxSent
 } from "./services/depositStore";
+import { isNowPaymentsConfigured, NOWPAYMENTS_PAID_STATUSES, NOWPAYMENTS_PAYMENT_DETECTED_STATUSES } from "./config/nowPayments";
+import {
+  createNowPaymentsPayment,
+  fetchNowPaymentsMinDepositUsdt,
+  getNowPaymentsPaymentStatus,
+  parseNowPaymentsPaymentIdFromTxHash,
+  verifyNowPaymentsIpnSignature
+} from "./services/nowPaymentsService";
 import { createWithdrawal, getWithdrawalById, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
 import {
   applyLedger,
@@ -1079,6 +1089,279 @@ app.get("/api/trades", (_req, res) => {
 
 const MIN_DEPOSIT_USDT = 1;
 const MAX_DEPOSIT_USDT = 1_000_000;
+const MIN_DEPOSIT_CACHE_MS = 60 * 60 * 1000;
+
+let minDepositCache: { value: number; at: number } | null = null;
+
+/** App floor + NOWPayments usdtbsc min (status page ~0.06; API ~0.07 with floating rate). */
+async function resolveMinDepositUsdt(): Promise<number> {
+  const apiKey = env.NOWPAYMENTS_API_KEY?.trim();
+  if (!isNowPaymentsConfigured(apiKey)) {
+    return MIN_DEPOSIT_USDT;
+  }
+  const now = Date.now();
+  if (minDepositCache && now - minDepositCache.at < MIN_DEPOSIT_CACHE_MS) {
+    return minDepositCache.value;
+  }
+  try {
+    const raw = await fetchNowPaymentsMinDepositUsdt({
+      apiKey: apiKey!,
+      sandbox: env.NOWPAYMENTS_SANDBOX,
+      isFixedRate: false
+    });
+    const npMin = Math.ceil(raw * 100) / 100;
+    const value = Math.max(MIN_DEPOSIT_USDT, npMin);
+    minDepositCache = { value, at: now };
+    return value;
+  } catch (error) {
+    logger.warn({ error }, "NOWPayments min-amount (usdtbsc) failed — using app minimum");
+    return minDepositCache?.value ?? MIN_DEPOSIT_USDT;
+  }
+}
+
+function resolvePublicAppUrl(req: express.Request): string {
+  if (env.PUBLIC_APP_URL) {
+    return env.PUBLIC_APP_URL;
+  }
+  const proto = req.get("x-forwarded-proto")?.split(",")[0]?.trim() || req.protocol;
+  const host = req.get("x-forwarded-host") || req.get("host");
+  if (host) {
+    return `${proto}://${host}`.replace(/\/+$/, "");
+  }
+  return "";
+}
+
+/** Credit live wallet when NOWPayments reports paid (IPN or poll sync). */
+async function tryCreditNowPaymentsDeposit(
+  depositId: string,
+  paymentId: string,
+  paymentStatus: string
+): Promise<{ credited: boolean; deposit: Awaited<ReturnType<typeof getDepositById>> }> {
+  const row = await getDepositById(depositId);
+  if (!row || row.wallet_provider !== "nowpayments") {
+    return { credited: false, deposit: row };
+  }
+  if (row.status === "credited") {
+    return { credited: true, deposit: row };
+  }
+  const status = paymentStatus.toLowerCase();
+  if (!NOWPAYMENTS_PAID_STATUSES.has(status) || row.status !== "pending_wallet") {
+    return { credited: false, deposit: row };
+  }
+
+  const creditedInr = usdtToInrCredit(row.amount);
+  await applyLedger(row.user_id, creditedInr, "deposit_credited", depositId);
+  const marked = await markDepositCreditedFromNowPayments(
+    depositId,
+    paymentId || `sync-${Date.now()}`
+  );
+  if (!marked) {
+    logger.error({ depositId, paymentId }, "nowpayments credit: ledger applied but deposit update failed");
+    return { credited: false, deposit: row };
+  }
+  await hydrateLiveAccountFromWallet(row.user_id);
+  logger.info({ depositId, userId: row.user_id, paymentId, paymentStatus: status, creditedInr }, "NOWPayments deposit credited (sync)");
+  const updated = await getDepositById(depositId);
+  return { credited: true, deposit: updated };
+}
+
+/** No auth — deposit gateway availability for UI. */
+app.get("/api/deposits/nowpayments/config", (_req, res) => {
+  void (async () => {
+    const minUsdt = await resolveMinDepositUsdt();
+    res.json({
+      enabled: isNowPaymentsConfigured(env.NOWPAYMENTS_API_KEY),
+      sandbox: env.NOWPAYMENTS_SANDBOX,
+      minUsdt,
+      maxUsdt: MAX_DEPOSIT_USDT,
+      inrPerUsdt: INR_PER_USDT
+    });
+  })().catch((error) => {
+    logger.error({ error }, "nowpayments config");
+    res.status(500).json({ message: "Unable to load deposit config" });
+  });
+});
+
+/** Poll NOWPayments + credit wallet (works when IPN cannot reach localhost). */
+app.get("/api/deposits/nowpayments/sync/:depositId", (req, res) => {
+  void (async () => {
+    const apiKey = env.NOWPAYMENTS_API_KEY?.trim();
+    if (!isNowPaymentsConfigured(apiKey)) {
+      return res.status(503).json({ message: "Deposit gateway is not configured." });
+    }
+
+    const user = await requireSession(req.headers.authorization);
+    const depositId = String(req.params.depositId ?? "").trim();
+    const row = await getDepositById(depositId);
+    if (!row || row.user_id !== user.id) {
+      return res.status(404).json({ message: "Deposit not found" });
+    }
+
+    if (row.status === "credited") {
+      return res.json({
+        depositId,
+        depositStatus: row.status,
+        paymentStatus: "finished",
+        paymentDetected: true,
+        credited: true,
+        hideQr: true
+      });
+    }
+
+    const paymentId = parseNowPaymentsPaymentIdFromTxHash(row.tx_hash);
+    if (!paymentId) {
+      return res.json({
+        depositId,
+        depositStatus: row.status,
+        paymentStatus: "waiting",
+        paymentDetected: false,
+        credited: false,
+        hideQr: false
+      });
+    }
+
+    const remote = await getNowPaymentsPaymentStatus({
+      apiKey: apiKey!,
+      sandbox: env.NOWPAYMENTS_SANDBOX,
+      paymentId
+    });
+    const paymentStatus = remote.payment_status.toLowerCase();
+    const paymentDetected = NOWPAYMENTS_PAYMENT_DETECTED_STATUSES.has(paymentStatus);
+    const credit = await tryCreditNowPaymentsDeposit(depositId, paymentId, paymentStatus);
+    const depositStatus = credit.deposit?.status ?? row.status;
+
+    return res.json({
+      depositId,
+      depositStatus,
+      paymentStatus,
+      paymentDetected,
+      credited: credit.credited,
+      hideQr: credit.credited || paymentDetected
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Sync failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "nowpayments sync");
+    res.status(500).json({ message });
+  });
+});
+
+/** Create NOWPayments payment and return deposit address for in-app QR. */
+app.post("/api/deposits/nowpayments/create", (req, res) => {
+  void (async () => {
+    const apiKey = env.NOWPAYMENTS_API_KEY?.trim();
+    if (!isNowPaymentsConfigured(apiKey)) {
+      return res.status(503).json({ message: "Deposit gateway is not configured. Contact support." });
+    }
+    const ipnSecret = env.NOWPAYMENTS_IPN_SECRET?.trim();
+    if (!ipnSecret) {
+      return res.status(503).json({ message: "Deposit IPN is not configured. Contact support." });
+    }
+
+    const user = await requireSession(req.headers.authorization);
+    const amount = Number(req.body?.amount);
+    const minDepositUsdt = await resolveMinDepositUsdt();
+    if (!Number.isFinite(amount) || amount < minDepositUsdt || amount > MAX_DEPOSIT_USDT) {
+      return res.status(400).json({
+        message: `Amount must be between ${minDepositUsdt} and ${MAX_DEPOSIT_USDT} USDT`
+      });
+    }
+
+    const baseUrl = resolvePublicAppUrl(req);
+    if (!baseUrl) {
+      return res.status(503).json({
+        message: "Set PUBLIC_APP_URL in server .env (e.g. https://www.iqfxpro.com) for deposit callbacks."
+      });
+    }
+
+    const row = await createDepositIntent({
+      userId: user.id,
+      userEmail: user.email,
+      amount,
+      walletProvider: "nowpayments",
+      adminToAddress: "nowpayments",
+      tokenContract: "0x0000000000000000000000000000000000000000",
+      chainId: 0
+    });
+
+    const payment = await createNowPaymentsPayment({
+      apiKey: apiKey!,
+      sandbox: env.NOWPAYMENTS_SANDBOX,
+      payAmountUsdt: amount,
+      orderId: row.id,
+      orderDescription: `Iqfx Pro deposit ${amount} USDT`,
+      ipnCallbackUrl: `${baseUrl}/api/deposits/nowpayments/ipn`
+    });
+
+    const linked = await attachNowPaymentsPaymentToDeposit(row.id, user.id, payment.payment_id);
+    if (!linked) {
+      return res.status(500).json({ message: "Failed to link deposit to payment" });
+    }
+
+    return res.status(201).json({
+      deposit: linked,
+      paymentId: payment.payment_id,
+      payAddress: payment.pay_address,
+      payAmount: payment.pay_amount,
+      payCurrency: payment.pay_currency,
+      network: payment.network ?? "BSC",
+      paymentStatus: payment.payment_status,
+      expirationEstimateDate: payment.expiration_estimate_date ?? null,
+      amount,
+      inrPerUsdt: INR_PER_USDT,
+      walletCreditInr: usdtToInrCredit(amount)
+    });
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : "Deposit failed";
+    if (message === "Unauthorized") {
+      return res.status(401).json({ message });
+    }
+    logger.error({ error }, "nowpayments create deposit");
+    res.status(500).json({ message });
+  });
+});
+
+/** NOWPayments IPN — credits live wallet when payment is finished (no auth). */
+app.post("/api/deposits/nowpayments/ipn", (req, res) => {
+  void (async () => {
+    const ipnSecret = env.NOWPAYMENTS_IPN_SECRET?.trim();
+    if (!ipnSecret) {
+      return res.status(503).send("IPN not configured");
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const sig = req.get("x-nowpayments-sig");
+    if (!verifyNowPaymentsIpnSignature(body, sig, ipnSecret)) {
+      logger.warn({ hasSig: Boolean(sig) }, "nowpayments IPN invalid signature");
+      return res.status(400).send("Invalid signature");
+    }
+
+    const paymentStatus = String(body.payment_status ?? "").toLowerCase();
+    const orderId = String(body.order_id ?? "").trim();
+    const paymentId = String(body.payment_id ?? body.id ?? "").trim();
+
+    if (!orderId) {
+      return res.status(200).send("ok");
+    }
+
+    const credit = await tryCreditNowPaymentsDeposit(orderId, paymentId, paymentStatus);
+    if (credit.credited) {
+      return res.status(200).send("ok");
+    }
+
+    const row = await getDepositById(orderId);
+    if (!row || row.wallet_provider !== "nowpayments") {
+      return res.status(200).send("ok");
+    }
+
+    return res.status(200).send("ok");
+  })().catch((error) => {
+    logger.error({ error }, "nowpayments IPN");
+    res.status(500).send("error");
+  });
+});
 
 /** No auth — UI can show where USDT must be sent (MetaMask shows token contract, not this address directly). */
 app.get("/api/deposits/public-info", (_req, res) => {

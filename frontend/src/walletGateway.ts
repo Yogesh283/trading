@@ -124,7 +124,8 @@ export function walletProviderDisplayLabel(provider: string | null | undefined):
   const extras: Record<string, string> = {
     qr_scan: "QR payment",
     qr_payment: "QR payment",
-    browser_wallet: "Web3 wallet"
+    browser_wallet: "Web3 wallet",
+    nowpayments: "NOWPayments"
   };
   if (extras[id]) return extras[id];
 

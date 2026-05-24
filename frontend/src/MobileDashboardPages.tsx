@@ -383,7 +383,7 @@ export function MobileOffersPage(props: {
           <li className="mobile-dash-offer-card">
             <strong className="mobile-dash-offer-card__title">Fund &amp; trade</strong>
             <p className="mobile-dash-offer-card__desc">
-              Use <strong>Deposit</strong> (USDT BEP20) to credit your live wallet. Timed forex trades and charts are under{" "}
+              Use <strong>Deposit</strong> (NOWPayments crypto checkout) to credit your live wallet. Timed forex trades and charts are under{" "}
               <strong>Trading</strong>.
             </p>
           </li>

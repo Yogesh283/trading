@@ -732,6 +732,62 @@ export async function loadDepositPublicInfo(): Promise<DepositPublicInfo | null>
   }
 }
 
+export type NowPaymentsDepositConfig = {
+  enabled: boolean;
+  sandbox: boolean;
+  minUsdt: number;
+  maxUsdt: number;
+  inrPerUsdt: number;
+};
+
+export async function loadNowPaymentsDepositConfig(): Promise<NowPaymentsDepositConfig | null> {
+  try {
+    const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/nowpayments/config`);
+    if (!response.ok) return null;
+    return (await response.json()) as NowPaymentsDepositConfig;
+  } catch {
+    return null;
+  }
+}
+
+export async function createNowPaymentsDeposit(token: string, amount: number) {
+  const response = await fetchWithFlapRetry(`${apiBase()}/api/deposits/nowpayments/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...requestHeaders(token) },
+    body: JSON.stringify({ amount })
+  });
+  return parseJson<{
+    deposit: DepositRecord;
+    paymentId: string;
+    payAddress: string;
+    payAmount: number;
+    payCurrency: string;
+    network: string;
+    paymentStatus: string;
+    expirationEstimateDate: string | null;
+    amount: number;
+    inrPerUsdt?: number;
+    walletCreditInr?: number;
+  }>(response);
+}
+
+export type NowPaymentsDepositSync = {
+  depositId: string;
+  depositStatus: string;
+  paymentStatus: string;
+  paymentDetected: boolean;
+  credited: boolean;
+  hideQr: boolean;
+};
+
+export async function syncNowPaymentsDeposit(token: string, depositId: string) {
+  const response = await fetchWithFlapRetry(
+    `${apiBase()}/api/deposits/nowpayments/sync/${encodeURIComponent(depositId)}`,
+    { headers: requestHeaders(token) }
+  );
+  return parseJson<NowPaymentsDepositSync>(response);
+}
+
 export async function createDepositIntent(
   token: string,
   amount: number,

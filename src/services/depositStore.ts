@@ -213,3 +213,36 @@ export async function markDepositCreditedFromTxSent(depositId: string, userId: s
   );
   return affectedRows === 1;
 }
+
+/** Store NOWPayments payment id on a pending deposit (wallet_provider = nowpayments). */
+export async function attachNowPaymentsPaymentToDeposit(
+  depositId: string,
+  userId: string,
+  paymentId: string
+): Promise<DepositRow | null> {
+  await ensureDepositsReady();
+  const now = new Date().toISOString();
+  const { affectedRows } = await dbRun(
+    `UPDATE deposits SET tx_hash = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'pending_wallet' AND wallet_provider = 'nowpayments'`,
+    [`np-p-${paymentId}`, now, depositId, userId]
+  );
+  if (affectedRows !== 1) {
+    return null;
+  }
+  const row = await dbGet<DepositRow>("SELECT * FROM deposits WHERE id = ? AND user_id = ?", [depositId, userId]);
+  return row ?? null;
+}
+
+/** Mark credited after NOWPayments IPN (only from pending_wallet). */
+export async function markDepositCreditedFromNowPayments(
+  depositId: string,
+  paymentId: string
+): Promise<boolean> {
+  await ensureDepositsReady();
+  const now = new Date().toISOString();
+  const { affectedRows } = await dbRun(
+    `UPDATE deposits SET status = 'credited', tx_hash = ?, updated_at = ? WHERE id = ? AND status = 'pending_wallet' AND wallet_provider = 'nowpayments'`,
+    [`np-p-${paymentId}`, now, depositId]
+  );
+  return affectedRows === 1;
+}

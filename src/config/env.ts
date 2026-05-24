@@ -183,7 +183,21 @@ const envSchema = z.object({
     .optional()
     .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true"),
   /** Shown when WITHDRAWALS_DISABLED is on (optional; sensible default in server). */
-  WITHDRAWALS_DISABLED_MESSAGE: z.string().optional()
+  WITHDRAWALS_DISABLED_MESSAGE: z.string().optional(),
+  /** NOWPayments API key — required for `/api/deposits/nowpayments/create`. */
+  NOWPAYMENTS_API_KEY: z.string().optional(),
+  /** HMAC secret for `x-nowpayments-sig` on IPN webhooks. */
+  NOWPAYMENTS_IPN_SECRET: z.string().optional(),
+  /** Set to 1 / true to use NOWPayments sandbox API. */
+  NOWPAYMENTS_SANDBOX: z
+    .string()
+    .optional()
+    .transform((s) => s === "1" || String(s ?? "").toLowerCase() === "true"),
+  /**
+   * Public site URL (no trailing slash) — IPN + success/cancel URLs for deposits.
+   * Example: https://www.iqfxpro.com
+   */
+  PUBLIC_APP_URL: z.string().optional()
 });
 
 const parsed = envSchema.parse(process.env);
@@ -210,5 +224,7 @@ export const env = {
   ANDROID_APP_VERSION_NAME: parsed.ANDROID_APP_VERSION_NAME?.trim() || "1.0",
   FORGOT_PASSWORD_DEBUG_OTP: Boolean(parsed.FORGOT_PASSWORD_DEBUG_OTP),
   WITHDRAWALS_DISABLED: Boolean(parsed.WITHDRAWALS_DISABLED),
-  WITHDRAWALS_DISABLED_MESSAGE: parsed.WITHDRAWALS_DISABLED_MESSAGE?.trim() || ""
+  WITHDRAWALS_DISABLED_MESSAGE: parsed.WITHDRAWALS_DISABLED_MESSAGE?.trim() || "",
+  NOWPAYMENTS_SANDBOX: Boolean(parsed.NOWPAYMENTS_SANDBOX),
+  PUBLIC_APP_URL: parsed.PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || ""
 };

@@ -111,6 +111,33 @@ curl -sS "http://127.0.0.1:4000/api/system/database"
 
 You should see `kind: "mysql"` again.
 
+**NOWPayments deposits** (add to server `.env`, then `pm2 restart`):
+
+```env
+NOWPAYMENTS_API_KEY=your_api_key
+NOWPAYMENTS_IPN_SECRET=your_ipn_secret
+PUBLIC_APP_URL=https://www.iqfxpro.com
+# NOWPAYMENTS_SANDBOX=1
+```
+
+- IPN URL (also set in NOWPayments dashboard): `https://www.iqfxpro.com/api/deposits/nowpayments/ipn`
+- Whitelist NOWPayments IPs on firewall/Cloudflare if webhooks fail (see NOWPayments docs).
+- Test: `curl -sS https://www.iqfxpro.com/api/deposits/nowpayments/config`
+
+**Same NOWPayments account on 2 websites (one API key):**
+
+| Item | Site A | Site B |
+|------|--------|--------|
+| `NOWPAYMENTS_API_KEY` | same | same |
+| `NOWPAYMENTS_IPN_SECRET` | same | same |
+| `PUBLIC_APP_URL` | `https://www.site-a.com` | `https://www.site-b.com` |
+| IPN endpoint | `…/api/deposits/nowpayments/ipn` on **that** domain | same path on **other** domain |
+| Database | separate server/DB per site | separate server/DB per site |
+
+Each checkout sends its own `ipn_callback_url` / `success_url` from `PUBLIC_APP_URL`, so webhooks and redirects go to the correct site. Wallet credit happens only on that site’s database. In the NOWPayments dashboard you can leave one default IPN URL or set the main site; per-payment URLs from the API still apply.
+
+Do **not** share one MySQL/SQLite DB between two live brands unless you intend one user base.
+
 ---
 
 If the **server commit hash is old**:

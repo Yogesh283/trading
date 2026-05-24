@@ -17,7 +17,7 @@ export function formatInr(n: number): string {
   }).format(n);
 }
 
-export function previewInrFromUsdt(usdt: number): number {
+export function previewInrFromUsdt(usdt: number, inrPerUsdt = INR_PER_USDT): number {
   if (!Number.isFinite(usdt) || usdt <= 0) return 0;
-  return Math.round(usdt * INR_PER_USDT * 100) / 100;
+  return Math.round(usdt * inrPerUsdt * 100) / 100;
 }
