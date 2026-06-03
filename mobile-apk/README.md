@@ -187,6 +187,48 @@ Your APK opens the **live site** from **`server.url`** in a **WebView** (product
 
 Then: in `mobile-apk` run `npx cap sync android` → build a **new APK/AAB** in Studio → Play Store or direct install.
 
+## Google AdMob (Mobile Ads SDK)
+
+Integrated in `android/app` — **banner** at bottom + logging. **Interstitial** runs only when using **Google test App ID** in `strings.xml`.
+
+### 1) Set your real IDs (required for live Requests in AdMob dashboard)
+
+Edit `android/app/src/main/res/values/strings.xml`:
+
+| String | AdMob dashboard |
+|--------|-----------------|
+| `admob_app_id` | App settings → **App ID** (`ca-app-pub-…~…`) |
+| `admob_banner_unit_id` | Ad units → **Banner** |
+| `admob_interstitial_unit_id` | Ad units → **Interstitial** (optional) |
+
+`AndroidManifest.xml` already has:
+
+```xml
+<meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="@string/admob_app_id" />
+```
+
+### 2) Build & install
+
+```bash
+cd mobile-apk
+npx cap sync android
+```
+
+Open `mobile-apk/android` in Android Studio → **Build APK** → install on a device with Play services.
+
+### 3) Verify ad requests (Logcat)
+
+Filter: **`IqfxAdMob`**
+
+| Log | Meaning |
+|-----|---------|
+| `Loading banner ad request` | Request sent |
+| `Banner ad loaded` | Test/live ad OK |
+| `Banner ad failed` | Wrong unit ID / no network / App ID mismatch |
+| `Mobile Ads SDK ready` | SDK initialized |
+
+Test IDs (default in repo) show **“Test Ad”** label on banner. Replace with your units for production; dashboard **Requests** update after real traffic (can take hours).
+
 ## Summary
 
 | Step | Command |

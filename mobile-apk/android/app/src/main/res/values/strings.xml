@@ -4,4 +4,11 @@
     <string name="app_name">IQFX Pro</string>
     <string name="package_name">com.iqfxpro.app</string>
     <string name="custom_url_scheme">com.iqfxpro.app</string>
+
+    <!-- AdMob App ID (must match AndroidManifest APPLICATION_ID) -->
+    <string name="admob_app_id" translatable="false">ca-app-pub-2443225467228774~6515958028</string>
+    <!-- Test banner unit -->
+    <string name="admob_banner_unit_id" translatable="false">ca-app-pub-3940256099942544/6300978111</string>
+    <!-- Test interstitial unit -->
+    <string name="admob_interstitial_unit_id" translatable="false">ca-app-pub-3940256099942544/1033173712</string>
 </resources>
