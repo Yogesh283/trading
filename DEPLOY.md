@@ -281,10 +281,10 @@ More detail (Windows paths, cleartext HTTP, cache): **`mobile-apk/README.md`**, 
 
 
 
-<!-- 
-cd D:\xampp\htdocs\tradeing\mobile-apk
+
+cd C:\xampp\htdocs\tradeing\mobile-apk
 npm install
 npx cap sync android
 
-cd D:\xampp\htdocs\tradeing\mobile-apk\android
-.\gradlew.bat bundleRelease -->
+cd C:\xampp\htdocs\tradeing\mobile-apk\android
+.\gradlew.bat bundleRelease
