@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.iqfxpro.app"
+    namespace "com.iqfxpro.trade"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.iqfxpro.app"
+        applicationId "com.iqfxpro.trade"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 10

@@ -2,8 +2,8 @@
 <!-- Launcher + recents title — must match product brand (not the Java package id). -->
 <resources>
     <string name="app_name">IQFX Pro</string>
-    <string name="package_name">com.iqfxpro.app</string>
-    <string name="custom_url_scheme">com.iqfxpro.app</string>
+    <string name="package_name">com.iqfxpro.trade</string>
+    <string name="custom_url_scheme">com.iqfxpro.trade</string>
 
     <!-- AdMob App ID (must match AndroidManifest APPLICATION_ID) -->
     <string name="admob_app_id" translatable="false">ca-app-pub-2443225467228774~6515958028</string>

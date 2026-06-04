@@ -155,7 +155,7 @@ Use this **only for testing**; **HTTPS** is better in production.
 
 ## `appId` / app name
 
-- Package name: `capacitor.config.json` → `appId` (must match **Google Play** app id; repo default: `com.iqfxpro.app`)  
+- Package name: `capacitor.config.json` → `appId` (must match **Google Play** app id: `com.iqfxpro.trade`)  
 - App label: `appName`  
 Set these before the first `cap add android`; changing them later may require updates inside the Android project too.
 

@@ -1,4 +1,4 @@
-package com.iqfxpro.app;
+package com.iqfxpro.trade;
 
 import android.os.Bundle;
 import android.util.Log;
