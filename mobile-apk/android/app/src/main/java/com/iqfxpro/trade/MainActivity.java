@@ -2,33 +2,34 @@ package com.iqfxpro.trade;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
-import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 
 import com.getcapacitor.BridgeActivity;
 import com.google.android.gms.ads.AdError;
 import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.AdSize;
-import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+import com.google.android.gms.ads.rewarded.RewardedAd;
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
 
 /**
- * Capacitor shell + Google Mobile Ads (banner + optional test interstitial).
- * Replace admob_* strings in res/values/strings.xml with your AdMob dashboard IDs.
+ * Capacitor shell + Google Mobile Ads (interstitial + rewarded).
+ * Ad unit IDs live in res/values/strings.xml.
  */
 public class MainActivity extends BridgeActivity {
 
     private static final String TAG = "IqfxAdMob";
 
-    private AdView bannerAdView;
     private InterstitialAd interstitialAd;
-    private boolean interstitialRequested;
+    private RewardedAd rewardedAd;
+    private boolean interstitialLoadRequested;
+    private boolean rewardedLoadRequested;
+    private boolean interstitialShownThisSession;
+    private boolean rewardedShownThisSession;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -43,79 +44,20 @@ public class MainActivity extends BridgeActivity {
         MobileAds.initialize(this, initStatus -> {
             Log.i(TAG, "Mobile Ads SDK ready: " + initStatus);
             runOnUiThread(() -> {
-                attachBannerAd();
-                if (isGoogleTestAdMobConfig()) {
-                    loadTestInterstitial();
-                }
+                loadInterstitial();
+                loadRewardedAd();
             });
         });
     }
 
-    /** Google sample publisher — interstitial auto-show only for test IDs. */
-    private boolean isGoogleTestAdMobConfig() {
-        return getString(R.string.admob_app_id).contains("3940256099942544");
-    }
-
-    private void attachBannerAd() {
-        if (bannerAdView != null) {
+    private void loadInterstitial() {
+        if (interstitialLoadRequested) {
             return;
         }
+        interstitialLoadRequested = true;
 
-        FrameLayout root = findViewById(android.R.id.content);
-        if (!(root instanceof FrameLayout)) {
-            Log.e(TAG, "Cannot attach banner — content root is not FrameLayout");
-            return;
-        }
-
-        String unitId = getString(R.string.admob_banner_unit_id);
-        bannerAdView = new AdView(this);
-        bannerAdView.setAdUnitId(unitId);
-        bannerAdView.setAdSize(
-            AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, AdSize.FULL_WIDTH)
-        );
-
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        lp.gravity = Gravity.BOTTOM;
-        root.addView(bannerAdView, lp);
-
-        Log.i(TAG, "Loading banner ad request, unitId=" + unitId);
-        bannerAdView.setAdListener(new com.google.android.gms.ads.AdListener() {
-            @Override
-            public void onAdLoaded() {
-                Log.i(TAG, "Banner ad loaded — request succeeded (test or live unit)");
-            }
-
-            @Override
-            public void onAdFailedToLoad(@NonNull LoadAdError error) {
-                Log.e(
-                    TAG,
-                    "Banner ad failed: code=" + error.getCode()
-                        + " domain=" + error.getDomain()
-                        + " message=" + error.getMessage()
-                );
-            }
-
-            @Override
-            public void onAdImpression() {
-                Log.i(TAG, "Banner ad impression recorded");
-            }
-        });
-
-        bannerAdView.loadAd(new AdRequest.Builder().build());
-    }
-
-    /** One interstitial per cold start — confirms interstitial requests work (Google test unit). */
-    private void loadTestInterstitial() {
-        if (interstitialRequested) {
-            return;
-        }
-        interstitialRequested = true;
-
-        String unitId = getString(R.string.admob_interstitial_unit_id);
-        Log.i(TAG, "Loading interstitial ad request, unitId=" + unitId);
+        final String unitId = getString(R.string.admob_interstitial_unit_id);
+        Log.i(TAG, "Loading interstitial ad, unitId=" + unitId);
 
         InterstitialAd.load(
             this,
@@ -125,19 +67,21 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void onAdLoaded(@NonNull InterstitialAd ad) {
                     interstitialAd = ad;
-                    Log.i(TAG, "Interstitial ad loaded — request succeeded");
+                    Log.i(TAG, "Interstitial ad loaded");
                     ad.setFullScreenContentCallback(
                         new FullScreenContentCallback() {
                             @Override
                             public void onAdDismissedFullScreenContent() {
                                 interstitialAd = null;
                                 Log.i(TAG, "Interstitial dismissed");
+                                showRewardedIfReady();
                             }
 
                             @Override
                             public void onAdFailedToShowFullScreenContent(@NonNull AdError error) {
                                 interstitialAd = null;
                                 Log.e(TAG, "Interstitial show failed: " + error.getMessage());
+                                showRewardedIfReady();
                             }
 
                             @Override
@@ -146,16 +90,81 @@ public class MainActivity extends BridgeActivity {
                             }
                         }
                     );
-                    if (!isFinishing()) {
-                        ad.show(MainActivity.this);
-                    }
+                    showInterstitialIfReady();
                 }
 
                 @Override
                 public void onAdFailedToLoad(@NonNull LoadAdError error) {
+                    interstitialLoadRequested = false;
                     Log.e(
                         TAG,
                         "Interstitial ad failed: code=" + error.getCode()
+                            + " message=" + error.getMessage()
+                    );
+                    showRewardedIfReady();
+                }
+            }
+        );
+    }
+
+    private void showInterstitialIfReady() {
+        if (interstitialAd == null || isFinishing() || interstitialShownThisSession) {
+            return;
+        }
+        interstitialShownThisSession = true;
+        interstitialAd.show(this);
+    }
+
+    private void loadRewardedAd() {
+        if (rewardedLoadRequested) {
+            return;
+        }
+        rewardedLoadRequested = true;
+
+        final String unitId = getString(R.string.admob_rewarded_unit_id);
+        Log.i(TAG, "Loading rewarded ad, unitId=" + unitId);
+
+        RewardedAd.load(
+            this,
+            unitId,
+            new AdRequest.Builder().build(),
+            new RewardedAdLoadCallback() {
+                @Override
+                public void onAdLoaded(@NonNull RewardedAd ad) {
+                    rewardedAd = ad;
+                    Log.i(TAG, "Rewarded ad loaded");
+                    ad.setFullScreenContentCallback(
+                        new FullScreenContentCallback() {
+                            @Override
+                            public void onAdDismissedFullScreenContent() {
+                                rewardedAd = null;
+                                rewardedLoadRequested = false;
+                                Log.i(TAG, "Rewarded ad dismissed");
+                                loadRewardedAd();
+                            }
+
+                            @Override
+                            public void onAdFailedToShowFullScreenContent(@NonNull AdError error) {
+                                rewardedAd = null;
+                                rewardedLoadRequested = false;
+                                Log.e(TAG, "Rewarded show failed: " + error.getMessage());
+                                loadRewardedAd();
+                            }
+
+                            @Override
+                            public void onAdShowedFullScreenContent() {
+                                Log.i(TAG, "Rewarded ad showed");
+                            }
+                        }
+                    );
+                }
+
+                @Override
+                public void onAdFailedToLoad(@NonNull LoadAdError error) {
+                    rewardedLoadRequested = false;
+                    Log.e(
+                        TAG,
+                        "Rewarded ad failed: code=" + error.getCode()
                             + " message=" + error.getMessage()
                     );
                 }
@@ -163,13 +172,28 @@ public class MainActivity extends BridgeActivity {
         );
     }
 
+    private void showRewardedIfReady() {
+        if (rewardedShownThisSession || rewardedAd == null || isFinishing()) {
+            return;
+        }
+        rewardedShownThisSession = true;
+        rewardedAd.show(
+            this,
+            rewardItem ->
+                Log.i(
+                    TAG,
+                    "User earned reward: "
+                        + rewardItem.getAmount()
+                        + " "
+                        + rewardItem.getType()
+                )
+        );
+    }
+
     @Override
     public void onDestroy() {
-        if (bannerAdView != null) {
-            bannerAdView.destroy();
-            bannerAdView = null;
-        }
         interstitialAd = null;
+        rewardedAd = null;
         super.onDestroy();
     }
 }
