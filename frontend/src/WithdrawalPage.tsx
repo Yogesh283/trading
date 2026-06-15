@@ -12,21 +12,32 @@ import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
 import { useGlobalAlert } from "./GlobalAlertContext";
-import { formatInr, INR_PER_USDT, previewInrFromUsdt } from "./fundsConfig";
+import { formatCoins, formatInr, INR_PER_USDT, MIN_WITHDRAWAL_USDT, previewBonusCoinsFromUsdt, previewInrFromUsdt, BONUS_MIN_WITHDRAW_COINS, BONUS_MIN_WITHDRAW_USDT, BONUS_COINS_PER_USDT } from "./fundsConfig";
 
-const MIN_WITHDRAW_USDT = 10;
-const MIN_BALANCE_INR = MIN_WITHDRAW_USDT * INR_PER_USDT;
+const MIN_LIVE_WITHDRAW_USDT = MIN_WITHDRAWAL_USDT;
+const MIN_LIVE_BALANCE_INR = MIN_LIVE_WITHDRAW_USDT * INR_PER_USDT;
 
 /** BEP20 / EVM address: 0x + 40 hex chars */
 const BEP20_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
 type Props = {
   token: string;
-  balance: number;
+  /** Which wallet to pre-select (from header / assets screen). */
+  initialWallet: "live" | "bonus";
+  liveBal: number;
+  bonusBal: number;
   onSuccess: () => void;
 };
 
-export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
+export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal, onSuccess }: Props) {
+  const [walletSource, setWalletSource] = useState<"live" | "bonus">(initialWallet);
+  useEffect(() => {
+    setWalletSource(initialWallet);
+  }, [initialWallet]);
+
+  const fromBonus = walletSource === "bonus";
+  const balance = fromBonus ? bonusBal : liveBal;
+  const minWithdrawUsdt = fromBonus ? BONUS_MIN_WITHDRAW_USDT : MIN_LIVE_WITHDRAW_USDT;
   const { showAlert } = useGlobalAlert();
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
@@ -141,17 +152,21 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
     }
 
     const num = Number(amount);
-    if (!Number.isFinite(num) || num < MIN_WITHDRAW_USDT) {
+    if (!Number.isFinite(num) || num < minWithdrawUsdt) {
       showAlert(
-        `Minimum withdrawal is ${MIN_WITHDRAW_USDT} USDT (need at least ${formatInr(MIN_BALANCE_INR)} in wallet).`,
+        fromBonus
+          ? `Minimum bonus withdrawal is ${BONUS_MIN_WITHDRAW_COINS} coins (${BONUS_MIN_WITHDRAW_USDT} USDT BEP20).`
+          : `Minimum withdrawal is ${MIN_LIVE_WITHDRAW_USDT} USDT (need at least ${formatInr(MIN_LIVE_BALANCE_INR)} in live wallet).`,
         "error"
       );
       return;
     }
-    const inrNeeded = previewInrFromUsdt(num);
-    if (inrNeeded > balance + 1e-6) {
+    const holdNeeded = fromBonus ? previewBonusCoinsFromUsdt(num) : previewInrFromUsdt(num);
+    if (holdNeeded > balance + 1e-6) {
       showAlert(
-        `Not enough balance. ${num} USDT needs ${formatInr(inrNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`,
+        fromBonus
+          ? `Not enough bonus balance. ${num} USDT needs ${formatCoins(holdNeeded)} (${BONUS_MIN_WITHDRAW_COINS} coins = ${BONUS_MIN_WITHDRAW_USDT} USDT); you have ${formatCoins(balance)}.`
+          : `Not enough balance. ${num} USDT needs ${formatInr(holdNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`,
         "error"
       );
       return;
@@ -194,18 +209,30 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
 
     setBusy(true);
     try {
-      const res = await submitWithdrawalRequest(token, num, trimmed, code);
-      const debited = res.inrDebited ?? inrNeeded;
-      showAlert(
-        `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`,
-        "info"
-      );
+      const res = await submitWithdrawalRequest(token, num, trimmed, code, walletSource);
+      if (fromBonus) {
+        const debited = res.coinsDebited ?? holdNeeded;
+        showAlert(
+          `Bonus withdrawal submitted for ${num} USDT. ${formatCoins(debited)} reserved from your bonus wallet (${BONUS_COINS_PER_USDT} coins = 1 USDT).`,
+          "info"
+        );
+      } else {
+        const debited = res.inrDebited ?? holdNeeded;
+        showAlert(
+          `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your live wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`,
+          "info"
+        );
+      }
+      if (res.withdrawal) {
+        setWithdrawals((prev) => [res.withdrawal, ...prev.filter((w) => w.id !== res.withdrawal.id)]);
+      }
       setAmount("");
       setAddress("");
       setCodeField("");
       onSuccess();
-      const r = await loadMyWithdrawals(token);
-      setWithdrawals(r.withdrawals);
+      void loadMyWithdrawals(token)
+        .then((r) => setWithdrawals(r.withdrawals))
+        .catch(() => undefined);
     } catch (err) {
       showAlert(err instanceof Error ? err.message : "Request failed", "error");
     } finally {
@@ -218,7 +245,7 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
       <div className="funds-card">
         <div className="funds-title-row">
           <BrandLogo size={44} />
-          <h1>Withdraw USDT</h1>
+          <h1>{fromBonus ? "Withdraw bonus (USDT)" : "Withdraw USDT"}</h1>
           <GlobalRefreshButton
             className="global-refresh-fab--sm"
             title="Refresh balances and withdrawal list"
@@ -227,10 +254,48 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           />
         </div>
         <p className="funds-network">
-          <span className="funds-badge">BEP20</span> You receive <strong>USDT</strong> on-chain; trading wallet is debited in{" "}
-          <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT). Minimum withdrawal: <strong>{MIN_WITHDRAW_USDT} USDT</strong>{" "}
-          (~${MIN_WITHDRAW_USDT}).
+          <span className="funds-badge">BEP20</span> You receive <strong>USDT</strong> on-chain.
+          {fromBonus ? (
+            <>
+              {" "}
+              Bonus wallet is debited in <strong>coins</strong> ({BONUS_COINS_PER_USDT} coins = 1 USDT). Minimum:{" "}
+              <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> ({BONUS_MIN_WITHDRAW_USDT} USDT BEP20).
+            </>
+          ) : (
+            <>
+              {" "}
+              Live wallet is debited in <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT). Minimum withdrawal:{" "}
+              <strong>{MIN_LIVE_WITHDRAW_USDT} USDT</strong>.
+            </>
+          )}
         </p>
+
+        <div className="funds-wallets-block">
+          <p className="funds-wallets-title">Withdraw from</p>
+          <p className="funds-wallets-hint">Choose Live (INR) or Bonus (coins). Demo wallet cannot withdraw.</p>
+          <div className="wallet-grid wallet-row-minimal" role="group" aria-label="Withdrawal wallet">
+            <button
+              type="button"
+              className={`wallet-tile wallet-tile--compact${walletSource === "live" ? " wallet-tile--active" : ""}`}
+              aria-pressed={walletSource === "live"}
+              onClick={() => setWalletSource("live")}
+            >
+              <span className="wallet-tile-name">Live wallet</span>
+              <span className="wallet-tile-desc">{formatInr(liveBal)} · min {MIN_LIVE_WITHDRAW_USDT} USDT</span>
+            </button>
+            <button
+              type="button"
+              className={`wallet-tile wallet-tile--compact${walletSource === "bonus" ? " wallet-tile--active" : ""}`}
+              aria-pressed={walletSource === "bonus"}
+              onClick={() => setWalletSource("bonus")}
+            >
+              <span className="wallet-tile-name">Bonus wallet</span>
+              <span className="wallet-tile-desc">
+                {formatCoins(bonusBal)} · min {formatCoins(BONUS_MIN_WITHDRAW_COINS)}
+              </span>
+            </button>
+          </div>
+        </div>
 
         {withdrawalsBlocked.disabled && withdrawalsBlocked.message ? (
           <div className="funds-warn withdrawal-maintenance-banner" role="status">
@@ -240,8 +305,8 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
         ) : null}
 
         <div className="funds-balance">
-          <span>Available (live wallet — not demo)</span>
-          <strong>{formatInr(balance)}</strong>
+          <span>{fromBonus ? "Available (bonus wallet)" : "Available (live wallet — not demo)"}</span>
+          <strong>{fromBonus ? formatCoins(balance) : formatInr(balance)}</strong>
         </div>
 
         <div className="withdrawal-tpn-panel">
@@ -376,16 +441,21 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
               Amount to receive (USDT)
               <input
                 type="number"
-                min={MIN_WITHDRAW_USDT}
+                min={minWithdrawUsdt}
                 step="0.01"
-                placeholder="10.00"
+                placeholder={fromBonus ? "10.00" : "10.00"}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 disabled={busy || !canWithdraw}
               />
             </label>
             <p className="muted withdrawal-inr-line">
-              Deducted from balance: ≈ <strong>{formatInr(previewInrFromUsdt(Number(amount) || 0))}</strong>
+              Deducted from balance: ≈{" "}
+              <strong>
+                {fromBonus
+                  ? formatCoins(previewBonusCoinsFromUsdt(Number(amount) || 0))
+                  : formatInr(previewInrFromUsdt(Number(amount) || 0))}
+              </strong>
             </p>
 
             <label>
@@ -432,7 +502,10 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
             <ul className="funds-history-list">
               {withdrawals.map((w) => (
                 <li key={w.id}>
-                  <span>{w.amount} USDT</span>
+                  <span>
+                    {w.amount} USDT
+                    {w.source_wallet === "bonus" ? " · bonus" : w.source_wallet === "live" ? " · live" : ""}
+                  </span>
                   <span className="funds-history-status">{w.status}</span>
                   <span className="funds-history-meta">
                     {w.to_address.slice(0, 10)}… · {new Date(w.created_at).toLocaleString()}
@@ -447,8 +520,17 @@ export default function WithdrawalPage({ token, balance, onSuccess }: Props) {
           <strong>Note</strong>
           <ul>
             <li>
-              Minimum: <strong>{MIN_WITHDRAW_USDT} USDT</strong> (~${MIN_WITHDRAW_USDT}) — ≈ {formatInr(MIN_BALANCE_INR)} INR
-              from live wallet. Funds are reserved when you submit.
+              {fromBonus ? (
+                <>
+                  Minimum: <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> ({BONUS_MIN_WITHDRAW_USDT} USDT) from bonus
+                  wallet. Rate: {BONUS_COINS_PER_USDT} coins = 1 USDT. Funds are reserved when you submit.
+                </>
+              ) : (
+                <>
+                  Minimum: <strong>{MIN_LIVE_WITHDRAW_USDT} USDT</strong> (≈ {formatInr(MIN_LIVE_BALANCE_INR)} INR) from live
+                  wallet. Funds are reserved when you submit.
+                </>
+              )}
             </li>
             <li>Wrong BEP20 address can mean permanent loss — double-check.</li>
             <li>Do not share your TPIN. Support will never ask for it.</li>

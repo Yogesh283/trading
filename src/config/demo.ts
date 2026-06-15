@@ -1,11 +1,11 @@
 /**
- * Virtual INR for the demo wallet: new users, bust-to-zero top-up, default “Add demo funds” tranche, etc.
+ * Virtual INR for the demo wallet: new users, daily demo fund claim, practice reset, etc.
  *
  * Set in `.env` (restart Node after change):
- * - **`DEMO_ACCOUNT_DEFAULT_INR`** — preferred name (0–1e12).
+ * - **`DEMO_ACCOUNT_DEFAULT_INR`** — preferred name (0–1e12). Daily demo fund amount.
  * - **`DEMO_START_BALANCE`** — legacy alias; used only if `DEMO_ACCOUNT_DEFAULT_INR` is unset.
  *
- * If neither is set, **10_000** is used.
+ * If neither is set, **10_000** is used (once per IST calendar day via Add demo funds).
  */
 export const DEFAULT_DEMO_BALANCE_INR = (() => {
   const primary = Number(process.env.DEMO_ACCOUNT_DEFAULT_INR);

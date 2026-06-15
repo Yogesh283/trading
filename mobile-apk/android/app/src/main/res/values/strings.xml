@@ -7,5 +7,4 @@
 
     <string name="admob_app_id" translatable="false">ca-app-pub-2443225467228774~6515958028</string>
     <string name="admob_interstitial_unit_id" translatable="false">ca-app-pub-2443225467228774/5751437622</string>
-    <string name="admob_rewarded_unit_id" translatable="false">ca-app-pub-2443225467228774/4430617094</string>
 </resources>

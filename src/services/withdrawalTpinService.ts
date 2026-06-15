@@ -1,12 +1,19 @@
 import crypto from "node:crypto";
+import { promisify } from "node:util";
 import { dbGet, dbRun, initAppDb, isMysqlMode } from "../db/appDb";
 import { verifyWithdrawalTotpToken } from "./withdrawalTotpService";
 
 const PIN_RE = /^\d{4}$/;
 
-function hashTpin(pin: string, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.scryptSync(pin, salt, 64).toString("hex");
-  return { salt, hash };
+const scryptAsync = promisify(crypto.scrypt) as (
+  password: string | Buffer,
+  salt: string | Buffer,
+  keylen: number
+) => Promise<Buffer>;
+
+async function hashTpin(pin: string, salt: string): Promise<string> {
+  const buf = await scryptAsync(pin, salt, 64);
+  return buf.toString("hex");
 }
 
 function assertPinFormat(pin: string, label: string) {
@@ -55,7 +62,8 @@ export async function setWithdrawalTpin(userId: string, pin: string, confirmPin:
     throw new Error("Withdrawal TPIN is already set — use change instead");
   }
 
-  const { salt, hash } = hashTpin(a);
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = await hashTpin(a, salt);
   await dbRun("UPDATE users SET withdrawal_tpin_salt = ?, withdrawal_tpin_hash = ? WHERE id = ?", [
     salt,
     hash,
@@ -93,7 +101,7 @@ export async function changeWithdrawalTpin(
     throw new Error("Set a withdrawal TPIN first");
   }
 
-  const { hash: curComputed } = hashTpin(cur, storedSalt);
+  const curComputed = await hashTpin(cur, storedSalt);
   const storedBuf = Buffer.from(storedHash, "hex");
   const computedBuf = Buffer.from(curComputed, "hex");
   if (
@@ -103,7 +111,8 @@ export async function changeWithdrawalTpin(
     throw new Error("Current TPIN is incorrect");
   }
 
-  const { salt, hash } = hashTpin(a);
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = await hashTpin(a, salt);
   await dbRun("UPDATE users SET withdrawal_tpin_salt = ?, withdrawal_tpin_hash = ? WHERE id = ?", [
     salt,
     hash,
@@ -138,9 +147,9 @@ export async function assertWithdrawalVerificationCode(userId: string, code: str
     if (!PIN_RE.test(raw)) {
       throw new Error("Enter your 4-digit withdrawal TPIN");
     }
-    const { hash } = hashTpin(raw, tpinSalt);
+    const computed = await hashTpin(raw, tpinSalt);
     const storedBuf = Buffer.from(tpinHash, "hex");
-    const computedBuf = Buffer.from(hash, "hex");
+    const computedBuf = Buffer.from(computed, "hex");
     if (
       storedBuf.length !== computedBuf.length ||
       !crypto.timingSafeEqual(storedBuf, computedBuf)

@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { GlobalAlertProvider } from "./GlobalAlertContext";
+import LaunchPromoOverlay from "./LaunchPromoOverlay";
 import "./styles.css";
 import "./site-frame.css";
 import "./mobile.css";
@@ -60,6 +61,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <GlobalAlertProvider>
       <App />
+      <LaunchPromoOverlay />
     </GlobalAlertProvider>
   </React.StrictMode>
 );

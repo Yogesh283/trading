@@ -407,6 +407,16 @@
   background: rgba(0, 163, 255, 0.08);
 }
 
+.wallet-tile--active {
+  border-color: rgba(0, 163, 255, 0.75);
+  background: rgba(0, 163, 255, 0.14);
+  box-shadow: 0 0 0 1px rgba(0, 163, 255, 0.25);
+}
+
+.funds-wallets-block {
+  margin: 16px 0 8px;
+}
+
 .wallet-tile:disabled {
   opacity: 0.6;
   cursor: wait;

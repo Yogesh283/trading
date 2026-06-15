@@ -24,6 +24,16 @@ export interface AccountSnapshot {
   bonus_balance_inr?: number;
   /** Logged-in: demo target hit — user should redeem to bonus wallet. */
   demo_challenge_pending?: boolean;
+  /** Logged-in: no demo fund claims left today (IST). */
+  demo_funds_claimed_today?: boolean;
+  /** Logged-in: may claim daily demo funds when balance below ₹1 and claims remain. */
+  demo_funds_can_claim?: boolean;
+  /** Logged-in: daily demo fund amount in INR. */
+  demo_funds_daily_inr?: number;
+  demo_funds_claims_allowed?: number;
+  demo_funds_claims_used?: number;
+  demo_funds_claims_remaining?: number;
+  demo_funds_direct_joined_today?: number;
 }
 
 export interface Trade {
@@ -46,6 +56,12 @@ export interface Trade {
 export type WithdrawalsPublicStatus = {
   withdrawalsDisabled: boolean;
   withdrawalsDisabledMessage: string | null;
+  live_min_inr?: number;
+  live_min_usdt?: number;
+  live_inr_per_usdt?: number;
+  bonus_min_coins?: number;
+  bonus_min_usdt?: number;
+  bonus_coins_per_usdt?: number;
 };
 
 export interface AuthUser {
@@ -146,6 +162,23 @@ function isLocalDevClient(): boolean {
  * Chrome shows `net::ERR_NETWORK_CHANGED` when the network path changes (Wi‑Fi/VPN, adapter reset, sleep/wake).
  * Retry briefly for idempotent GET/HEAD only — not for POST (avoids duplicate trades / side effects).
  */
+async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 25_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetchWithFlapRetry(url, { ...init, signal: controller.signal });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(
+        "Withdrawal request timed out (25s). If this keeps happening, restart the API server and retry."
+      );
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function fetchWithFlapRetry(url: string, init?: RequestInit): Promise<Response> {
   const method = String(init?.method ?? "GET").toUpperCase();
   const isSafeMethod = method === "GET" || method === "HEAD";
@@ -414,6 +447,9 @@ export async function addDemoFunds(token: string, amount?: number) {
     demo_balance: number;
     added: number;
     already_at_starting_level?: boolean;
+    claims_used_today?: number;
+    claims_allowed_today?: number;
+    claims_remaining_today?: number;
   }>(response);
 }
 
@@ -596,6 +632,7 @@ export interface WithdrawalRecord {
   user_email: string;
   amount: number;
   to_address: string;
+  source_wallet?: "live" | "bonus";
   status: string;
   created_at: string;
   updated_at: string;
@@ -693,17 +730,43 @@ export async function submitWithdrawalRequest(
   token: string,
   amount: number,
   toAddress: string,
-  tpinOrTotp: string
+  tpinOrTotp: string,
+  wallet: "live" | "bonus" = "live"
 ) {
-  const response = await fetchWithFlapRetry(`${apiBase()}/api/withdrawals`, {
+  const isBonus = wallet === "bonus";
+  /** Single endpoint — server reads `wallet` / `X-Account-Type`; avoids stale dev servers missing `/api/bonus/withdrawals`. */
+  const url = `${apiBase()}/api/withdrawals`;
+  const response = await fetchWithTimeout(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...requestHeaders(token, "live") },
-    body: JSON.stringify({ amount, toAddress, tpin: tpinOrTotp })
+    headers: {
+      "Content-Type": "application/json",
+      ...requestHeaders(token, isBonus ? "bonus" : "live")
+    },
+    body: JSON.stringify({
+      amount,
+      toAddress,
+      tpin: tpinOrTotp,
+      wallet,
+      source: wallet,
+      sourceWallet: wallet
+    })
   });
+  if (!response.ok && isBonus && response.status === 404) {
+    throw new Error(
+      "Bonus withdrawal is not available on this server yet. Deploy the latest API build and restart the Node server."
+    );
+  }
+  if (!response.ok && response.status === 503) {
+    const j = await response.clone().json().catch(() => ({}));
+    throw new Error((j as { message?: string }).message ?? "Database busy — wait a few seconds and retry.");
+  }
   return parseJson<{
     withdrawal: WithdrawalRecord;
+    wallet?: "live" | "bonus";
     inrDebited?: number;
     inrPerUsdt?: number;
+    coinsDebited?: number;
+    bonusCoinsPerUsdt?: number;
   }>(response);
 }
 

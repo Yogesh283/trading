@@ -36,9 +36,13 @@ export function getBackendHttpOrigin(): string {
   if (typeof window === "undefined") {
     return "http://127.0.0.1:3000";
   }
-  const { hostname, protocol } = window.location;
+  const { hostname, protocol, port } = window.location;
   const proto = protocol === "https:" ? "https" : "http";
   if (hostname === "localhost" || hostname === "127.0.0.1") {
+    // Unified Node on :3000 — same origin avoids extra connection / proxy stalls
+    if (!port || port === "3000" || port === "4000") {
+      return "";
+    }
     return `${proto}://${hostname}:3000`;
   }
   // Live: Nginx/CloudPanel proxies https://domain/api → Node — use same origin

@@ -65,6 +65,7 @@ import { shouldOpenDepositScreenFromUrl } from "./depositStorage";
 import DepositPage from "./DepositPage";
 import LandingPage from "./LandingPage";
 import SplashScreen from "./SplashScreen";
+import { APP_READY_EVENT } from "./LaunchPromoOverlay";
 import WithdrawalPage from "./WithdrawalPage";
 import ReferralPage from "./ReferralPage";
 import AboutPage from "./AboutPage";
@@ -329,13 +330,43 @@ function formatTradeCloseCell(trade: Trade): string {
   return "—";
 }
 
-/** Add demo funds stays off while demo balance ≥ ₹1; enabled for ₹0.00–₹0.99… */
+/** Add demo funds when balance below ₹1 — use to ₹0, then claim fresh funds next IST day (1/day + 1 per direct join today). */
 const DEMO_TOPUP_DISABLE_MIN_INR = 1;
 const DEMO_TOPUP_EPS = 1e-9;
 
 function shouldBlockDemoTopUp(demo: number | null): boolean {
   if (demo === null) return true;
   return demo >= DEMO_TOPUP_DISABLE_MIN_INR - DEMO_TOPUP_EPS;
+}
+
+function demoTopUpDisabledTitle(
+  demoBalance: number | null,
+  claimsRemaining: number | null,
+  canClaim: boolean | null
+): string | undefined {
+  if (claimsRemaining === 0) {
+    if (demoBalance !== null && demoBalance + DEMO_TOPUP_EPS < DEMO_TOPUP_DISABLE_MIN_INR) {
+      return "Today's claim used. Demo balance is ₹0 — claim fresh demo funds tomorrow (IST).";
+    }
+    return "Today's demo fund claims used up. Each direct referral who joins today (IST) adds +1 extra ₹10,000 claim.";
+  }
+  if (shouldBlockDemoTopUp(demoBalance)) {
+    return "Use demo balance to ₹0 first. Next IST day you can claim fresh demo funds when balance is below ₹1.";
+  }
+  if (canClaim === false) {
+    return "Demo funds unavailable right now.";
+  }
+  return undefined;
+}
+
+function applyDemoFundsMetaFromAccount(acc: AccountSnapshot) {
+  return {
+    canClaim: typeof acc.demo_funds_can_claim === "boolean" ? acc.demo_funds_can_claim : null,
+    claimsRemaining:
+      typeof acc.demo_funds_claims_remaining === "number" ? acc.demo_funds_claims_remaining : null,
+    claimsAllowed: typeof acc.demo_funds_claims_allowed === "number" ? acc.demo_funds_claims_allowed : null,
+    claimsUsed: typeof acc.demo_funds_claims_used === "number" ? acc.demo_funds_claims_used : null
+  };
 }
 
 export default function App() {
@@ -429,6 +460,8 @@ export default function App() {
     bonus: null
   });
   const [demoChallengePending, setDemoChallengePending] = useState(false);
+  const [demoFundsCanClaim, setDemoFundsCanClaim] = useState<boolean | null>(null);
+  const [demoFundsClaimsRemaining, setDemoFundsClaimsRemaining] = useState<number | null>(null);
   const [demoChallengeRedeemBusy, setDemoChallengeRedeemBusy] = useState(false);
   const [demoChallengeModalDismissed, setDemoChallengeModalDismissed] = useState(false);
   const symbolRef = useRef(symbol);
@@ -761,6 +794,13 @@ export default function App() {
     return () => window.clearTimeout(id);
   }, []);
 
+  /** After splash + boot: show launch promo overlay (see LaunchPromoOverlay). */
+  useEffect(() => {
+    if (splashReady && !booting) {
+      window.dispatchEvent(new CustomEvent(APP_READY_EVENT));
+    }
+  }, [splashReady, booting]);
+
   /** Wallet in-app browser: ?depositAmount= or #depositAmount= — open Deposit tab. */
   useEffect(() => {
     if (!session) return;
@@ -791,16 +831,16 @@ export default function App() {
     if (accountWallet === "demo" && account != null) return account.balance;
     return null;
   }, [dualBalances.demo, accountWallet, account]);
-  /** Add demo funds disabled when demo balance ≥ ₹1; below ₹1 (e.g. ₹0.40) it is enabled. */
+  /** Add demo funds: only when server explicitly allows (balance below ₹1 and claims remain). */
   const demoAddFundsDisabled = useMemo(
-    () => demoTopUpBusy || shouldBlockDemoTopUp(demoBalanceForTopUp),
-    [demoTopUpBusy, demoBalanceForTopUp]
+    () => demoTopUpBusy || demoFundsCanClaim !== true,
+    [demoTopUpBusy, demoFundsCanClaim]
   );
-  const demoAddFundsDisabledTitle =
-    demoBalanceForTopUp != null &&
-    demoBalanceForTopUp >= DEMO_TOPUP_DISABLE_MIN_INR - DEMO_TOPUP_EPS
-      ? "Add demo funds unlocks when demo balance is below ₹1."
-      : undefined;
+  const demoAddFundsDisabledTitle = demoTopUpDisabledTitle(
+    demoBalanceForTopUp,
+    demoFundsClaimsRemaining,
+    demoFundsCanClaim
+  );
   /** Re-run chart history when user logs in (deps were only booting+symbol before). */
   const chartSessionKey = session == null ? "" : `u:${session.user.id}`;
 
@@ -993,12 +1033,16 @@ export default function App() {
     };
   }, [booting, symbol, chartTimeframe, chartSessionKey]);
 
-  const refresh = async (walletOverride?: "demo" | "live" | "bonus", options?: { skipMarketTicks?: boolean }) => {
+  const refresh = async (
+    walletOverride?: "demo" | "live" | "bonus",
+    options?: { skipMarketTicks?: boolean; balancesOnly?: boolean }
+  ) => {
     const mySeq = ++refreshSeqRef.current;
     const wallet = walletOverride ?? accountWallet;
     const skipMarketTicks = Boolean(options?.skipMarketTicks);
+    const balancesOnly = Boolean(options?.balancesOnly);
     try {
-      if (!skipMarketTicks) {
+      if (!skipMarketTicks && !balancesOnly) {
       const marketData = await loadMarkets();
       if (mySeq !== refreshSeqRef.current) {
         return;
@@ -1025,14 +1069,16 @@ export default function App() {
           loadAccount(sessionToken, "demo"),
           loadAccount(sessionToken, "live"),
           loadAccount(sessionToken, "bonus"),
-          loadTrades(sessionToken, wallet)
+          balancesOnly ? Promise.resolve(null) : loadTrades(sessionToken, wallet)
         ]);
         if (mySeq !== refreshSeqRef.current) {
           return;
         }
         const accountData = wallet === "demo" ? demoAcc : wallet === "live" ? liveAcc : bonusAcc;
         setAccount(accountData);
-        setTrades(tradeData.trades);
+        if (tradeData) {
+          setTrades(tradeData.trades);
+        }
         setDualBalances({
           demo: demoAcc.balance,
           live: liveAcc.balance,
@@ -1041,6 +1087,13 @@ export default function App() {
         const p = Boolean(demoAcc.demo_challenge_pending);
         setDemoChallengePending(p);
         if (p) setDemoChallengeModalDismissed(false);
+        const demoMeta = applyDemoFundsMetaFromAccount(demoAcc);
+        setDemoFundsCanClaim(demoMeta.canClaim);
+        setDemoFundsClaimsRemaining(demoMeta.claimsRemaining);
+      }
+
+      if (balancesOnly) {
+        return;
       }
 
       if (mySeq !== refreshSeqRef.current) {
@@ -1092,7 +1145,7 @@ export default function App() {
     try {
       await redeemDemoChallenge(session.token);
       setDemoChallengePending(false);
-      showAlert("Reward moved to your Bonus wallet. Demo is ₹0 until you add demo funds.", "info");
+      showAlert("Reward moved to your Bonus wallet. Demo is ₹0 — add demo funds when claims are available.", "info");
       await refreshRef.current();
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Redeem failed", "error");
@@ -1105,12 +1158,35 @@ export default function App() {
     if (!session?.token) {
       return;
     }
-    if (shouldBlockDemoTopUp(demoBalanceForTopUp)) {
+    if (demoFundsCanClaim !== true) {
+      if (demoFundsClaimsRemaining === 0) {
+        showAlert(
+          shouldBlockDemoTopUp(demoBalanceForTopUp)
+            ? "Today's demo claim is used. Balance is ₹0 — claim fresh demo funds tomorrow (IST)."
+            : "Today's demo fund claims are used up. Each direct referral who joins today (IST) gives +1 extra ₹10,000 claim.",
+          "error"
+        );
+      } else if (shouldBlockDemoTopUp(demoBalanceForTopUp)) {
+        showAlert(
+          "Use demo balance to ₹0 first. When balance is below ₹1, you can claim demo funds (next IST day if today's claim is already used).",
+          "error"
+        );
+      } else {
+        showAlert("Demo funds are not available right now.", "error");
+      }
       return;
     }
     setDemoTopUpBusy(true);
     try {
       const out = await addDemoFunds(session.token);
+      if (typeof out.claims_remaining_today === "number") {
+        setDemoFundsClaimsRemaining(out.claims_remaining_today);
+        setDemoFundsCanClaim(
+          out.claims_remaining_today > 0 && !shouldBlockDemoTopUp(out.demo_balance)
+        );
+      } else {
+        setDemoFundsCanClaim(false);
+      }
       await refreshRef.current(accountWallet, { skipMarketTicks: true });
       if (demoFundsPopupTimeoutRef.current != null) {
         window.clearTimeout(demoFundsPopupTimeoutRef.current);
@@ -1129,7 +1205,7 @@ export default function App() {
     } finally {
       setDemoTopUpBusy(false);
     }
-  }, [session, accountWallet, showAlert, demoBalanceForTopUp]);
+  }, [session, accountWallet, showAlert, demoBalanceForTopUp, demoFundsCanClaim, demoFundsClaimsRemaining]);
 
   useEffect(() => {
     if (!walletActivityOpen || !session) {
@@ -1204,6 +1280,12 @@ export default function App() {
           if (typeof accountSnap.demo_challenge_pending === "boolean") {
             setDemoChallengePending(accountSnap.demo_challenge_pending);
           }
+          if (typeof accountSnap.demo_funds_can_claim === "boolean") {
+            setDemoFundsCanClaim(accountSnap.demo_funds_can_claim);
+          }
+          if (typeof accountSnap.demo_funds_claims_remaining === "number") {
+            setDemoFundsClaimsRemaining(accountSnap.demo_funds_claims_remaining);
+          }
           const others = (["demo", "live", "bonus"] as const).filter((w) => w !== snapWallet);
           for (const w of others) {
             void loadAccount(session.token, w)
@@ -1214,6 +1296,11 @@ export default function App() {
                 }));
                 if (w === "demo" && typeof acc.demo_challenge_pending === "boolean") {
                   setDemoChallengePending(acc.demo_challenge_pending);
+                }
+                if (w === "demo") {
+                  const meta = applyDemoFundsMetaFromAccount(acc);
+                  setDemoFundsCanClaim(meta.canClaim);
+                  setDemoFundsClaimsRemaining(meta.claimsRemaining);
                 }
               })
               .catch(() => undefined);
@@ -1532,13 +1619,33 @@ export default function App() {
       showAlert("Enter a valid amount.", "error");
       return;
     }
-    if (accountWallet === "demo" && (dualBalances.demo ?? 0) <= 0) {
-      try {
-        await addDemoFunds(session.token);
-        await refresh(accountWallet, { skipMarketTicks: true });
-      } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Could not add demo funds.", "error");
-        return;
+    if (accountWallet === "demo") {
+      const demoBal = demoBalanceForTopUp ?? 0;
+      if (demoBal <= 0) {
+        if (demoFundsCanClaim !== true) {
+          showAlert(
+            demoFundsClaimsRemaining === 0
+              ? "Demo balance is ₹0 and today's claim is used. Claim fresh demo funds tomorrow (IST)."
+              : "Demo balance is ₹0 — tap Add demo funds to claim today's demo balance.",
+            "error"
+          );
+          return;
+        }
+        try {
+          const out = await addDemoFunds(session.token);
+          if (typeof out.claims_remaining_today === "number") {
+            setDemoFundsClaimsRemaining(out.claims_remaining_today);
+            setDemoFundsCanClaim(
+              out.claims_remaining_today > 0 && !shouldBlockDemoTopUp(out.demo_balance)
+            );
+          } else {
+            setDemoFundsCanClaim(false);
+          }
+          await refresh(accountWallet, { skipMarketTicks: true });
+        } catch (e) {
+          showAlert(e instanceof Error ? e.message : "Could not add demo funds.", "error");
+          return;
+        }
       }
     }
     if (xauWeekendOrdersBlocked) {
@@ -2659,8 +2766,10 @@ export default function App() {
       ) : dashboardSection === "withdrawal" ? (
         <WithdrawalPage
           token={session.token}
-          balance={dualBalances.live ?? 0}
-          onSuccess={() => void refresh()}
+          initialWallet={accountWallet === "bonus" ? "bonus" : "live"}
+          liveBal={dualBalances.live ?? 0}
+          bonusBal={dualBalances.bonus ?? 0}
+          onSuccess={() => void refresh(undefined, { skipMarketTicks: true, balancesOnly: true })}
         />
       ) : dashboardSection === "referral" ? (
         <ReferralPage token={session.token} />

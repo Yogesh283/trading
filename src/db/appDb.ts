@@ -32,12 +32,39 @@ export function getPool(): mysql.Pool {
       password: env.MYSQL_PASSWORD,
       database: env.MYSQL_DATABASE,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: 30,
+      maxIdle: 10,
+      idleTimeout: 30_000,
+      enableKeepAlive: true,
       /** Avoid hanging forever; ETIMEDOUT still means host/port/firewall/MySQL down — fix `.env` / XAMPP. */
-      connectTimeout: 15_000
+      connectTimeout: 10_000
     });
   }
   return pool;
+}
+
+/** Fail fast when the pool is saturated (prevents 25s+ withdrawal hangs). */
+export async function acquireMysqlConnection(timeoutMs = 8_000): Promise<mysql.PoolConnection> {
+  const poolRef = getPool();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      poolRef.getConnection().then(async (conn) => {
+        await conn.query("SET SESSION innodb_lock_wait_timeout = 8");
+        return conn;
+      }),
+      new Promise<mysql.PoolConnection>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Database is busy — wait a few seconds and retry.")),
+          timeoutMs
+        );
+      })
+    ]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
 }
 
 function getSqlite(): sqlite3.Database {
@@ -45,6 +72,9 @@ function getSqlite(): sqlite3.Database {
     const dataDir = path.join(APP_ROOT, "data");
     fs.mkdirSync(dataDir, { recursive: true });
     sqliteDb = new sqlite3.Database(path.join(dataDir, "app.db"));
+    sqliteDb.run("PRAGMA journal_mode=WAL");
+    sqliteDb.run("PRAGMA busy_timeout=10000");
+    sqliteDb.run("PRAGMA synchronous=NORMAL");
   }
   return sqliteDb;
 }
@@ -65,14 +95,28 @@ export function getDatabaseInfo(): { kind: "mysql" | "sqlite"; database?: string
   return { kind: "sqlite", file: path.resolve(file) };
 }
 
+async function withMysqlConnection<T>(
+  fn: (conn: mysql.PoolConnection) => Promise<T>,
+  acquireTimeoutMs = 8_000
+): Promise<T> {
+  const conn = await acquireMysqlConnection(acquireTimeoutMs);
+  try {
+    return await fn(conn);
+  } finally {
+    conn.release();
+  }
+}
+
 export async function dbRun(
   sql: string,
   params: unknown[] = []
 ): Promise<{ affectedRows: number; insertId: number }> {
   if (mysqlMode) {
-    const [result] = await getPool().execute(sql, params as (string | number | null)[]);
-    const h = result as mysql.ResultSetHeader;
-    return { affectedRows: h.affectedRows ?? 0, insertId: Number(h.insertId) || 0 };
+    return withMysqlConnection(async (conn) => {
+      const [result] = await conn.execute(sql, params as (string | number | null)[]);
+      const h = result as mysql.ResultSetHeader;
+      return { affectedRows: h.affectedRows ?? 0, insertId: Number(h.insertId) || 0 };
+    });
   }
   return new Promise((resolve, reject) => {
     getSqlite().run(sql, params as [], function cb(err) {
@@ -84,9 +128,11 @@ export async function dbRun(
 
 export async function dbGet<T>(sql: string, params: unknown[] = []): Promise<T | undefined> {
   if (mysqlMode) {
-    const [rows] = await getPool().execute(sql, params as (string | number | null)[]);
-    const arr = rows as mysql.RowDataPacket[];
-    return (arr[0] as T) ?? undefined;
+    return withMysqlConnection(async (conn) => {
+      const [rows] = await conn.execute(sql, params as (string | number | null)[]);
+      const arr = rows as mysql.RowDataPacket[];
+      return (arr[0] as T) ?? undefined;
+    });
   }
   return new Promise((resolve, reject) => {
     getSqlite().get(sql, params as [], (err, row) => {
@@ -98,8 +144,10 @@ export async function dbGet<T>(sql: string, params: unknown[] = []): Promise<T |
 
 export async function dbAll<T>(sql: string, params: unknown[] = []): Promise<T[]> {
   if (mysqlMode) {
-    const [rows] = await getPool().execute(sql, params as (string | number | null)[]);
-    return rows as T[];
+    return withMysqlConnection(async (conn) => {
+      const [rows] = await conn.execute(sql, params as (string | number | null)[]);
+      return rows as T[];
+    });
   }
   return new Promise((resolve, reject) => {
     getSqlite().all(sql, params as [], (err, rows) => {
@@ -522,6 +570,112 @@ async function migrateWalletsBonusChallenge(): Promise<void> {
     "ALTER TABLE wallets ADD COLUMN demo_challenge_pending INTEGER NOT NULL DEFAULT 0"
   );
   await addSqlite("demo_hold_zero", "ALTER TABLE wallets ADD COLUMN demo_hold_zero INTEGER NOT NULL DEFAULT 0");
+}
+
+async function migrateWalletsDemoFundsDailyClaim(): Promise<void> {
+  const addColMysql = async (name: string, sql: string) => {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'wallets' AND COLUMN_NAME = ?`,
+      [dbName, name]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(sql);
+    } catch {
+      await dbRun(sql.replace(/AFTER\s+\S+\s*$/i, ""));
+    }
+  };
+
+  if (mysqlMode) {
+    await addColMysql(
+      "demo_funds_last_claimed_date",
+      "ALTER TABLE wallets ADD COLUMN demo_funds_last_claimed_date VARCHAR(10) NULL AFTER demo_hold_zero"
+    );
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(wallets)");
+  if (cols.some((c) => c.name === "demo_funds_last_claimed_date")) return;
+  await dbRun("ALTER TABLE wallets ADD COLUMN demo_funds_last_claimed_date TEXT NULL");
+}
+
+async function migrateWalletsDemoFundsClaimCount(): Promise<void> {
+  const addColMysql = async (name: string, sql: string) => {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'wallets' AND COLUMN_NAME = ?`,
+      [dbName, name]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(sql);
+    } catch {
+      await dbRun(sql.replace(/AFTER\s+\S+\s*$/i, ""));
+    }
+  };
+
+  if (mysqlMode) {
+    await addColMysql(
+      "demo_funds_claims_used",
+      "ALTER TABLE wallets ADD COLUMN demo_funds_claims_used INT NOT NULL DEFAULT 0 AFTER demo_funds_last_claimed_date"
+    );
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(wallets)");
+  if (cols.some((c) => c.name === "demo_funds_claims_used")) return;
+  await dbRun("ALTER TABLE wallets ADD COLUMN demo_funds_claims_used INTEGER NOT NULL DEFAULT 0");
+}
+
+/** One-time: registration used to set last_claimed_date without incrementing claims_used. */
+async function migrateWalletsDemoFundsClaimsBackfill(): Promise<void> {
+  if (mysqlMode) {
+    await dbRun(
+      `UPDATE wallets SET demo_funds_claims_used = 1
+       WHERE demo_funds_last_claimed_date IS NOT NULL
+         AND TRIM(demo_funds_last_claimed_date) <> ''
+         AND COALESCE(demo_funds_claims_used, 0) = 0`
+    );
+    return;
+  }
+  await dbRun(
+    `UPDATE wallets SET demo_funds_claims_used = 1
+     WHERE demo_funds_last_claimed_date IS NOT NULL
+       AND TRIM(demo_funds_last_claimed_date) <> ''
+       AND COALESCE(demo_funds_claims_used, 0) = 0`
+  );
+}
+
+async function migrateWithdrawalsSourceWallet(): Promise<void> {
+  const addColMysql = async (name: string, sql: string) => {
+    const dbName = env.MYSQL_DATABASE?.trim();
+    if (!dbName) return;
+    const row = await dbGet<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'withdrawals' AND COLUMN_NAME = ?`,
+      [dbName, name]
+    );
+    if (Number(row?.n) > 0) return;
+    try {
+      await dbRun(sql);
+    } catch {
+      await dbRun(sql.replace(/AFTER\s+\S+\s*$/i, ""));
+    }
+  };
+
+  if (mysqlMode) {
+    await addColMysql(
+      "source_wallet",
+      "ALTER TABLE withdrawals ADD COLUMN source_wallet VARCHAR(16) NOT NULL DEFAULT 'live' AFTER to_address"
+    );
+    return;
+  }
+  const cols = await dbAll<{ name: string }>("PRAGMA table_info(withdrawals)");
+  if (cols.some((c) => c.name === "source_wallet")) return;
+  await dbRun("ALTER TABLE withdrawals ADD COLUMN source_wallet TEXT NOT NULL DEFAULT 'live'");
 }
 
 async function migrateUsersReferral(): Promise<void> {
@@ -1136,6 +1290,9 @@ export function initAppDb(): Promise<void> {
         await migrateWalletsDemoBalance();
         await migrateWalletsLockedBonus();
         await migrateWalletsBonusChallenge();
+        await migrateWalletsDemoFundsDailyClaim();
+        await migrateWalletsDemoFundsClaimCount();
+        await migrateWalletsDemoFundsClaimsBackfill();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
@@ -1150,6 +1307,7 @@ export function initAppDb(): Promise<void> {
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
         await migratePasswordResetOtps();
+        await migrateWithdrawalsSourceWallet();
       } else {
         await runSqliteChain(getSqlite(), [
           ...SQLITE_PRAGMAS,
@@ -1163,6 +1321,9 @@ export function initAppDb(): Promise<void> {
         await migrateWalletsDemoBalance();
         await migrateWalletsLockedBonus();
         await migrateWalletsBonusChallenge();
+        await migrateWalletsDemoFundsDailyClaim();
+        await migrateWalletsDemoFundsClaimCount();
+        await migrateWalletsDemoFundsClaimsBackfill();
         await migrateUsersReferral();
         await migrateUserInvestments();
         await migrateUserInvestmentsMonthlyYm();
@@ -1177,6 +1338,7 @@ export function initAppDb(): Promise<void> {
         await migrateReferralLevelAndAppSettings();
         await migrateSupportTickets();
         await migratePasswordResetOtps();
+        await migrateWithdrawalsSourceWallet();
       }
     })();
   }

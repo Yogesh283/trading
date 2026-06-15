@@ -12,8 +12,15 @@ import {
   AI_CHART_INSIGHT_FEE_INR,
   inrDebitForUsdtWithdraw,
   INR_PER_USDT,
+  MIN_WITHDRAWAL_USDT,
   usdtToInrCredit
 } from "./config/funds";
+import {
+  BONUS_COINS_PER_USDT,
+  BONUS_MIN_WITHDRAWAL_COINS,
+  BONUS_MIN_WITHDRAWAL_USDT,
+  bonusCoinsForUsdtWithdraw
+} from "./config/bonusWithdrawal";
 import { dbGet, dbRun, getChartCandles, getDatabaseInfo, getMarketTicks, initAppDb, saveMarketTicks } from "./db/appDb";
 import { seedChartCandlesFromAlphaVantageIfSparse } from "./services/chartAlphaVantageSeed";
 import { seedChartCandlesFromTraderMadeIfSparse } from "./services/chartTraderMadeSeed";
@@ -74,9 +81,11 @@ import {
   parseNowPaymentsPaymentIdFromTxHash,
   verifyNowPaymentsIpnSignature
 } from "./services/nowPaymentsService";
-import { createWithdrawal, getWithdrawalById, listAllWithdrawals, listWithdrawalsForUser } from "./services/withdrawalStore";
+import { createWithdrawal, createBonusWithdrawalAtomic, getWithdrawalById, listAllWithdrawals, listWithdrawalsForUser, type WithdrawalRow } from "./services/withdrawalStore";
 import {
   applyLedger,
+  applyBonusBalanceDelta,
+  claimDailyDemoFunds,
   ensureWallet,
   getBonusBalanceFromDb,
   getDemoBalanceFromDb,
@@ -698,58 +707,38 @@ app.post("/api/me/withdrawal-tpin/change", (req, res) => {
   })();
 });
 
-/** Logged-in: add virtual INR to demo wallet (no payment). Omit `amount` to add one default tranche (`DEMO_ACCOUNT_DEFAULT_INR`). If demo ≤ 0, balance is set to that default; if demo > 0, that amount is credited on top (still capped). */
+/** Logged-in: claim demo wallet funds once per IST day (default ₹10,000). Balance must be below ₹1; after ₹0, next IST day allows a fresh claim. */
 app.post("/api/me/demo/add-funds", (req, res) => {
   void (async () => {
-    const MIN_ADD = 1;
-    const MAX_ADD_PER_REQUEST = 5_000_000;
-    const MAX_DEMO_BALANCE_TOTAL = 50_000_000;
     try {
       const user = await requireSession(req.headers.authorization);
-      const raw = req.body?.amount;
-      const useDefault = raw === undefined || raw === null || raw === "";
-      const parsed = useDefault ? DEFAULT_DEMO_BALANCE_INR : Number(raw);
-      if (!Number.isFinite(parsed)) {
-        return res.status(400).json({ message: "Invalid amount" });
-      }
-      const requested = Math.round(parsed * 100) / 100;
-      if (requested < MIN_ADD || requested > MAX_ADD_PER_REQUEST) {
-        return res.status(400).json({
-          message: `Amount must be between ${MIN_ADD} and ${MAX_ADD_PER_REQUEST.toLocaleString("en-IN")} INR`
-        });
-      }
       await ensureWallet(user.id);
       evictInMemoryAccountsForUser(user.id);
+      const out = await claimDailyDemoFunds(user.id);
       await prepareAccountForRequest(user.id, "demo");
-      let acc = getAccountForWallet(user.id, "demo");
-
-      const room = Math.max(0, MAX_DEMO_BALANCE_TOTAL - acc.balance);
-      let add = Math.min(requested, room);
-      if (add < 0.01) {
-        return res.status(400).json({
-          message: `Demo balance is capped at ${MAX_DEMO_BALANCE_TOTAL.toLocaleString("en-IN")} INR`
-        });
-      }
-
-      if (useDefault && acc.balance <= 0) {
-        acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
-        add = DEFAULT_DEMO_BALANCE_INR;
-      } else {
-        acc.creditDeposit(add);
-      }
-
-      const savedDemo = await saveDemoBalanceToDb(user.id, acc.balance);
-      if (Math.abs(savedDemo - acc.balance) > 0.01) {
-        await prepareAccountForRequest(user.id, "demo");
-        acc = getAccountForWallet(user.id, "demo");
-      }
-      return res.json({ ok: true, demo_balance: acc.balance, added: add });
+      const acc = getAccountForWallet(user.id, "demo");
+      acc.setBalance(out.demo_balance);
+      return res.json({
+        ok: true,
+        demo_balance: out.demo_balance,
+        added: out.added,
+        claims_used_today: out.claims_used_today,
+        claims_allowed_today: out.claims_allowed_today,
+        claims_remaining_today: out.claims_remaining_today
+      });
     } catch (e) {
       if (e instanceof Error && e.message === "Unauthorized") {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      logger.error({ e }, "demo add-funds");
-      return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
+      const msg = e instanceof Error ? e.message : "Failed";
+      const isClient =
+        /already claimed today/i.test(msg) ||
+        /limit reached for today/i.test(msg) ||
+        /unlock when balance is below/i.test(msg);
+      if (!isClient) {
+        logger.error({ e }, "demo add-funds");
+      }
+      return res.status(isClient ? 400 : 500).json({ message: msg });
     }
   })();
 });
@@ -776,7 +765,7 @@ app.post("/api/me/demo-challenge/redeem", (_req, res) => {
   })();
 });
 
-/** Unlimited practice: when demo balance is nearly zero, reset virtual balance to the default starting amount. */
+/** Same as add-funds: once per IST day when demo balance is nearly zero. */
 app.post("/api/me/demo/claim-practice-reset", (req, res) => {
   void (async () => {
     try {
@@ -788,17 +777,22 @@ app.post("/api/me/demo/claim-practice-reset", (req, res) => {
           message: `Practice reset is only when demo balance is at or below ₹${DEMO_PRACTICE_RETRY_BELOW_INR}. Current: ₹${demo.toFixed(2)}`
         });
       }
-      await prepareAccountForRequest(user.id, "demo");
-      const acc = getAccountForWallet(user.id, "demo");
-      acc.setBalance(DEFAULT_DEMO_BALANCE_INR);
-      await saveDemoBalanceToDb(user.id, DEFAULT_DEMO_BALANCE_INR);
-      return res.json({ ok: true, demo_balance: DEFAULT_DEMO_BALANCE_INR });
+      evictInMemoryAccountsForUser(user.id);
+      const out = await claimDailyDemoFunds(user.id);
+      return res.json({ ok: true, demo_balance: out.demo_balance });
     } catch (e) {
       if (e instanceof Error && e.message === "Unauthorized") {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      logger.error({ e }, "demo claim-practice-reset");
-      return res.status(500).json({ message: e instanceof Error ? e.message : "Failed" });
+      const msg = e instanceof Error ? e.message : "Failed";
+      const isClient =
+        /already claimed today/i.test(msg) ||
+        /limit reached for today/i.test(msg) ||
+        /unlock when balance is below/i.test(msg);
+      if (!isClient) {
+        logger.error({ e }, "demo claim-practice-reset");
+      }
+      return res.status(isClient ? 400 : 500).json({ message: msg });
     }
   })();
 });
@@ -812,6 +806,10 @@ app.get("/api/system/demo-challenge", (_req, res) => {
     /** @deprecated use demo_account_default_inr */
     start_inr: start,
     demo_account_default_inr: start,
+    demo_funds_once_per_day: false,
+    demo_funds_per_direct_join_today: true,
+    demo_funds_base_claims_per_day: 1,
+    demo_funds_daily_inr: start,
     practice_retry_below_inr: DEMO_PRACTICE_RETRY_BELOW_INR,
     min_withdrawal_inr: MIN_WITHDRAWAL_INR
   });
@@ -1662,7 +1660,7 @@ app.post("/api/admin/withdrawals/reject", (req, res) => {
     }
     const refundInr = inrDebitForUsdtWithdraw(row.amount);
     try {
-      await applyLedger(row.user_id, refundInr, "withdrawal_rejected_refund", withdrawalId);
+      await refundWithdrawalHold(row, withdrawalId);
     } catch (err) {
       const now2 = new Date().toISOString();
       await dbRun(
@@ -1674,7 +1672,13 @@ app.post("/api/admin/withdrawals/reject", (req, res) => {
       return res.status(500).json({ message: msg });
     }
     await hydrateLiveAccountFromWallet(row.user_id);
-    return res.json({ ok: true, withdrawalId, userId: row.user_id, refundedInr: refundInr });
+    return res.json({
+      ok: true,
+      withdrawalId,
+      userId: row.user_id,
+      refundedInr: resolveWithdrawalSource(row) === "live" ? refundInr : undefined,
+      refundedCoins: resolveWithdrawalSource(row) === "bonus" ? bonusCoinsForUsdtWithdraw(row.amount) : undefined
+    });
   })().catch((error) => {
     const message = error instanceof Error ? error.message : "Reject failed";
     if (message === "Unauthorized") {
@@ -1745,7 +1749,7 @@ app.post("/api/admin/withdrawals/set-status", (req, res) => {
       }
       const refundInr = inrDebitForUsdtWithdraw(row.amount);
       try {
-        await applyLedger(row.user_id, refundInr, "withdrawal_rejected_refund", withdrawalId);
+        await refundWithdrawalHold(row, withdrawalId);
       } catch (err) {
         const now2 = new Date().toISOString();
         await dbRun(
@@ -1762,7 +1766,8 @@ app.post("/api/admin/withdrawals/set-status", (req, res) => {
         withdrawalId,
         userId: row.user_id,
         status: "rejected",
-        refundedInr: refundInr
+        refundedInr: resolveWithdrawalSource(row) === "live" ? refundInr : undefined,
+        refundedCoins: resolveWithdrawalSource(row) === "bonus" ? bonusCoinsForUsdtWithdraw(row.amount) : undefined
       });
     }
 
@@ -2458,10 +2463,7 @@ app.get("/api/admin/ra/:resource", (req, res) => {
   });
 });
 
-const MIN_WITHDRAWAL_USDT = Math.max(
-  1e-8,
-  MIN_WITHDRAWAL_INR / Math.max(1, INR_PER_USDT)
-);
+const MIN_LIVE_WITHDRAWAL_USDT = MIN_WITHDRAWAL_USDT;
 const MAX_WITHDRAWAL_USDT = 1_000_000;
 const WITHDRAWAL_TURNOVER_MULTIPLIER = 10;
 
@@ -2515,6 +2517,31 @@ async function getWithdrawalTurnoverProgress(userId: string): Promise<{
   };
 }
 
+function resolveWithdrawalSource(row: Pick<WithdrawalRow, "source_wallet"> | null | undefined): "live" | "bonus" {
+  return row?.source_wallet === "bonus" ? "bonus" : "live";
+}
+
+async function refundWithdrawalHold(row: WithdrawalRow, withdrawalId: string): Promise<void> {
+  if (resolveWithdrawalSource(row) === "bonus") {
+    const coins = bonusCoinsForUsdtWithdraw(row.amount);
+    await applyBonusBalanceDelta(row.user_id, coins);
+    return;
+  }
+  await applyLedger(row.user_id, inrDebitForUsdtWithdraw(row.amount), "withdrawal_rejected_refund", withdrawalId);
+}
+
+async function assertWithdrawalTurnover(userId: string): Promise<void> {
+  const turnover = await getWithdrawalTurnoverProgress(userId);
+  if (
+    turnover.fundedInr > 1e-9 &&
+    turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
+  ) {
+    throw new Error(
+      `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
+    );
+  }
+}
+
 /** Idempotent guard: same trade must not credit win/loss twice (multi-process or rare retry). */
 async function liveBinarySettleAlreadyInLedger(userId: string, tradeId: string): Promise<boolean> {
   await initAppDb();
@@ -2529,94 +2556,226 @@ async function liveBinarySettleAlreadyInLedger(userId: string, tradeId: string):
 
 /** Public — maintenance flag and message for withdrawal UI (no auth). */
 app.get("/api/withdrawals/status", (_req, res) => {
-  res.json(withdrawalsAvailabilityPayload());
+  res.json({
+    ...withdrawalsAvailabilityPayload(),
+    live_min_inr: MIN_WITHDRAWAL_INR,
+    live_min_usdt: MIN_LIVE_WITHDRAWAL_USDT,
+    live_inr_per_usdt: INR_PER_USDT,
+    bonus_min_coins: BONUS_MIN_WITHDRAWAL_COINS,
+    bonus_min_usdt: BONUS_MIN_WITHDRAWAL_USDT,
+    bonus_coins_per_usdt: BONUS_COINS_PER_USDT
+  });
 });
 
-app.post("/api/withdrawals", (req, res) => {
-  void (async () => {
-    const user = await requireSession(req.headers.authorization);
-    const avail = withdrawalsAvailabilityPayload();
-    if (avail.withdrawalsDisabled) {
-      const msg = avail.withdrawalsDisabledMessage ?? "Withdrawals are temporarily unavailable.";
-      return res.status(503).json({
-        message: msg,
-        withdrawalsDisabled: true,
-        withdrawalsDisabledMessage: msg
-      });
-    }
-    const amount = Number(req.body?.amount);
-    const toAddress = String(req.body?.toAddress ?? "").trim().toLowerCase();
-    const tpn = String(
-      req.body?.tpin ?? req.body?.tpn ?? req.body?.totp ?? req.body?.totpCode ?? ""
-    ).trim();
+function resolveWithdrawalWalletSource(
+  req: express.Request,
+  userId: string,
+  force?: "live" | "bonus"
+): "live" | "bonus" {
+  if (force === "bonus" || force === "live") {
+    return force;
+  }
+  const raw =
+    req.body?.wallet ??
+    req.body?.source ??
+    req.body?.sourceWallet ??
+    req.body?.source_wallet ??
+    req.body?.walletType;
+  const bodyWallet = String(raw ?? "")
+    .trim()
+    .toLowerCase();
+  if (bodyWallet === "bonus") return "bonus";
+  if (bodyWallet === "live") return "live";
+  const headerWallet = resolveWalletForHttpRequest(userId, req.headers["x-account-type"], req.query);
+  return headerWallet === "bonus" ? "bonus" : "live";
+}
 
+const WITHDRAWAL_HANDLER_TIMEOUT_MS = 20_000;
+
+function withWithdrawalHandlerTimeout<T>(promise: Promise<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Withdrawal is taking too long — the database may be busy. Wait a few seconds and retry."
+            )
+          ),
+        WITHDRAWAL_HANDLER_TIMEOUT_MS
+      );
+    })
+  ]);
+}
+
+async function handleCreateWithdrawal(
+  req: express.Request,
+  res: express.Response,
+  forceWallet?: "live" | "bonus"
+): Promise<void> {
+  const user = await requireSession(req.headers.authorization);
+  const avail = withdrawalsAvailabilityPayload();
+  if (avail.withdrawalsDisabled) {
+    const msg = avail.withdrawalsDisabledMessage ?? "Withdrawals are temporarily unavailable.";
+    res.status(503).json({
+      message: msg,
+      withdrawalsDisabled: true,
+      withdrawalsDisabledMessage: msg
+    });
+    return;
+  }
+  const amount = Number(req.body?.amount);
+  const toAddress = String(req.body?.toAddress ?? req.body?.to_address ?? "")
+    .trim()
+    .toLowerCase();
+  const fromBonus = resolveWithdrawalWalletSource(req, user.id, forceWallet) === "bonus";
+  const tpn = String(
+    req.body?.tpin ?? req.body?.tpn ?? req.body?.totp ?? req.body?.totpCode ?? ""
+  ).trim();
+
+  try {
+    await assertWithdrawalVerificationCode(user.id, tpn);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "TPN required";
+    res.status(400).json({ message: msg });
+    return;
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_WITHDRAWAL_USDT) {
+    res.status(400).json({
+      message: `Amount must be between ${MIN_LIVE_WITHDRAWAL_USDT} and ${MAX_WITHDRAWAL_USDT} USDT`
+    });
+    return;
+  }
+  if (!toAddress.startsWith("0x") || toAddress.length < 42) {
+    res.status(400).json({ message: "Valid BEP20 (0x...) address required" });
+    return;
+  }
+
+  if (fromBonus) {
+    if (amount + 1e-12 < BONUS_MIN_WITHDRAWAL_USDT) {
+      res.status(400).json({
+        message: `Minimum bonus withdrawal is ${BONUS_MIN_WITHDRAWAL_COINS.toLocaleString("en-IN")} coins (${BONUS_MIN_WITHDRAWAL_USDT} USDT BEP20)`
+      });
+      return;
+    }
+    const coinsHold = bonusCoinsForUsdtWithdraw(amount);
+    if (coinsHold + 1e-9 < BONUS_MIN_WITHDRAWAL_COINS) {
+      res.status(400).json({
+        message: `Minimum bonus withdrawal is ${BONUS_MIN_WITHDRAWAL_COINS.toLocaleString("en-IN")} coins (${BONUS_MIN_WITHDRAWAL_USDT} USDT BEP20)`
+      });
+      return;
+    }
     try {
-      await assertWithdrawalVerificationCode(user.id, tpn);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "TPN required";
-      return res.status(400).json({ message: msg });
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_WITHDRAWAL_USDT) {
-      return res.status(400).json({
-        message: `Amount must be between a small positive value and ${MAX_WITHDRAWAL_USDT} USDT`
-      });
-    }
-    const inrHold = inrDebitForUsdtWithdraw(amount);
-    if (!Number.isFinite(amount) || amount < MIN_WITHDRAWAL_USDT - 1e-12 || inrHold + 1e-9 < MIN_WITHDRAWAL_INR) {
-      return res.status(400).json({
-        message: `Minimum withdrawal is ₹${MIN_WITHDRAWAL_INR.toLocaleString("en-IN")} (~${MIN_WITHDRAWAL_USDT.toFixed(4)} USDT at ₹${INR_PER_USDT}/USDT)`
-      });
-    }
-    if (!toAddress.startsWith("0x") || toAddress.length < 42) {
-      return res.status(400).json({ message: "Valid BEP20 (0x...) address required" });
-    }
-
-    const breakdown = await getLiveWalletBreakdown(user.id);
-    if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
-      return res.status(400).json({
-        message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
-      });
-    }
-    const turnover = await getWithdrawalTurnoverProgress(user.id);
-    if (
-      turnover.fundedInr > 1e-9 &&
-      turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
-    ) {
-      return res.status(400).json({
-        message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
-      });
-    }
-    try {
-      await applyLedger(user.id, -inrHold, "withdrawal_pending", null);
-    } catch {
-      return res.status(400).json({
-        message: `Insufficient balance — need ₹${inrHold.toFixed(2)} (${amount} USDT × ₹${INR_PER_USDT})`
-      });
-    }
-
-    try {
-      const withdrawal = await createWithdrawal({
+      const withdrawal = await createBonusWithdrawalAtomic({
         userId: user.id,
         userEmail: user.email,
         amount,
-        toAddress
+        toAddress,
+        coinsHold
       });
-      await hydrateLiveAccountFromWallet(user.id);
-      return res.status(201).json({ withdrawal, inrDebited: inrHold, inrPerUsdt: INR_PER_USDT });
+      res.status(201).json({
+        withdrawal,
+        wallet: "bonus",
+        coinsDebited: coinsHold,
+        bonusCoinsPerUsdt: BONUS_COINS_PER_USDT
+      });
+      return;
     } catch (err) {
-      await applyLedger(user.id, inrHold, "withdrawal_create_failed_refund", null).catch(() => {});
-      await hydrateLiveAccountFromWallet(user.id);
+      const msg = err instanceof Error ? err.message : "Bonus withdrawal failed";
+      if (/insufficient bonus balance/i.test(msg)) {
+        res.status(400).json({ message: msg });
+        return;
+      }
       throw err;
     }
-  })().catch((error) => {
-    const message = error instanceof Error ? error.message : "Withdrawal failed";
-    if (message === "Unauthorized") {
-      return res.status(401).json({ message });
-    }
-    logger.error({ error }, "withdrawal create");
-    res.status(500).json({ message });
-  });
+  }
+
+  const inrHold = inrDebitForUsdtWithdraw(amount);
+  if (!Number.isFinite(amount) || amount < MIN_LIVE_WITHDRAWAL_USDT - 1e-12) {
+    res.status(400).json({
+      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~₹${(MIN_LIVE_WITHDRAWAL_USDT * INR_PER_USDT).toLocaleString("en-IN")} at ₹${INR_PER_USDT}/USDT)`
+    });
+    return;
+  }
+  const minInrHold = inrDebitForUsdtWithdraw(MIN_LIVE_WITHDRAWAL_USDT);
+  if (inrHold + 1e-9 < minInrHold) {
+    res.status(400).json({
+      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~₹${minInrHold.toLocaleString("en-IN")} at ₹${INR_PER_USDT}/USDT)`
+    });
+    return;
+  }
+
+  const [turnover, breakdown] = await Promise.all([
+    getWithdrawalTurnoverProgress(user.id),
+    getLiveWalletBreakdown(user.id)
+  ]);
+  if (
+    turnover.fundedInr > 1e-9 &&
+    turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
+  ) {
+    res.status(400).json({
+      message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
+    });
+    return;
+  }
+  if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
+    res.status(400).json({
+      message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
+    });
+    return;
+  }
+  try {
+    await applyLedger(user.id, -inrHold, "withdrawal_pending", null);
+  } catch {
+    res.status(400).json({
+      message: `Insufficient balance — need ₹${inrHold.toFixed(2)} (${amount} USDT × ₹${INR_PER_USDT})`
+    });
+    return;
+  }
+
+  try {
+    const withdrawal = await createWithdrawal({
+      userId: user.id,
+      userEmail: user.email,
+      amount,
+      toAddress,
+      sourceWallet: "live"
+    });
+    await hydrateLiveAccountFromWallet(user.id);
+    res.status(201).json({ withdrawal, wallet: "live", inrDebited: inrHold, inrPerUsdt: INR_PER_USDT });
+  } catch (err) {
+    await applyLedger(user.id, inrHold, "withdrawal_create_failed_refund", null).catch(() => {});
+    await hydrateLiveAccountFromWallet(user.id);
+    throw err;
+  }
+}
+
+function respondWithdrawalCreateError(error: unknown, res: express.Response): void {
+  const message = error instanceof Error ? error.message : "Withdrawal failed";
+  if (message === "Unauthorized") {
+    res.status(401).json({ message });
+    return;
+  }
+  if (/database is busy|taking too long/i.test(message)) {
+    res.status(503).json({ message });
+    return;
+  }
+  logger.error({ error }, "withdrawal create");
+  res.status(500).json({ message });
+}
+
+app.post("/api/bonus/withdrawals", (req, res) => {
+  void withWithdrawalHandlerTimeout(handleCreateWithdrawal(req, res, "bonus")).catch((error) =>
+    respondWithdrawalCreateError(error, res)
+  );
+});
+
+app.post("/api/withdrawals", (req, res) => {
+  void withWithdrawalHandlerTimeout(handleCreateWithdrawal(req, res)).catch((error) =>
+    respondWithdrawalCreateError(error, res)
+  );
 });
 
 app.get("/api/withdrawals/my", (req, res) => {

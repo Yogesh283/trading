@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { DEFAULT_DEMO_BALANCE_INR } from "../config/demo";
 import { env } from "../config/env";
 import { logger } from "../utils/logger";
+import { getIstDateKey } from "../utils/istDate";
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 import { DemoAccount } from "./demoAccount";
 import {
@@ -400,16 +401,17 @@ export async function registerUser(input: {
         }
       }
 
+      const todayIst = getIstDateKey();
       try {
         if (isMysqlMode()) {
           await getPool().execute(
-            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, updated_at) VALUES (?, 0, ?, 0, ?)`,
-            [id, DEFAULT_DEMO_BALANCE_INR, now]
+            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, demo_funds_last_claimed_date, demo_funds_claims_used, updated_at) VALUES (?, 0, ?, 0, ?, 1, ?)`,
+            [id, DEFAULT_DEMO_BALANCE_INR, todayIst, now]
           );
         } else {
           await dbRun(
-            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, updated_at) VALUES (?, 0, ?, 0, ?)`,
-            [id, DEFAULT_DEMO_BALANCE_INR, now]
+            `INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, demo_funds_last_claimed_date, demo_funds_claims_used, updated_at) VALUES (?, 0, ?, 0, ?, 1, ?)`,
+            [id, DEFAULT_DEMO_BALANCE_INR, todayIst, now]
           );
         }
       } catch {
@@ -1062,6 +1064,38 @@ function countDownlineJoinedInWindow(
   };
   walk(userId);
   return n;
+}
+
+/** Direct referrals (level 1) who registered today (IST). */
+export async function countDirectReferralsJoinedToday(userId: string): Promise<number> {
+  await ready;
+  const uid = String(userId ?? "").trim();
+  const me = await dbGet<{ self_referral_code: string | null }>(
+    isMysqlMode()
+      ? "SELECT self_referral_code FROM users WHERE id = ? LIMIT 1"
+      : "SELECT self_referral_code FROM users WHERE id = ?",
+    [uid]
+  );
+  const code = String(me?.self_referral_code ?? "").trim();
+  if (!code) {
+    return 0;
+  }
+  const { startIso, endIso } = getIstDayUtcIsoBounds();
+  const row = await dbGet<{ c: number | string | null }>(
+    isMysqlMode()
+      ? `SELECT COUNT(*) AS c FROM users
+          WHERE referral_code IS NOT NULL
+            AND TRIM(referral_code) <> ''
+            AND UPPER(TRIM(referral_code)) = UPPER(?)
+            AND created_at >= ? AND created_at < ?`
+      : `SELECT COUNT(*) AS c FROM users
+          WHERE referral_code IS NOT NULL
+            AND TRIM(referral_code) <> ''
+            AND UPPER(TRIM(referral_code)) = UPPER(?)
+            AND created_at >= ? AND created_at < ?`,
+    [code, startIso, endIso]
+  );
+  return Number(row?.c ?? 0);
 }
 
 /** Logged-in user: inviter, direct team, totals (for /api/referrals/summary). */

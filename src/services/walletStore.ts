@@ -6,7 +6,11 @@ import {
   LEGACY_DEMO_BALANCE_INR
 } from "../config/demo";
 import { DEMO_CHALLENGE_REWARD_INR, DEMO_CHALLENGE_TARGET_INR } from "../config/demoChallenge";
-import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
+import { dbAll, dbGet, dbRun, acquireMysqlConnection, initAppDb, isMysqlMode } from "../db/appDb";
+import { getIstDateKey } from "../utils/istDate";
+
+/** Demo balance must be below this (INR) before daily demo funds can be claimed. */
+export const DEMO_FUNDS_CLAIM_MAX_BALANCE_INR = 1;
 
 const BONUS_TO_LIVE_THRESHOLD_INR = 100_000;
 const BONUS_TO_LIVE_REWARD_INR = 10;
@@ -25,12 +29,24 @@ export type TransactionRow = {
 
 const userQueues = new Map<string, Promise<unknown>>();
 
-function enqueue<T>(userId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = userQueues.get(userId) ?? Promise.resolve();
+type WalletQueueLane = "live" | "bonus" | "demo";
+
+/** Serialize wallet mutations per lane (bonus withdraw does not wait on live/demo lanes). */
+export function withWalletLane<T>(
+  userId: string,
+  lane: WalletQueueLane,
+  fn: () => Promise<T>
+): Promise<T> {
+  return enqueue(userId, fn, lane);
+}
+
+function enqueue<T>(userId: string, fn: () => Promise<T>, lane: WalletQueueLane = "live"): Promise<T> {
+  const key = `${userId}:${lane}`;
+  const prev = userQueues.get(key) ?? Promise.resolve();
   const next = prev.catch(() => {}).then(() => fn()) as Promise<T>;
-  userQueues.set(userId, next);
+  userQueues.set(key, next);
   next.finally(() => {
-    if (userQueues.get(userId) === next) userQueues.delete(userId);
+    if (userQueues.get(key) === next) userQueues.delete(key);
   });
   return next;
 }
@@ -52,9 +68,181 @@ export async function ensureWallet(userId: string): Promise<void> {
   );
   if (row) return;
   const now = new Date().toISOString();
+  const todayIst = getIstDateKey();
   await dbRun(
-    "INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, updated_at) VALUES (?, 0, ?, 0, ?)",
-    [userId, DEFAULT_DEMO_BALANCE_INR, now]
+    "INSERT INTO wallets (user_id, balance, demo_balance, locked_bonus_inr, demo_funds_last_claimed_date, demo_funds_claims_used, updated_at) VALUES (?, 0, ?, 0, ?, 1, ?)",
+    [userId, DEFAULT_DEMO_BALANCE_INR, todayIst, now]
+  );
+}
+
+export type DemoFundsDailyStatus = {
+  daily_amount_inr: number;
+  /** 1 per day + 1 extra per direct referral joined today (IST). */
+  claims_allowed_today: number;
+  claims_used_today: number;
+  claims_remaining_today: number;
+  direct_joined_today: number;
+  /** @deprecated use claims_remaining_today === 0 */
+  claimed_today: boolean;
+  can_claim_today: boolean;
+  last_claimed_date: string | null;
+};
+
+const DEMO_FUNDS_BASE_CLAIMS_PER_DAY = 1;
+
+/** Legacy registration set `demo_funds_last_claimed_date` without bumping `demo_funds_claims_used`. */
+function claimsUsedForIstDay(storedDay: string | null, today: string, rawClaimsUsed: number): number {
+  if (storedDay !== today) return 0;
+  const n = Math.max(0, rawClaimsUsed);
+  return n === 0 ? 1 : n;
+}
+
+/**
+ * New IST day + demo balance used up (below ₹1): reset daily claim bucket so user can claim fresh demo funds.
+ * Rule: use today's demo funds to ₹0 → next calendar day (IST) → new ₹10,000 claim.
+ */
+async function syncDemoFundsIstDayRollover(
+  userId: string,
+  demoBalance: number,
+  storedClaimDay: string | null
+): Promise<void> {
+  const today = getIstDateKey();
+  const stored = String(storedClaimDay ?? "").trim() || null;
+  if (!stored || stored === today) return;
+  if (demoBalance + 1e-9 >= DEMO_FUNDS_CLAIM_MAX_BALANCE_INR) return;
+  const now = new Date().toISOString();
+  await dbRun(
+    "UPDATE wallets SET demo_funds_claims_used = 0, demo_funds_last_claimed_date = NULL, updated_at = ? WHERE user_id = ?",
+    [now, userId]
+  );
+}
+
+async function readDemoFundsClaimBucket(userId: string): Promise<{ claimDay: string | null; claimsUsed: number }> {
+  const today = getIstDateKey();
+  const row = await dbGet<{
+    demo_funds_last_claimed_date: string | null;
+    demo_funds_claims_used: number | null;
+  }>(
+    "SELECT demo_funds_last_claimed_date, COALESCE(demo_funds_claims_used, 0) AS demo_funds_claims_used FROM wallets WHERE user_id = ?",
+    [userId]
+  );
+  const storedDay = String(row?.demo_funds_last_claimed_date ?? "").trim() || null;
+  if (storedDay !== today) {
+    return { claimDay: null, claimsUsed: 0 };
+  }
+  return {
+    claimDay: storedDay,
+    claimsUsed: claimsUsedForIstDay(storedDay, today, Number(row?.demo_funds_claims_used ?? 0))
+  };
+}
+
+async function getDemoFundsClaimsAllowedToday(userId: string): Promise<{
+  directJoinedToday: number;
+  claimsAllowed: number;
+}> {
+  const { countDirectReferralsJoinedToday } = await import("./authService");
+  const directJoinedToday = await countDirectReferralsJoinedToday(userId);
+  return { directJoinedToday, claimsAllowed: DEMO_FUNDS_BASE_CLAIMS_PER_DAY + directJoinedToday };
+}
+
+export async function getDemoFundsDailyStatus(userId: string): Promise<DemoFundsDailyStatus> {
+  await initAppDb();
+  await ensureWallet(userId);
+  const today = getIstDateKey();
+  const { directJoinedToday, claimsAllowed } = await getDemoFundsClaimsAllowedToday(userId);
+  const row = await dbGet<{ demo_balance: number; demo_funds_last_claimed_date: string | null }>(
+    "SELECT COALESCE(demo_balance, 0) AS demo_balance, demo_funds_last_claimed_date FROM wallets WHERE user_id = ?",
+    [userId]
+  );
+  const demo = Number(row?.demo_balance ?? 0);
+  await syncDemoFundsIstDayRollover(userId, demo, String(row?.demo_funds_last_claimed_date ?? "").trim() || null);
+  const bucketAfterRollover = await readDemoFundsClaimBucket(userId);
+  const claimsUsedAfterRollover = bucketAfterRollover.claimsUsed;
+  const claimsRemaining = Math.max(0, claimsAllowed - claimsUsedAfterRollover);
+  const canClaimToday = claimsRemaining > 0 && demo + 1e-9 < DEMO_FUNDS_CLAIM_MAX_BALANCE_INR;
+  return {
+    daily_amount_inr: DEFAULT_DEMO_BALANCE_INR,
+    claims_allowed_today: claimsAllowed,
+    claims_used_today: claimsUsedAfterRollover,
+    claims_remaining_today: claimsRemaining,
+    direct_joined_today: directJoinedToday,
+    claimed_today: claimsRemaining <= 0,
+    can_claim_today: canClaimToday,
+    last_claimed_date: claimsUsedAfterRollover > 0 ? today : null
+  };
+}
+
+/** Credit demo wallet — 1/day + 1 extra per direct referral joined today (IST). */
+export async function claimDailyDemoFunds(userId: string): Promise<{
+  demo_balance: number;
+  added: number;
+  claims_used_today: number;
+  claims_allowed_today: number;
+  claims_remaining_today: number;
+}> {
+  return enqueue(
+    userId,
+    async () => {
+    await initAppDb();
+    await ensureWallet(userId);
+    const today = getIstDateKey();
+    const { directJoinedToday, claimsAllowed } = await getDemoFundsClaimsAllowedToday(userId);
+    const row = await dbGet<{
+      demo_balance: number;
+      demo_funds_last_claimed_date: string | null;
+      demo_funds_claims_used: number | null;
+      demo_hold_zero: number | null;
+    }>(
+      "SELECT COALESCE(demo_balance, 0) AS demo_balance, demo_funds_last_claimed_date, COALESCE(demo_funds_claims_used, 0) AS demo_funds_claims_used, COALESCE(demo_hold_zero, 0) AS demo_hold_zero FROM wallets WHERE user_id = ?",
+      [userId]
+    );
+    const demo = Number(row?.demo_balance ?? 0);
+    const storedDay = String(row?.demo_funds_last_claimed_date ?? "").trim() || null;
+    await syncDemoFundsIstDayRollover(userId, demo, storedDay);
+    const freshRow = await dbGet<{
+      demo_funds_last_claimed_date: string | null;
+      demo_funds_claims_used: number | null;
+    }>(
+      "SELECT demo_funds_last_claimed_date, COALESCE(demo_funds_claims_used, 0) AS demo_funds_claims_used FROM wallets WHERE user_id = ?",
+      [userId]
+    );
+    const storedDayAfterRollover = String(freshRow?.demo_funds_last_claimed_date ?? "").trim();
+    let claimsUsed = claimsUsedForIstDay(
+      storedDayAfterRollover || null,
+      today,
+      Number(freshRow?.demo_funds_claims_used ?? 0)
+    );
+    if (claimsUsed >= claimsAllowed) {
+      const atZero = demo + 1e-9 < DEMO_FUNDS_CLAIM_MAX_BALANCE_INR;
+      throw new Error(
+        atZero
+          ? `Today's demo fund claim is used (${claimsUsed}/${claimsAllowed}). Balance is ₹0 — claim fresh demo funds tomorrow (IST). Each direct join today adds +1 extra claim.`
+          : `Demo funds limit reached for today (${claimsUsed}/${claimsAllowed}). You get 1 claim plus 1 extra for each direct member who joins today (IST) — you have ${directJoinedToday} direct join(s) today. Use balance below ₹1 first, then try again tomorrow or invite more members.`
+      );
+    }
+    if (demo + 1e-9 >= DEMO_FUNDS_CLAIM_MAX_BALANCE_INR) {
+      throw new Error(
+        `Use demo balance to ₹0 first. When balance is below ₹${DEMO_FUNDS_CLAIM_MAX_BALANCE_INR}, you can claim again (next IST day if today's claim is already used). Current: ₹${demo.toFixed(2)}.`
+      );
+    }
+    const now = new Date().toISOString();
+    const nextBalance = DEFAULT_DEMO_BALANCE_INR;
+    claimsUsed += 1;
+    await dbRun(
+      "UPDATE wallets SET demo_balance = ?, demo_funds_last_claimed_date = ?, demo_funds_claims_used = ?, demo_hold_zero = 0, updated_at = ? WHERE user_id = ?",
+      [nextBalance, today, claimsUsed, now, userId]
+    );
+    const { evictInMemoryAccountsForUser } = await import("./authService");
+    evictInMemoryAccountsForUser(userId);
+    return {
+      demo_balance: nextBalance,
+      added: nextBalance,
+      claims_used_today: claimsUsed,
+      claims_allowed_today: claimsAllowed,
+      claims_remaining_today: Math.max(0, claimsAllowed - claimsUsed)
+    };
+  },
+    "demo"
   );
 }
 
@@ -112,8 +300,7 @@ async function applyLedgerMutationUnqueued(
   const txnId = `txn-${crypto.randomUUID()}`;
 
   if (isMysqlMode()) {
-    const pool = getPool();
-    const conn = await pool.getConnection();
+    const conn = await acquireMysqlConnection();
     try {
       await conn.beginTransaction();
       const [rows] = await conn.execute(
@@ -203,9 +390,42 @@ export async function getBonusBalanceFromDb(userId: string): Promise<number> {
   return bonus;
 }
 
+/** Credit or debit bonus wallet coins (serialized per user). */
+export async function applyBonusBalanceDelta(userId: string, delta: number): Promise<number> {
+  return enqueue(
+    userId,
+    async () => {
+    await initAppDb();
+    await ensureWallet(userId);
+    const row = await dbGet<{ bonus_balance_inr: number }>(
+      "SELECT COALESCE(bonus_balance_inr, 0) AS bonus_balance_inr FROM wallets WHERE user_id = ?",
+      [userId]
+    );
+    const before = Number(row?.bonus_balance_inr ?? 0);
+    const after = Number((before + delta).toFixed(8));
+    if (after < -1e-12) {
+      throw new Error("Insufficient bonus balance");
+    }
+    const now = new Date().toISOString();
+    await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [after, now, userId]);
+    const { evictInMemoryAccountsForUser } = await import("./authService");
+    evictInMemoryAccountsForUser(userId);
+    return after;
+  },
+    "bonus"
+  );
+}
+
 export async function getWalletChallengeMeta(userId: string): Promise<{
   bonus_balance_inr: number;
   demo_challenge_pending: boolean;
+  demo_funds_daily_inr: number;
+  demo_funds_claimed_today: boolean;
+  demo_funds_can_claim: boolean;
+  demo_funds_claims_allowed?: number;
+  demo_funds_claims_used?: number;
+  demo_funds_claims_remaining?: number;
+  demo_funds_direct_joined_today?: number;
 }> {
   await initAppDb();
   await ensureWallet(userId);
@@ -216,18 +436,28 @@ export async function getWalletChallengeMeta(userId: string): Promise<{
     "SELECT COALESCE(bonus_balance_inr, 0) AS bonus_balance_inr, COALESCE(demo_challenge_pending, 0) AS demo_challenge_pending FROM wallets WHERE user_id = ?",
     [userId]
   );
+  const daily = await getDemoFundsDailyStatus(userId);
   return {
     bonus_balance_inr: Number(row?.bonus_balance_inr ?? 0),
-    demo_challenge_pending: Number(row?.demo_challenge_pending ?? 0) === 1
+    demo_challenge_pending: Number(row?.demo_challenge_pending ?? 0) === 1,
+    demo_funds_daily_inr: daily.daily_amount_inr,
+    demo_funds_claimed_today: daily.claimed_today,
+    demo_funds_can_claim: daily.can_claim_today,
+    demo_funds_claims_allowed: daily.claims_allowed_today,
+    demo_funds_claims_used: daily.claims_used_today,
+    demo_funds_claims_remaining: daily.claims_remaining_today,
+    demo_funds_direct_joined_today: daily.direct_joined_today
   };
 }
 
 /**
  * Persists demo INR. At/above challenge target sets `demo_challenge_pending` (user redeems → bonus wallet).
- * Bust to default unless `demo_hold_zero` (after redeem).
+ * Bust to ₹0 unless `demo_hold_zero` (after redeem). Daily demo funds via `claimDailyDemoFunds`.
  */
 export async function saveDemoBalanceToDb(userId: string, demoBalance: number): Promise<number> {
-  return enqueue(userId, async () => {
+  return enqueue(
+    userId,
+    async () => {
     await initAppDb();
     await ensureWallet(userId);
     let b = Number(demoBalance.toFixed(2));
@@ -237,7 +467,6 @@ export async function saveDemoBalanceToDb(userId: string, demoBalance: number): 
       [userId]
     );
     const holdZero = Number(holdRow?.h ?? 0) === 1;
-    let shouldEvict = false;
     let demoHoldZeroOut = 0;
 
     if (b >= DEMO_CHALLENGE_TARGET_INR) {
@@ -252,25 +481,24 @@ export async function saveDemoBalanceToDb(userId: string, demoBalance: number): 
         b = 0;
         demoHoldZeroOut = 1;
       } else {
-        b = DEFAULT_DEMO_BALANCE_INR;
-        shouldEvict = true;
+        b = 0;
       }
     }
 
-    if (shouldEvict) {
-      const { evictInMemoryAccountsForUser } = await import("./authService");
-      evictInMemoryAccountsForUser(userId);
-    }
     await dbRun(
       "UPDATE wallets SET demo_balance = ?, demo_hold_zero = ?, updated_at = ? WHERE user_id = ?",
       [b, demoHoldZeroOut, now, userId]
     );
     return b;
-  });
+  },
+    "demo"
+  );
 }
 
 export async function saveBonusBalanceToDb(userId: string, bonusBalance: number): Promise<number> {
-  return enqueue(userId, async () => {
+  return enqueue(
+    userId,
+    async () => {
     await initAppDb();
     await ensureWallet(userId);
     const b = Number(bonusBalance.toFixed(2));
@@ -287,7 +515,9 @@ export async function saveBonusBalanceToDb(userId: string, bonusBalance: number)
     }
     await dbRun("UPDATE wallets SET bonus_balance_inr = ?, updated_at = ? WHERE user_id = ?", [nextBonus, now, userId]);
     return nextBonus;
-  });
+  },
+    "bonus"
+  );
 }
 
 /** Redeem demo challenge: ₹100 (config) to bonus wallet only while DB demo ≥ target (e.g. ₹1,00,000). */
@@ -295,7 +525,9 @@ export async function redeemDemoChallengeReward(userId: string): Promise<{
   bonus_balance_inr: number;
   demo_balance: number;
 }> {
-  return enqueue(userId, async () => {
+  return enqueue(
+    userId,
+    async () => {
     await initAppDb();
     await ensureWallet(userId);
     const reward = DEMO_CHALLENGE_REWARD_INR;
@@ -306,8 +538,7 @@ export async function redeemDemoChallengeReward(userId: string): Promise<{
     const target = DEMO_CHALLENGE_TARGET_INR;
 
     if (isMysqlMode()) {
-      const pool = getPool();
-      const conn = await pool.getConnection();
+      const conn = await acquireMysqlConnection();
       try {
         await conn.beginTransaction();
         const [rows] = await conn.execute(
@@ -364,7 +595,9 @@ export async function redeemDemoChallengeReward(userId: string): Promise<{
     const { evictInMemoryAccountsForUser } = await import("./authService");
     evictInMemoryAccountsForUser(userId);
     return { bonus_balance_inr: newBonus, demo_balance: 0 };
-  });
+  },
+    "demo"
+  );
 }
 
 export async function getWalletBalance(userId: string): Promise<number> {
@@ -437,8 +670,10 @@ export async function applyLedger(
   txnType: string,
   referenceId: string | null = null
 ): Promise<{ beforeBalance: number; afterBalance: number }> {
-  return enqueue(userId, () =>
-    applyLedgerMutationUnqueued(userId, delta, txnType, referenceId)
+  return enqueue(
+    userId,
+    () => applyLedgerMutationUnqueued(userId, delta, txnType, referenceId),
+    "live"
   );
 }
 
