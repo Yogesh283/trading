@@ -1,4 +1,5 @@
 import { dbAll, dbGet, initAppDb } from "../db/appDb";
+import { getIstDateKey } from "../utils/istDate";
 import { logger } from "../utils/logger";
 
 function num(v: unknown): number {
@@ -52,12 +53,26 @@ function utcCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabe
   };
 }
 
+/** IST midnight → next midnight (matches app “aaj”). */
+function istCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabel: string } {
+  const dateLabel = getIstDateKey();
+  const start = new Date(`${dateLabel}T00:00:00+05:30`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { startIso: start.toISOString(), endIso: end.toISOString(), dateLabel };
+}
+
 export type WithdrawalDayReportRow = {
   date: string;
   submittedCount: number;
   submittedUsdt: number;
   completedCount: number;
   completedUsdt: number;
+};
+
+export type TodayUserActivityRow = {
+  userId: string;
+  loggedInToday: boolean;
+  tradeCountToday: number;
 };
 
 export type AdminDashboardStatsPayload = {
@@ -67,32 +82,31 @@ export type AdminDashboardStatsPayload = {
   pendingWithdrawalsCount: number;
   totalLiveWalletInr: number;
   totalDemoWalletInr: number;
-  /** Distinct users table rows with `last_login_at` in today’s UTC window (successful logins only). */
+  /** Distinct users with successful login today (UTC). */
   usersLoggedInTodayUtc: number;
-  /** YYYY-MM-DD (UTC) for the window above. */
   usersLoggedInTodayUtcDate: string;
-  /** User IDs who logged in today (UTC), newest `last_login_at` first; capped for payload size. */
   usersLoggedInTodayUtcIds: string[];
-  /** True when `usersLoggedInTodayUtc` exceeds the ID list cap. */
   usersLoggedInTodayUtcIdsTruncated: boolean;
-  /** All-time USDT credited (deposits row `amount`, status `credited`). */
+  /** IST calendar day (YYYY-MM-DD). */
+  todayIstDate: string;
+  /** Users who logged in today (IST). */
+  usersLoggedInTodayIst: number;
+  usersLoggedInTodayIstIds: string[];
+  usersLoggedInTodayIstIdsTruncated: boolean;
+  /** Users with live-wallet binary activity today (IST) in `transactions`. */
+  usersTradedTodayIst: number;
+  usersTradedTodayIstIds: string[];
+  usersTradedTodayIstIdsTruncated: boolean;
+  /** Login + live-trade rows for admin table (IST). */
+  todayUserActivity: TodayUserActivityRow[];
+  todayUserActivityTruncated: boolean;
   totalDepositsCreditedUsdt: number;
-  /** USDT credited today (UTC): `updated_at` when status became credited. */
   todayDepositsCreditedUsdt: number;
-  /** All-time USDT paid out (withdrawals `amount`, status `completed`). */
   totalWithdrawalsCompletedUsdt: number;
-  /** USDT completed today (UTC): `updated_at` when marked completed. */
   todayWithdrawalsCompletedUsdt: number;
-  /**
-   * Live binary settled today (UTC): per trade, stake kept minus win payout (INR ledger).
-   * Loss: full stake; win: stake minus payout (often negative when win multiplier exceeds 1).
-   */
   todayCompanyBinaryGrossInr: number;
-  /** Referral / level income paid today (UTC), INR — company cost. */
   todayCompanyReferralCostInr: number;
-  /** Binary gross minus referral cost (rough P/L; excludes withdrawals, fees, etc.). */
   todayCompanyNetProfitInr: number;
-  /** UTC calendar days, newest first: submitted = new requests that day; completed = marked completed that day. */
   withdrawalsLast7Days: WithdrawalDayReportRow[];
 };
 
@@ -109,11 +123,11 @@ function utcDayBoundsWithOffset(dayOffset: number): { startIso: string; endIso: 
   };
 }
 
-const TODAY_LOGIN_IDS_CAP = 300;
+const TODAY_ACTIVITY_CAP = 300;
 
 async function getUsersLoggedInTodayIds(startIso: string, endIso: string): Promise<string[]> {
   try {
-    const lim = String(TODAY_LOGIN_IDS_CAP);
+    const lim = String(TODAY_ACTIVITY_CAP);
     const rows = await dbAll<{ id: unknown }>(
       `SELECT id FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= ? AND last_login_at < ? ORDER BY last_login_at DESC LIMIT ${lim}`,
       [startIso, endIso]
@@ -125,6 +139,77 @@ async function getUsersLoggedInTodayIds(startIso: string, endIso: string): Promi
     logger.warn({ err: e }, "admin dashboard today's login user ids");
     return [];
   }
+}
+
+async function getUsersTradedTodayCounts(
+  startIso: string,
+  endIso: string
+): Promise<Map<string, number>> {
+  try {
+    const lim = String(TODAY_ACTIVITY_CAP);
+    const rows = await dbAll<{ user_id: unknown; c: unknown }>(
+      `SELECT user_id, COUNT(*) AS c FROM transactions
+       WHERE created_at >= ? AND created_at < ?
+         AND txn_type IN ('binary_stake', 'binary_settle_win', 'binary_settle_loss')
+       GROUP BY user_id
+       ORDER BY c DESC
+       LIMIT ${lim}`,
+      [startIso, endIso]
+    );
+    const map = new Map<string, number>();
+    for (const r of Array.isArray(rows) ? rows : []) {
+      const uid = String(r?.user_id ?? "").trim();
+      if (!uid) continue;
+      map.set(uid, num(r?.c));
+    }
+    return map;
+  } catch (e) {
+    logger.warn({ err: e }, "admin dashboard today's trade user counts");
+    return new Map();
+  }
+}
+
+async function countDistinctTradersToday(startIso: string, endIso: string): Promise<number> {
+  try {
+    const row = await dbGet<{ c: unknown }>(
+      `SELECT COUNT(DISTINCT user_id) AS c FROM transactions
+       WHERE created_at >= ? AND created_at < ?
+         AND txn_type IN ('binary_stake', 'binary_settle_win', 'binary_settle_loss')`,
+      [startIso, endIso]
+    );
+    return num(row?.c);
+  } catch (e) {
+    logger.warn({ err: e }, "admin dashboard today's trader count");
+    return 0;
+  }
+}
+
+function buildTodayUserActivity(
+  loginIds: string[],
+  tradeCounts: Map<string, number>,
+  loginTotal: number,
+  tradeTotal: number
+): { rows: TodayUserActivityRow[]; truncated: boolean } {
+  const loginSet = new Set(loginIds);
+  const ids = new Set<string>([...loginIds, ...tradeCounts.keys()]);
+  const rows: TodayUserActivityRow[] = [...ids].map((userId) => ({
+    userId,
+    loggedInToday: loginSet.has(userId),
+    tradeCountToday: tradeCounts.get(userId) ?? 0
+  }));
+  rows.sort((a, b) => {
+    if (b.tradeCountToday !== a.tradeCountToday) {
+      return b.tradeCountToday - a.tradeCountToday;
+    }
+    if (a.loggedInToday !== b.loggedInToday) {
+      return a.loggedInToday ? -1 : 1;
+    }
+    return a.userId.localeCompare(b.userId, undefined, { numeric: true });
+  });
+  const capped = rows.slice(0, TODAY_ACTIVITY_CAP);
+  const truncated =
+    loginTotal > loginIds.length || tradeTotal > tradeCounts.size || rows.length > capped.length;
+  return { rows: capped, truncated };
 }
 
 async function getWithdrawalsLast7DaysReport(): Promise<WithdrawalDayReportRow[]> {
@@ -228,6 +313,26 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
   const loginCount = num(logins?.c);
   const usersLoggedInTodayUtcIdsTruncated = loginCount > usersLoggedInTodayUtcIds.length;
 
+  const ist = istCalendarDayBoundsIso();
+  const usersLoggedInTodayIstIds = await getUsersLoggedInTodayIds(ist.startIso, ist.endIso);
+  const istLogins = await dbGet<{ c: unknown }>(
+    `SELECT COUNT(*) AS c FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= ? AND last_login_at < ?`,
+    [ist.startIso, ist.endIso]
+  );
+  const usersLoggedInTodayIst = num(istLogins?.c);
+  const usersLoggedInTodayIstIdsTruncated = usersLoggedInTodayIst > usersLoggedInTodayIstIds.length;
+
+  const tradeCountsIst = await getUsersTradedTodayCounts(ist.startIso, ist.endIso);
+  const usersTradedTodayIst = await countDistinctTradersToday(ist.startIso, ist.endIso);
+  const usersTradedTodayIstIds = [...tradeCountsIst.keys()];
+  const usersTradedTodayIstIdsTruncated = usersTradedTodayIst > usersTradedTodayIstIds.length;
+  const { rows: todayUserActivity, truncated: todayUserActivityTruncated } = buildTodayUserActivity(
+    usersLoggedInTodayIstIds,
+    tradeCountsIst,
+    usersLoggedInTodayIst,
+    usersTradedTodayIst
+  );
+
   return {
     usersCount: num(u?.c),
     pendingDepositReviewCount: num(pd?.c),
@@ -239,6 +344,15 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     usersLoggedInTodayUtcDate: dateLabel,
     usersLoggedInTodayUtcIds,
     usersLoggedInTodayUtcIdsTruncated,
+    todayIstDate: ist.dateLabel,
+    usersLoggedInTodayIst,
+    usersLoggedInTodayIstIds,
+    usersLoggedInTodayIstIdsTruncated,
+    usersTradedTodayIst,
+    usersTradedTodayIstIds,
+    usersTradedTodayIstIdsTruncated,
+    todayUserActivity,
+    todayUserActivityTruncated,
     totalDepositsCreditedUsdt,
     todayDepositsCreditedUsdt,
     totalWithdrawalsCompletedUsdt,

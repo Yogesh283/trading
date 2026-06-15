@@ -29,6 +29,12 @@ function fmtUsdt(v: unknown): string {
   return `${(Number.isFinite(n) ? n : 0).toFixed(2)} USDT`;
 }
 
+type TodayUserActivityRow = {
+  userId: string;
+  loggedInToday: boolean;
+  tradeCountToday: number;
+};
+
 type Stats = {
   usersCount: number;
   pendingDepositReviewCount: number;
@@ -40,6 +46,15 @@ type Stats = {
   usersLoggedInTodayUtcDate: string;
   usersLoggedInTodayUtcIds?: string[];
   usersLoggedInTodayUtcIdsTruncated?: boolean;
+  todayIstDate?: string;
+  usersLoggedInTodayIst?: number;
+  usersLoggedInTodayIstIds?: string[];
+  usersLoggedInTodayIstIdsTruncated?: boolean;
+  usersTradedTodayIst?: number;
+  usersTradedTodayIstIds?: string[];
+  usersTradedTodayIstIdsTruncated?: boolean;
+  todayUserActivity?: TodayUserActivityRow[];
+  todayUserActivityTruncated?: boolean;
   totalDepositsCreditedUsdt?: number;
   todayDepositsCreditedUsdt?: number;
   totalWithdrawalsCompletedUsdt?: number;
@@ -241,10 +256,16 @@ export function AdminDashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
-              title="Logins today (UTC)"
-              value={String(stats.usersLoggedInTodayUtc ?? 0)}
-              subtitle={`Window: ${stats.usersLoggedInTodayUtcDate ?? "—"} · successful app logins · see user IDs below`}
-              onNavigate={() => goList("user_insights")}
+              title="Logins today (IST)"
+              value={String(stats.usersLoggedInTodayIst ?? 0)}
+              subtitle={`Date: ${stats.todayIstDate ?? "—"} · user IDs in table below`}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Traded today (IST · live wallet)"
+              value={String(stats.usersTradedTodayIst ?? 0)}
+              subtitle="Users with binary stake/settle in transactions today"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -286,10 +307,48 @@ export function AdminDashboard() {
 
         <Paper variant="outlined" sx={{ p: 2, mt: 2, maxWidth: 960, bgcolor: "background.paper" }}>
           <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-            Today&apos;s logged-in user IDs (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
+            Today&apos;s activity (IST · {stats.todayIstDate ?? "—"})
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Total <strong>{stats.usersLoggedInTodayUtc ?? 0}</strong> users · order: newest login first
+            <strong>{stats.usersLoggedInTodayIst ?? 0}</strong> logins ·{" "}
+            <strong>{stats.usersTradedTodayIst ?? 0}</strong> users traded (live wallet ledger). Demo/bonus
+            trades are in-memory only and are not listed here.
+            {stats.todayUserActivityTruncated ? " · showing first 300 rows" : null}
+          </Typography>
+          {(stats.todayUserActivity ?? []).length === 0 ? (
+            <Typography color="text.secondary">No logins or live trades for today yet.</Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small" aria-label="Today's user login and trading activity">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>User ID</TableCell>
+                    <TableCell align="center">Logged in today</TableCell>
+                    <TableCell align="right">Live trades today</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(stats.todayUserActivity ?? []).map((row) => (
+                    <TableRow key={row.userId}>
+                      <TableCell component="th" scope="row">
+                        {row.userId}
+                      </TableCell>
+                      <TableCell align="center">{row.loggedInToday ? "Yes" : "—"}</TableCell>
+                      <TableCell align="right">{row.tradeCountToday > 0 ? row.tradeCountToday : "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, mt: 2, maxWidth: 960, bgcolor: "background.paper" }}>
+          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            Logged-in user IDs (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Total <strong>{stats.usersLoggedInTodayUtc ?? 0}</strong> users
             {stats.usersLoggedInTodayUtcIdsTruncated
               ? ` · listing first ${(stats.usersLoggedInTodayUtcIds ?? []).length} IDs`
               : null}
