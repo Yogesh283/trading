@@ -345,10 +345,7 @@ function demoTopUpDisabledTitle(
   canClaim: boolean | null
 ): string | undefined {
   if (claimsRemaining === 0) {
-    if (demoBalance !== null && demoBalance + DEMO_TOPUP_EPS < DEMO_TOPUP_DISABLE_MIN_INR) {
-      return "Today's claim used. Demo balance is ₹0 — claim fresh demo funds tomorrow (IST).";
-    }
-    return "Today's demo fund claims used up. Each direct referral who joins today (IST) adds +1 extra ₹10,000 claim.";
+    return "You already added demo funds today. You can add demo funds again tomorrow (IST).";
   }
   if (shouldBlockDemoTopUp(demoBalance)) {
     return "Use demo balance to ₹0 first. Next IST day you can claim fresh demo funds when balance is below ₹1.";
@@ -831,11 +828,8 @@ export default function App() {
     if (accountWallet === "demo" && account != null) return account.balance;
     return null;
   }, [dualBalances.demo, accountWallet, account]);
-  /** Add demo funds: only when server explicitly allows (balance below ₹1 and claims remain). */
-  const demoAddFundsDisabled = useMemo(
-    () => demoTopUpBusy || demoFundsCanClaim !== true,
-    [demoTopUpBusy, demoFundsCanClaim]
-  );
+  /** Add demo funds: clickable even after today's claim — 2nd click shows next-day message. */
+  const demoAddFundsDisabled = useMemo(() => demoTopUpBusy, [demoTopUpBusy]);
   const demoAddFundsDisabledTitle = demoTopUpDisabledTitle(
     demoBalanceForTopUp,
     demoFundsClaimsRemaining,
@@ -1161,10 +1155,8 @@ export default function App() {
     if (demoFundsCanClaim !== true) {
       if (demoFundsClaimsRemaining === 0) {
         showAlert(
-          shouldBlockDemoTopUp(demoBalanceForTopUp)
-            ? "Today's demo claim is used. Balance is ₹0 — claim fresh demo funds tomorrow (IST)."
-            : "Today's demo fund claims are used up. Each direct referral who joins today (IST) gives +1 extra ₹10,000 claim.",
-          "error"
+          "You already added demo funds today. You can add demo funds again tomorrow (IST).",
+          "info"
         );
       } else if (shouldBlockDemoTopUp(demoBalanceForTopUp)) {
         showAlert(
