@@ -258,8 +258,8 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
           {fromBonus ? (
             <>
               {" "}
-              Bonus wallet is debited in <strong>coins</strong> ({BONUS_COINS_PER_USDT} coins = 1 USDT). Minimum:{" "}
-              <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> ({BONUS_MIN_WITHDRAW_USDT} USDT BEP20).
+              Bonus wallet is debited in <strong>coins</strong>. Minimum:{" "}
+              <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong>.
             </>
           ) : (
             <>
@@ -522,8 +522,8 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
             <li>
               {fromBonus ? (
                 <>
-                  Minimum: <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> ({BONUS_MIN_WITHDRAW_USDT} USDT) from bonus
-                  wallet. Rate: {BONUS_COINS_PER_USDT} coins = 1 USDT. Funds are reserved when you submit.
+                  Minimum: <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> from bonus wallet. Funds are reserved
+                  when you submit.
                 </>
               ) : (
                 <>
@@ -536,8 +536,6 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
             <li>Do not share your TPIN. Support will never ask for it.</li>
           </ul>
         </div>
-
-        <p className="funds-note">Demo ledger — integrate custody for real on-chain payouts.</p>
       </div>
     </div>
   );

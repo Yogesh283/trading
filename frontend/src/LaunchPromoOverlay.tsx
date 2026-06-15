@@ -53,8 +53,8 @@ export default function LaunchPromoOverlay() {
           src="/launch-popup.png"
           alt="IQFXPRO — earn with demo points and USDT rewards"
           className="launch-promo-img"
-          width={862}
-          height={1825}
+          width={885}
+          height={1778}
           decoding="async"
         />
       </div>
