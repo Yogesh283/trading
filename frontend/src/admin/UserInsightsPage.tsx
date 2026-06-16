@@ -33,6 +33,7 @@ type InsightsPayload = {
     referral_code: string | null;
     balance: number;
     demo_balance: number;
+    bonus_balance_inr: number;
     inviter_id: string | null;
     inviter_name: string | null;
     inviter_email: string | null;
@@ -226,6 +227,10 @@ export function UserInsightsPage() {
                 <TableRow>
                   <TableCell>Demo wallet (INR)</TableCell>
                   <TableCell>{formatInr(data.user.demo_balance)}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Bonus wallet (INR)</TableCell>
+                  <TableCell>{formatInr(data.user.bonus_balance_inr ?? 0)}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>Self referral code</TableCell>

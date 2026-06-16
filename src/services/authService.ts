@@ -810,6 +810,7 @@ export type AdminUserRow = {
 export type AdminUserListRow = AdminUserRow & {
   balance: number;
   demo_balance: number;
+  bonus_balance_inr: number;
   inviter_id: string | null;
   inviter_name: string | null;
   inviter_email: string | null;
@@ -1343,6 +1344,7 @@ const ADMIN_USER_SELECT = `
   END AS withdrawal_totp_enabled,
   COALESCE(w.balance, 0) AS balance,
   COALESCE(w.demo_balance, ${DEFAULT_DEMO_BALANCE_INR}) AS demo_balance,
+  COALESCE(w.bonus_balance_inr, 0) AS bonus_balance_inr,
   inv.id AS inviter_id,
   inv.name AS inviter_name,
   inv.email AS inviter_email
@@ -1363,6 +1365,7 @@ function mapRawAdminUserRow(
     pass?: string | null;
     balance: number | string | null;
     demo_balance: number | string | null;
+    bonus_balance_inr?: number | string | null;
     inviter_id: string | null;
     inviter_name: string | null;
     inviter_email: string | null;
@@ -1405,6 +1408,7 @@ function mapRawAdminUserRow(
     is_blocked: Number(row.is_blocked ?? 0) === 1,
     balance: Number(row.balance ?? 0),
     demo_balance: Number(row.demo_balance ?? DEFAULT_DEMO_BALANCE_INR),
+    bonus_balance_inr: Number(row.bonus_balance_inr ?? 0),
     inviter_id: row.inviter_id != null ? String(row.inviter_id).trim() : null,
     inviter_name: row.inviter_name ?? null,
     inviter_email: row.inviter_email ?? null,
@@ -1436,6 +1440,7 @@ export async function listUsersForAdmin(): Promise<AdminUserListRow[]> {
       is_blocked?: number | string | null;
       balance: number | string | null;
       demo_balance: number | string | null;
+      bonus_balance_inr?: number | string | null;
       inviter_id: string | null;
       inviter_name: string | null;
       inviter_email: string | null;

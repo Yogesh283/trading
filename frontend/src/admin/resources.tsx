@@ -298,6 +298,7 @@ export function UserList() {
         <DateField source="last_login_at" label="Last login" showTime emptyText="—" />
         <NumberField source="balance" label="Live USDT" options={{ minimumFractionDigits: 2, maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
+        <NumberField source="bonus_balance_inr" label="Bonus wallet" options={{ maximumFractionDigits: 2 }} />
         <TextField source="role" />
         <TextField source="self_referral_code" label="Self ref" />
         <TextField source="referral_code" label="Signup ref code" emptyText="—" />
@@ -358,6 +359,7 @@ export function UserEdit() {
         <TextInput source="withdrawal_totp_enabled" label="Withdrawal TPN enabled" disabled fullWidth />
         <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
         <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
+        <TextInput source="bonus_balance_inr" label="Bonus wallet (INR, read-only)" disabled fullWidth />
         <TextInput
           source="new_password"
           type="password"
@@ -381,6 +383,11 @@ export function WalletList() {
         <NumberField source="balance" label="Live USDT" options={{ maximumFractionDigits: 8 }} />
         <NumberField source="demo_balance" label="Demo" options={{ maximumFractionDigits: 2 }} />
         <NumberField
+          source="bonus_balance_inr"
+          label="Bonus wallet (INR)"
+          options={{ maximumFractionDigits: 2 }}
+        />
+        <NumberField
           source="locked_bonus_inr"
           label="Locked bonus (INR)"
           options={{ maximumFractionDigits: 2 }}
@@ -402,6 +409,7 @@ export function WalletEdit() {
         <TextInput source="updated_at" label="Last updated (read-only)" disabled fullWidth />
         <NumberInput source="balance" label="Live balance (USDT)" min={0} step={0.01} />
         <NumberInput source="demo_balance" label="Demo balance" min={0} step={1} />
+        <TextInput source="bonus_balance_inr" label="Bonus wallet (INR, read-only)" disabled fullWidth />
         <NumberInput
           source="locked_bonus_inr"
           label="Locked bonus (INR, non-withdrawable)"

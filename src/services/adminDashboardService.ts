@@ -82,6 +82,7 @@ export type AdminDashboardStatsPayload = {
   pendingWithdrawalsCount: number;
   totalLiveWalletInr: number;
   totalDemoWalletInr: number;
+  totalBonusWalletInr: number;
   /** Distinct users with successful login today (UTC). */
   usersLoggedInTodayUtc: number;
   usersLoggedInTodayUtcDate: string;
@@ -251,8 +252,8 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
   const pw = await dbGet<{ c: unknown }>(
     `SELECT COUNT(*) AS c FROM withdrawals WHERE status IN ('pending', 'processing')`
   );
-  const w = await dbGet<{ live: unknown; demo: unknown }>(
-    `SELECT COALESCE(SUM(balance), 0) AS live, COALESCE(SUM(demo_balance), 0) AS demo FROM wallets`
+  const w = await dbGet<{ live: unknown; demo: unknown; bonus: unknown }>(
+    `SELECT COALESCE(SUM(balance), 0) AS live, COALESCE(SUM(demo_balance), 0) AS demo, COALESCE(SUM(bonus_balance_inr), 0) AS bonus FROM wallets`
   );
 
   const { startIso, endIso, dateLabel } = utcCalendarDayBoundsIso();
@@ -340,6 +341,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     pendingWithdrawalsCount: num(pw?.c),
     totalLiveWalletInr: num(w?.live),
     totalDemoWalletInr: num(w?.demo),
+    totalBonusWalletInr: num(w?.bonus),
     usersLoggedInTodayUtc: loginCount,
     usersLoggedInTodayUtcDate: dateLabel,
     usersLoggedInTodayUtcIds,

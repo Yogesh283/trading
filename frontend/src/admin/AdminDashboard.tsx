@@ -42,6 +42,7 @@ type Stats = {
   pendingWithdrawalsCount: number;
   totalLiveWalletInr: number;
   totalDemoWalletInr: number;
+  totalBonusWalletInr: number;
   usersLoggedInTodayUtc: number;
   usersLoggedInTodayUtcDate: string;
   usersLoggedInTodayUtcIds?: string[];
@@ -300,6 +301,14 @@ export function AdminDashboard() {
               title="Total demo wallet (INR)"
               value={`₹${stats.totalDemoWalletInr.toFixed(2)}`}
               subtitle="Sum of demo balances"
+              onNavigate={() => goList("wallets")}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+            <StatCard
+              title="Total bonus wallet (INR)"
+              value={`₹${(stats.totalBonusWalletInr ?? 0).toFixed(2)}`}
+              subtitle="Sum of bonus wallet balances"
               onNavigate={() => goList("wallets")}
             />
           </Grid>
