@@ -10,7 +10,7 @@ export const DEMO_CHALLENGE_TARGET_INR = Math.max(
 /** Real INR credited to live wallet when demo target is reached (non-withdrawable until PnL). */
 export const DEMO_CHALLENGE_REWARD_INR = Math.max(
   0,
-  Math.min(1e9, Number(process.env.DEMO_CHALLENGE_REWARD_INR) || 100)
+  Math.min(1e9, Number(process.env.DEMO_CHALLENGE_REWARD_INR) || 10)
 );
 
 /** If demo balance falls below this, user may claim practice reset to `DEMO_CHALLENGE_START_INR`. */
