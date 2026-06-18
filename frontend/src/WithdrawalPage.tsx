@@ -522,8 +522,8 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
             <li>
               {fromBonus ? (
                 <>
-                  Minimum: <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> from bonus wallet. Funds are reserved
-                  when you submit.
+                  Minimum: <strong>{formatCoins(BONUS_MIN_WITHDRAW_COINS)}</strong> ({BONUS_MIN_WITHDRAW_USDT} USDT) from bonus
+                  wallet. Funds are reserved when you submit.
                 </>
               ) : (
                 <>
@@ -532,6 +532,11 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
                 </>
               )}
             </li>
+            {fromBonus ? (
+              <li>
+                Bonus conversion rate: <strong>{BONUS_COINS_USDT_HINT}</strong>.
+              </li>
+            ) : null}
             <li>Wrong BEP20 address can mean permanent loss — double-check.</li>
             <li>Do not share your TPIN. Support will never ask for it.</li>
           </ul>
