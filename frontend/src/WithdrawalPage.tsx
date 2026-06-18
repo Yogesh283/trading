@@ -291,7 +291,7 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
             >
               <span className="wallet-tile-name">Bonus wallet</span>
               <span className="wallet-tile-desc">
-                {formatCoins(bonusBal)} · min {formatCoins(BONUS_MIN_WITHDRAW_COINS)} · {BONUS_COINS_USDT_HINT}
+                {formatCoins(bonusBal)} · min {BONUS_MIN_WITHDRAW_USDT} USDT
               </span>
             </button>
           </div>
