@@ -561,6 +561,14 @@ html.cap-native .app-mobile-trade:has(.mobile-bottom-dock-stack) .funds-page {
   opacity: 0.92;
 }
 
+.mobile-tpn-dd-coin-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
 .mobile-tpn-dropdown button.mobile-tpn-dd-add-demo {
   margin-top: 6px;
   padding-top: 10px;
@@ -3754,6 +3762,15 @@ html.cap-native .mobile-dock-apk-row {
   color: #f8fafc;
 }
 
+.mobile-dash-asset-tile__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: rgba(148, 163, 184, 0.92);
+}
+
 .app-mobile-trade[data-account-wallet="demo"] .mobile-dash-asset-tile--active {
   border-color: rgba(253, 230, 138, 0.45);
   box-shadow: 0 0 0 1px rgba(253, 230, 138, 0.12);
@@ -3902,6 +3919,15 @@ html.cap-native .mobile-dock-apk-row {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: #f1f5f9;
+  text-align: right;
+}
+
+.mobile-dash-home__wallet-coin-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(148, 163, 184, 0.92);
 }
 
 .mobile-dash-home__wallet-active-note {

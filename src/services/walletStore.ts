@@ -98,8 +98,8 @@ function claimsUsedForIstDay(storedDay: string | null, today: string, rawClaimsU
 }
 
 /**
- * New IST day + demo balance used up (below ₹1): reset daily claim bucket so user can claim fresh demo funds.
- * Rule: use today's demo funds to ₹0 → next calendar day (IST) → new ₹10,000 claim.
+ * New IST day + demo balance used up (below 1): reset daily claim bucket so user can claim fresh demo funds.
+ * Rule: use today's demo funds to 0 → next calendar day (IST) → new 10,000 claim.
  */
 async function syncDemoFundsIstDayRollover(
   userId: string,
@@ -216,13 +216,13 @@ export async function claimDailyDemoFunds(userId: string): Promise<{
       const atZero = demo + 1e-9 < DEMO_FUNDS_CLAIM_MAX_BALANCE_INR;
       throw new Error(
         atZero
-          ? `Today's demo fund claim is used (${claimsUsed}/${claimsAllowed}). Balance is ₹0 — claim fresh demo funds tomorrow (IST). Each direct join today adds +1 extra claim.`
-          : `Demo funds limit reached for today (${claimsUsed}/${claimsAllowed}). You get 1 claim plus 1 extra for each direct member who joins today (IST) — you have ${directJoinedToday} direct join(s) today. Use balance below ₹1 first, then try again tomorrow or invite more members.`
+          ? `Today's demo fund claim is used (${claimsUsed}/${claimsAllowed}). Balance is 0 — claim fresh demo funds tomorrow (IST). Each direct join today adds +1 extra claim.`
+          : `Demo funds limit reached for today (${claimsUsed}/${claimsAllowed}). You get 1 claim plus 1 extra for each direct member who joins today (IST) — you have ${directJoinedToday} direct join(s) today. Use balance below 1 first, then try again tomorrow or invite more members.`
       );
     }
     if (demo + 1e-9 >= DEMO_FUNDS_CLAIM_MAX_BALANCE_INR) {
       throw new Error(
-        `Use demo balance to ₹0 first. When balance is below ₹${DEMO_FUNDS_CLAIM_MAX_BALANCE_INR}, you can claim again (next IST day if today's claim is already used). Current: ₹${demo.toFixed(2)}.`
+        `Use demo balance to 0 first. When balance is below ${DEMO_FUNDS_CLAIM_MAX_BALANCE_INR}, you can claim again (next IST day if today's claim is already used). Current: ${demo.toFixed(2)}.`
       );
     }
     const now = new Date().toISOString();
@@ -452,7 +452,7 @@ export async function getWalletChallengeMeta(userId: string): Promise<{
 
 /**
  * Persists demo INR. At/above challenge target sets `demo_challenge_pending` (user redeems → bonus wallet).
- * Bust to ₹0 unless `demo_hold_zero` (after redeem). Daily demo funds via `claimDailyDemoFunds`.
+ * Bust to 0 unless `demo_hold_zero` (after redeem). Daily demo funds via `claimDailyDemoFunds`.
  */
 export async function saveDemoBalanceToDb(userId: string, demoBalance: number): Promise<number> {
   return enqueue(
@@ -520,7 +520,7 @@ export async function saveBonusBalanceToDb(userId: string, bonusBalance: number)
   );
 }
 
-/** Redeem demo challenge: ₹100 (config) to bonus wallet only while DB demo ≥ target (e.g. ₹1,00,000). */
+/** Redeem demo challenge: 100 (config) to bonus wallet only while DB demo ≥ target (e.g. 1,00,000). */
 export async function redeemDemoChallengeReward(userId: string): Promise<{
   bonus_balance_inr: number;
   demo_balance: number;
@@ -554,7 +554,7 @@ export async function redeemDemoChallengeReward(userId: string): Promise<{
         if (demoBal + 1e-9 < target) {
           await conn.rollback();
           throw new Error(
-            `Bonus reward unlocks only when demo balance reaches at least ₹${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
+            `Bonus reward unlocks only when demo balance reaches at least ${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
           );
         }
         const newBonus = Number(arr[0]?.bonus ?? 0) + reward;
@@ -584,7 +584,7 @@ export async function redeemDemoChallengeReward(userId: string): Promise<{
     const demoBal = Number(row?.demo ?? 0);
     if (demoBal + 1e-9 < target) {
       throw new Error(
-        `Bonus reward unlocks only when demo balance reaches at least ₹${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
+        `Bonus reward unlocks only when demo balance reaches at least ${target.toLocaleString("en-IN")}. Grow demo again, then redeem.`
       );
     }
     const newBonus = Number(row?.bonus ?? 0) + reward;

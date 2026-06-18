@@ -2,13 +2,17 @@ import { type MarketTick } from "./api";
 import { AiChartInsightIcon } from "./AiChartInsightIcon";
 import { ProductWordmark } from "./ProductWordmark";
 import { BrandLogo } from "./BrandLogo";
-import { formatInr } from "./fundsConfig";
+import { BONUS_COINS_USDT_HINT, formatCoins, formatInr } from "./fundsConfig";
+import { formatForexPair } from "./marketAssetIcon";
+import { lastTickMove } from "./tickDirection";
 
 function walletInr(n: number | null): string {
   return n == null ? "—" : formatInr(n);
 }
-import { formatForexPair } from "./marketAssetIcon";
-import { lastTickMove } from "./tickDirection";
+
+function walletBonus(n: number | null): string {
+  return n == null ? "—" : formatCoins(n);
+}
 
 function cx(...parts: (string | false | undefined)[]) {
   return parts.filter(Boolean).join(" ");
@@ -191,9 +195,12 @@ export function MobileHomePage(props: {
           <span className="mobile-dash-home__wallet-line-label">Demo (practice)</span>
           <strong className="mobile-dash-home__wallet-line-val">{walletInr(demoBal)}</strong>
         </div>
-        <div className="mobile-dash-home__wallet-line">
+        <div className="mobile-dash-home__wallet-line mobile-dash-home__wallet-line--bonus">
           <span className="mobile-dash-home__wallet-line-label">Bonus (challenge)</span>
-          <strong className="mobile-dash-home__wallet-line-val">{walletInr(bonusBal)}</strong>
+          <strong className="mobile-dash-home__wallet-line-val">
+            {walletBonus(bonusBal)}
+            <span className="mobile-dash-home__wallet-coin-hint"> · {BONUS_COINS_USDT_HINT}</span>
+          </strong>
         </div>
         <p className="mobile-dash-home__wallet-active-note">
           Active for trading:{" "}
@@ -311,7 +318,7 @@ function MobileChartAiHelpCard() {
           <span aria-hidden>📉</span> for the current chart period.
         </li>
         <li>
-          Cost: <strong>₹1</strong> per successful use (debited from your live wallet).
+          Cost: <strong>1</strong> per successful use (debited from your live wallet).
         </li>
         <li>Result appears as a small on-chart hint (pair · timeframe · arrow).</li>
       </ul>
@@ -431,7 +438,8 @@ export function MobileAssetsPage(props: {
             )}
           >
             <span className="mobile-dash-asset-tile__label">Bonus</span>
-            <strong className="mobile-dash-asset-tile__val">{fmtBal(bonusBal)}</strong>
+            <strong className="mobile-dash-asset-tile__val">{walletBonus(bonusBal)}</strong>
+            <span className="mobile-dash-asset-tile__hint">{BONUS_COINS_USDT_HINT}</span>
           </div>
           <div
             className={cx(

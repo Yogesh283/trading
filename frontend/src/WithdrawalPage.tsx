@@ -12,7 +12,7 @@ import "./funds.css";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
 import { useGlobalAlert } from "./GlobalAlertContext";
-import { formatCoins, formatInr, INR_PER_USDT, MIN_WITHDRAWAL_USDT, previewBonusCoinsFromUsdt, previewInrFromUsdt, BONUS_MIN_WITHDRAW_COINS, BONUS_MIN_WITHDRAW_USDT, BONUS_COINS_PER_USDT } from "./fundsConfig";
+import { formatCoins, formatInr, INR_PER_USDT, MIN_WITHDRAWAL_USDT, previewBonusCoinsFromUsdt, previewInrFromUsdt, BONUS_MIN_WITHDRAW_COINS, BONUS_MIN_WITHDRAW_USDT, BONUS_COINS_PER_USDT, BONUS_COINS_USDT_HINT } from "./fundsConfig";
 
 const MIN_LIVE_WITHDRAW_USDT = MIN_WITHDRAWAL_USDT;
 const MIN_LIVE_BALANCE_INR = MIN_LIVE_WITHDRAW_USDT * INR_PER_USDT;
@@ -166,7 +166,7 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
       showAlert(
         fromBonus
           ? `Not enough bonus balance. ${num} USDT needs ${formatCoins(holdNeeded)} (${BONUS_MIN_WITHDRAW_COINS} coins = ${BONUS_MIN_WITHDRAW_USDT} USDT); you have ${formatCoins(balance)}.`
-          : `Not enough balance. ${num} USDT needs ${formatInr(holdNeeded)} (1 USDT = ₹${INR_PER_USDT}); you have ${formatInr(balance)}.`,
+          : `Not enough balance. ${num} USDT needs ${formatInr(holdNeeded)} (1 USDT = ${INR_PER_USDT}); you have ${formatInr(balance)}.`,
         "error"
       );
       return;
@@ -219,7 +219,7 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
       } else {
         const debited = res.inrDebited ?? holdNeeded;
         showAlert(
-          `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your live wallet (1 USDT = ₹${res.inrPerUsdt ?? INR_PER_USDT}).`,
+          `Withdrawal submitted for ${num} USDT. ${formatInr(debited)} reserved from your live wallet (1 USDT = ${res.inrPerUsdt ?? INR_PER_USDT}).`,
           "info"
         );
       }
@@ -264,7 +264,7 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
           ) : (
             <>
               {" "}
-              Live wallet is debited in <strong>INR</strong> (₹{INR_PER_USDT} per 1 USDT). Minimum withdrawal:{" "}
+              Live wallet is debited in <strong>INR</strong> ({INR_PER_USDT} per 1 USDT). Minimum withdrawal:{" "}
               <strong>{MIN_LIVE_WITHDRAW_USDT} USDT</strong>.
             </>
           )}
@@ -291,7 +291,7 @@ export default function WithdrawalPage({ token, initialWallet, liveBal, bonusBal
             >
               <span className="wallet-tile-name">Bonus wallet</span>
               <span className="wallet-tile-desc">
-                {formatCoins(bonusBal)} · min {formatCoins(BONUS_MIN_WITHDRAW_COINS)}
+                {formatCoins(bonusBal)} · min {formatCoins(BONUS_MIN_WITHDRAW_COINS)} · {BONUS_COINS_USDT_HINT}
               </span>
             </button>
           </div>

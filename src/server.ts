@@ -707,7 +707,7 @@ app.post("/api/me/withdrawal-tpin/change", (req, res) => {
   })();
 });
 
-/** Logged-in: claim demo wallet funds once per IST day (default ₹10,000). Balance must be below ₹1; after ₹0, next IST day allows a fresh claim. */
+/** Logged-in: claim demo wallet funds once per IST day (default 10,000). Balance must be below 1; after 0, next IST day allows a fresh claim. */
 app.post("/api/me/demo/add-funds", (req, res) => {
   void (async () => {
     try {
@@ -743,7 +743,7 @@ app.post("/api/me/demo/add-funds", (req, res) => {
   })();
 });
 
-/** After demo hits the challenge target: move configured reward to bonus wallet and set demo to ₹0. */
+/** After demo hits the challenge target: move configured reward to bonus wallet and set demo to 0. */
 app.post("/api/me/demo-challenge/redeem", (_req, res) => {
   void (async () => {
     try {
@@ -774,7 +774,7 @@ app.post("/api/me/demo/claim-practice-reset", (req, res) => {
       const demo = await getDemoBalanceFromDb(user.id);
       if (demo > DEMO_PRACTICE_RETRY_BELOW_INR + 1e-9) {
         return res.status(400).json({
-          message: `Practice reset is only when demo balance is at or below ₹${DEMO_PRACTICE_RETRY_BELOW_INR}. Current: ₹${demo.toFixed(2)}`
+          message: `Practice reset is only when demo balance is at or below ${DEMO_PRACTICE_RETRY_BELOW_INR}. Current: ${demo.toFixed(2)}`
         });
       }
       evictInMemoryAccountsForUser(user.id);
@@ -876,7 +876,7 @@ app.post("/api/ai/explain-signal", (req, res) => {
         const msg = e instanceof Error ? e.message : "";
         if (msg.includes("Insufficient")) {
           return res.status(400).json({
-            message: `Insufficient live balance — need ₹${fee.toFixed(0)} for AI insight.`
+            message: `Insufficient live balance — need ${fee.toFixed(0)} for AI insight.`
           });
         }
         logger.warn({ err: e }, "explain-signal debit");
@@ -2537,7 +2537,7 @@ async function assertWithdrawalTurnover(userId: string): Promise<void> {
     turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
   ) {
     throw new Error(
-      `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
+      `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ${turnover.fundedInr.toFixed(2)}, completed trade turnover: ${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ${turnover.requiredTurnoverInr.toFixed(2)}.`
     );
   }
 }
@@ -2695,14 +2695,14 @@ async function handleCreateWithdrawal(
   const inrHold = inrDebitForUsdtWithdraw(amount);
   if (!Number.isFinite(amount) || amount < MIN_LIVE_WITHDRAWAL_USDT - 1e-12) {
     res.status(400).json({
-      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~₹${(MIN_LIVE_WITHDRAWAL_USDT * INR_PER_USDT).toLocaleString("en-IN")} at ₹${INR_PER_USDT}/USDT)`
+      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~${(MIN_LIVE_WITHDRAWAL_USDT * INR_PER_USDT).toLocaleString("en-IN")} at ${INR_PER_USDT}/USDT)`
     });
     return;
   }
   const minInrHold = inrDebitForUsdtWithdraw(MIN_LIVE_WITHDRAWAL_USDT);
   if (inrHold + 1e-9 < minInrHold) {
     res.status(400).json({
-      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~₹${minInrHold.toLocaleString("en-IN")} at ₹${INR_PER_USDT}/USDT)`
+      message: `Minimum withdrawal is ${MIN_LIVE_WITHDRAWAL_USDT} USDT (~${minInrHold.toLocaleString("en-IN")} at ${INR_PER_USDT}/USDT)`
     });
     return;
   }
@@ -2716,13 +2716,13 @@ async function handleCreateWithdrawal(
     turnover.completedTradeTurnoverInr + 1e-9 < turnover.requiredTurnoverInr
   ) {
     res.status(400).json({
-      message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ₹${turnover.fundedInr.toFixed(2)}, completed trade turnover: ₹${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ₹${turnover.requiredTurnoverInr.toFixed(2)}.`
+      message: `Withdrawal locked until ${WITHDRAWAL_TURNOVER_MULTIPLIER}x turnover is completed. Funded: ${turnover.fundedInr.toFixed(2)}, completed trade turnover: ${turnover.completedTradeTurnoverInr.toFixed(2)}, required: ${turnover.requiredTurnoverInr.toFixed(2)}.`
     });
     return;
   }
   if (breakdown.withdrawable_inr + 1e-9 < inrHold) {
     res.status(400).json({
-      message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ₹${breakdown.withdrawable_inr.toFixed(2)}; need ₹${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ₹${breakdown.locked_bonus_inr.toFixed(2)}.`
+      message: `Only profit is withdrawable (challenge bonus is locked). Withdrawable: ${breakdown.withdrawable_inr.toFixed(2)}; need ${inrHold.toFixed(2)} for ${amount} USDT. Locked bonus: ${breakdown.locked_bonus_inr.toFixed(2)}.`
     });
     return;
   }
@@ -2730,7 +2730,7 @@ async function handleCreateWithdrawal(
     await applyLedger(user.id, -inrHold, "withdrawal_pending", null);
   } catch {
     res.status(400).json({
-      message: `Insufficient balance — need ₹${inrHold.toFixed(2)} (${amount} USDT × ₹${INR_PER_USDT})`
+      message: `Insufficient balance — need ${inrHold.toFixed(2)} (${amount} USDT × ${INR_PER_USDT})`
     });
     return;
   }

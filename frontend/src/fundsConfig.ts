@@ -12,8 +12,7 @@ export const DEFAULT_DEMO_BALANCE_INR =
 
 export function formatInr(n: number): string {
   return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2
   }).format(n);
 }
@@ -24,8 +23,9 @@ export function previewInrFromUsdt(usdt: number, inrPerUsdt = INR_PER_USDT): num
 }
 
 /** Match server `src/config/bonusWithdrawal.ts` — bonus wallet payout rate. */
-export const BONUS_COINS_PER_USDT = 200;
-export const BONUS_MIN_WITHDRAW_USDT = MIN_WITHDRAWAL_USDT;
+export const BONUS_COINS_PER_USDT = 2000;
+export const BONUS_COINS_USDT_HINT = `${BONUS_COINS_PER_USDT} coins = 1 USDT`;
+export const BONUS_MIN_WITHDRAW_USDT = 5;
 export const BONUS_MIN_WITHDRAW_COINS = BONUS_MIN_WITHDRAW_USDT * BONUS_COINS_PER_USDT;
 
 export function formatCoins(n: number): string {

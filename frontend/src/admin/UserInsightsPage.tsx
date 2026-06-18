@@ -16,7 +16,7 @@ import { getAdminApiUrl } from "../backendOrigin";
 import { ADMIN_TOKEN_LS_KEY } from "./authStorage";
 
 function formatInr(n: number) {
-  return `₹${Number(n).toFixed(2)}`;
+  return new Intl.NumberFormat("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(n));
 }
 
 type SearchMatch = { id: string; name: string; email: string; user_mobile: string };

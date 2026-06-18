@@ -141,13 +141,13 @@ export default function AboutPage(props: Props) {
               live. No real money is at risk on demo; outcomes do not guarantee live results.
             </li>
             <li>
-              <strong>Challenge target (often ₹1,00,000)</strong> — grow your <strong>demo balance</strong> to the target
+              <strong>Challenge target (often 1,00,000)</strong> — grow your <strong>demo balance</strong> to the target
               (for example one lakh INR) through trading. Hitting the target is <strong>not guaranteed</strong> and depends
               on skill and market conditions.
             </li>
             <li>
-              <strong>Live reward (often ₹100+)</strong> — when the target is reached, a <strong>small reward</strong> may
-              be credited to your <strong>main / live wallet</strong> (for example ₹100 INR), subject to system rules. You
+              <strong>Live reward (often 100+)</strong> — when the target is reached, a <strong>small reward</strong> may
+              be credited to your <strong>main / live wallet</strong> (for example 100 INR), subject to system rules. You
               can then use that live balance for real-money trading on the platform.
             </li>
             <li>
@@ -245,7 +245,7 @@ export default function AboutPage(props: Props) {
             </li>
             <li>
               <strong>Pay per use</strong> — each successful insight request debits a small fixed amount (typically{" "}
-              <strong>₹1 INR</strong>) from your <strong>live wallet</strong>. If your live balance is below that amount,
+              <strong>1 INR</strong>) from your <strong>live wallet</strong>. If your live balance is below that amount,
               the feature cannot run.
             </li>
             <li>

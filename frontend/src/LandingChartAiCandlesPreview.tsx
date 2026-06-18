@@ -97,7 +97,7 @@ export function LandingChartAiCandlesPreview() {
         <p className="landing-chart-ai-lead">
           After you sign in, open <strong>Trading</strong> for full OHLC charts. The server stores closed candles in{" "}
           <code className="landing-chart-ai-code">chart_candles</code> — merged with live prices.{" "}
-          <strong>Chart AI</strong> gives a directional hint on your timeframe (live wallet, ₹1 per use — educational
+          <strong>Chart AI</strong> gives a directional hint on your timeframe (live wallet, 1 per use — educational
           only).
         </p>
         <div className="landing-chart-ai-preview" aria-live="polite">

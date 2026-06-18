@@ -291,7 +291,7 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Total live wallet (INR)"
-              value={`₹${stats.totalLiveWalletInr.toFixed(2)}`}
+              value={stats.totalLiveWalletInr.toFixed(2)}
               subtitle="Sum of all users’ live balances"
               onNavigate={() => goList("wallets")}
             />
@@ -299,7 +299,7 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Total demo wallet (INR)"
-              value={`₹${stats.totalDemoWalletInr.toFixed(2)}`}
+              value={stats.totalDemoWalletInr.toFixed(2)}
               subtitle="Sum of demo balances"
               onNavigate={() => goList("wallets")}
             />
@@ -307,7 +307,7 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Total bonus wallet (INR)"
-              value={`₹${(stats.totalBonusWalletInr ?? 0).toFixed(2)}`}
+              value={(stats.totalBonusWalletInr ?? 0).toFixed(2)}
               subtitle="Sum of bonus wallet balances"
               onNavigate={() => goList("wallets")}
             />
@@ -414,21 +414,21 @@ export function AdminDashboard() {
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Today binary gross (INR)"
-              value={`₹${(stats.todayCompanyBinaryGrossInr ?? 0).toFixed(2)}`}
+              value={(stats.todayCompanyBinaryGrossInr ?? 0).toFixed(2)}
               subtitle="Stake kept − win payouts, settled today"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Today referral paid (INR)"
-              value={`₹${(stats.todayCompanyReferralCostInr ?? 0).toFixed(2)}`}
+              value={(stats.todayCompanyReferralCostInr ?? 0).toFixed(2)}
               subtitle="level_income + level_income_staking"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <StatCard
               title="Today net (estimate)"
-              value={`₹${(stats.todayCompanyNetProfitInr ?? 0).toFixed(2)}`}
+              value={(stats.todayCompanyNetProfitInr ?? 0).toFixed(2)}
               subtitle="Binary gross − referral"
             />
           </Grid>

@@ -651,6 +651,16 @@ select {
   white-space: nowrap;
 }
 
+.app-nav-balance-col-hint {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgba(148, 163, 184, 0.92);
+  white-space: normal;
+}
+
 .app-nav-text-btn {
   padding: 10px 15px;
   border-radius: 12px;

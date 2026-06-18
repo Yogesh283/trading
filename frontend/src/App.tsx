@@ -90,7 +90,7 @@ import { iso2ForPhoneCountryCode } from "./phoneCountryCodes";
 import { BrandLogo } from "./BrandLogo";
 import GlobalRefreshButton from "./GlobalRefreshButton";
 import { useGlobalAlert } from "./GlobalAlertContext";
-import { DEFAULT_DEMO_BALANCE_INR, formatInr } from "./fundsConfig";
+import { DEFAULT_DEMO_BALANCE_INR, BONUS_COINS_USDT_HINT, formatCoins, formatInr } from "./fundsConfig";
 import {
   DockIconHome,
   DockIconMarkets,
@@ -286,7 +286,7 @@ function formatBinarySettledAmountDisplay(trade: Trade, fmt: (n: number) => stri
   return fmt(p);
 }
 
-/** Live ledger: binary win line is already full payout; loss line is ₹ 0 (stake debited at open). */
+/** Live ledger: binary win line is already full payout; loss line is  0 (stake debited at open). */
 function walletLedgerAmountPrimary(tx: WalletLedgerRow): string {
   if (tx.txn_type === "binary_settle_loss") {
     return "—";
@@ -330,7 +330,7 @@ function formatTradeCloseCell(trade: Trade): string {
   return "—";
 }
 
-/** Add demo funds when balance below ₹1 — use to ₹0, then claim fresh funds next IST day (1/day + 1 per direct join today). */
+/** Add demo funds when balance below 1 — use to 0, then claim fresh funds next IST day (1/day + 1 per direct join today). */
 const DEMO_TOPUP_DISABLE_MIN_INR = 1;
 const DEMO_TOPUP_EPS = 1e-9;
 
@@ -348,7 +348,7 @@ function demoTopUpDisabledTitle(
     return "You already added demo funds today. You can add demo funds again tomorrow (IST).";
   }
   if (shouldBlockDemoTopUp(demoBalance)) {
-    return "Use demo balance to ₹0 first. Next IST day you can claim fresh demo funds when balance is below ₹1.";
+    return "Use demo balance to 0 first. Next IST day you can claim fresh demo funds when balance is below 1.";
   }
   if (canClaim === false) {
     return "Demo funds unavailable right now.";
@@ -822,7 +822,7 @@ export default function App() {
     }
   }, [session, userAccountWallet]);
 
-  /** Prefer `dualBalances.demo`; if still null while on demo, use `account.balance` so ₹0 shows as enabled. */
+  /** Prefer `dualBalances.demo`; if still null while on demo, use `account.balance` so 0 shows as enabled. */
   const demoBalanceForTopUp = useMemo(() => {
     if (dualBalances.demo != null) return dualBalances.demo;
     if (accountWallet === "demo" && account != null) return account.balance;
@@ -1139,7 +1139,7 @@ export default function App() {
     try {
       await redeemDemoChallenge(session.token);
       setDemoChallengePending(false);
-      showAlert("Reward moved to your Bonus wallet. Demo is ₹0 — add demo funds when claims are available.", "info");
+      showAlert("Reward moved to your Bonus wallet. Demo is 0 — add demo funds when claims are available.", "info");
       await refreshRef.current();
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Redeem failed", "error");
@@ -1160,7 +1160,7 @@ export default function App() {
         );
       } else if (shouldBlockDemoTopUp(demoBalanceForTopUp)) {
         showAlert(
-          "Use demo balance to ₹0 first. When balance is below ₹1, you can claim demo funds (next IST day if today's claim is already used).",
+          "Use demo balance to 0 first. When balance is below 1, you can claim demo funds (next IST day if today's claim is already used).",
           "error"
         );
       } else {
@@ -1411,7 +1411,7 @@ export default function App() {
     };
   }, [chartAiHint]);
 
-  /** ₹1 default — server uses AI_CHART_INSIGHT_FEE_INR; keep UX hint in sync */
+  /** 1 default — server uses AI_CHART_INSIGHT_FEE_INR; keep UX hint in sync */
   const AI_CHART_INSIGHT_MIN_INR = 1;
 
   /** Highlight AI chart button while request runs or bias overlay is visible (live only) */
@@ -1442,12 +1442,12 @@ export default function App() {
         return;
       }
       if (accountWallet !== "live") {
-        showAlert("AI insight uses your live wallet (₹1 per use). Switch to Live in the header.", "info");
+        showAlert("AI insight uses your live wallet (1 per use). Switch to Live in the header.", "info");
         return;
       }
       if (dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR) {
         showAlert(
-          `Add at least ₹${AI_CHART_INSIGHT_MIN_INR} to your live wallet to use AI insight.`,
+          `Add at least ${AI_CHART_INSIGHT_MIN_INR} to your live wallet to use AI insight.`,
           "error"
         );
         return;
@@ -1617,8 +1617,8 @@ export default function App() {
         if (demoFundsCanClaim !== true) {
           showAlert(
             demoFundsClaimsRemaining === 0
-              ? "Demo balance is ₹0 and today's claim is used. Claim fresh demo funds tomorrow (IST)."
-              : "Demo balance is ₹0 — tap Add demo funds to claim today's demo balance.",
+              ? "Demo balance is 0 and today's claim is used. Claim fresh demo funds tomorrow (IST)."
+              : "Demo balance is 0 — tap Add demo funds to claim today's demo balance.",
             "error"
           );
           return;
@@ -2202,7 +2202,10 @@ export default function App() {
                 }}
               >
                 <span className="app-nav-balance-col-label">Bonus</span>
-                <span className="app-nav-balance-col-amt">{fmtHeaderWallet(dualBalances.bonus)}</span>
+                <span className="app-nav-balance-col-amt">
+                  {dualBalances.bonus == null ? "—" : formatCoins(dualBalances.bonus)}
+                </span>
+                <span className="app-nav-balance-col-hint">{BONUS_COINS_USDT_HINT}</span>
               </button>
               <button
                 type="button"
@@ -2241,9 +2244,7 @@ export default function App() {
                 {" · "}Bonus / Live in header
               </>
             ) : accountWallet === "bonus" ? (
-              <>
-                Bonus — challenge rewards; wins go to Live · switch to Demo or Live in header
-              </>
+              <>Bonus — challenge rewards; wins go to Live · {BONUS_COINS_USDT_HINT} · switch wallet in header</>
             ) : (
               formatAuthUserContact(session.user)
             )}
@@ -2588,7 +2589,10 @@ export default function App() {
                     }}
                   >
                     <span>Bonus</span>
-                    <span className="mobile-tpn-dd-amt">{fmtHeaderWallet(dualBalances.bonus)}</span>
+                    <span className="mobile-tpn-dd-amt">
+                      {dualBalances.bonus == null ? "—" : formatCoins(dualBalances.bonus)}
+                      <span className="mobile-tpn-dd-coin-hint"> · {BONUS_COINS_USDT_HINT}</span>
+                    </span>
                   </button>
                 <button
                   type="button"
@@ -2882,10 +2886,10 @@ export default function App() {
                 disabled={aiInsightDisabled}
                 title={
                   accountWallet !== "live"
-                    ? "AI insight — live account only (₹1 per use from live wallet)"
+                    ? "AI insight — live account only (1 per use from live wallet)"
                     : dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR
-                      ? `Need at least ₹${AI_CHART_INSIGHT_MIN_INR} in live wallet`
-                      : "AI bias for one chart period — ₹1 per use — educational only"
+                      ? `Need at least ${AI_CHART_INSIGHT_MIN_INR} in live wallet`
+                      : "AI bias for one chart period — 1 per use — educational only"
                 }
                 onClick={() => void handleAiInsight()}
               >
@@ -3352,10 +3356,10 @@ export default function App() {
                 disabled={aiInsightDisabled}
                 title={
                   accountWallet !== "live"
-                    ? "AI insight — live account only (₹1 per use from live wallet)"
+                    ? "AI insight — live account only (1 per use from live wallet)"
                     : dualBalances.live != null && dualBalances.live < AI_CHART_INSIGHT_MIN_INR
-                      ? `Need at least ₹${AI_CHART_INSIGHT_MIN_INR} in live wallet`
-                      : "AI bias for one chart period — ₹1 per use — educational only"
+                      ? `Need at least ${AI_CHART_INSIGHT_MIN_INR} in live wallet`
+                      : "AI bias for one chart period — 1 per use — educational only"
                 }
                 onClick={() => void handleAiInsight()}
               >
@@ -3557,7 +3561,7 @@ export default function App() {
                       ? `${trade.direction === "up" ? "↑ Up" : "↓ Down"}${trade.timeframeSeconds ? ` · ${trade.timeframeSeconds}s` : ""}`
                       : `${formatTradeDirectionLabel(trade.direction, trade.side)}${trade.timeframeSeconds ? ` ${trade.timeframeSeconds}s` : ""}`}
                   </span>
-                  <span title="Trading amount (₹) at order time">
+                  <span title="Trading amount at order time">
                     {fmtWallet(trade.quantity)}
                   </span>
                   <span title="Execution / entry price when order was placed">
@@ -3633,7 +3637,7 @@ export default function App() {
               </select>
             </label>
             <label className="desktop-demo-block">
-              <span className="desktop-demo-label">Amount (₹)</span>
+              <span className="desktop-demo-label">Amount</span>
               <div className="desktop-demo-amt-wrap">
               <input
                 type="number"
@@ -4056,8 +4060,8 @@ export default function App() {
                 Demo target reached
               </h2>
               <p className="order-placed-summary">
-                The challenge bonus (e.g. ₹100) goes only to your <strong>Bonus</strong> wallet — and only while demo is
-                still at least <strong>₹1,00,000</strong> when you tap Redeem. After redeem, demo becomes ₹0 until{" "}
+                The challenge bonus (e.g. 100) goes only to your <strong>Bonus</strong> wallet — and only while demo is
+                still at least <strong>1,00,000</strong> when you tap Redeem. After redeem, demo becomes 0 until{" "}
                 <strong>Add demo funds</strong>. Bonus trades credit wins to <strong>Live</strong>.
               </p>
               <div className="order-placed-actions-row" style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
@@ -4146,7 +4150,7 @@ export default function App() {
               <li>
                 Predicts: UP <span aria-hidden>📈</span> or DOWN <span aria-hidden>📉</span>
               </li>
-              <li>Cost: ₹1 per use</li>
+              <li>Cost: 1 per use</li>
             </ul>
             <div className="chart-ai-intro-disclaimer" role="note">
               <p className="chart-ai-intro-disclaimer-warn">

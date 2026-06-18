@@ -26,7 +26,7 @@ export interface AccountSnapshot {
   demo_challenge_pending?: boolean;
   /** Logged-in: no demo fund claims left today (IST). */
   demo_funds_claimed_today?: boolean;
-  /** Logged-in: may claim daily demo funds when balance below ₹1 and claims remain. */
+  /** Logged-in: may claim daily demo funds when balance below 1 and claims remain. */
   demo_funds_can_claim?: boolean;
   /** Logged-in: daily demo fund amount in INR. */
   demo_funds_daily_inr?: number;

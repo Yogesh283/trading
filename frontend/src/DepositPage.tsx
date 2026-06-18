@@ -268,7 +268,7 @@ export default function DepositPage({ token, onSuccess }: Props) {
         </div>
         <p className="funds-network">
           <span className="funds-badge">USDT BEP20</span> Pay on BNB Smart Chain · live wallet credits in{" "}
-          <strong>INR</strong> (1 USDT = ₹{inrPerUsdt})
+          <strong>INR</strong> (1 USDT = {inrPerUsdt})
           {gateway?.sandbox ? (
             <>
               {" "}
