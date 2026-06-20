@@ -2303,15 +2303,15 @@ select {
 .tv-spot-tick.up {
   color: var(--candle-bull);
   transform: translateY(-0.05em) scale(1.06);
-  transition: color 0.95s ease, transform 1.05s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: color 1.35s ease, transform 1.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tv-spot-tick.down {
   color: var(--candle-bear);
   transform: translateY(0.08em) scale(1.05);
   transition:
-    color 2.15s cubic-bezier(0.25, 0.46, 0.45, 1),
-    transform 2.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+    color 2.65s cubic-bezier(0.25, 0.46, 0.45, 1),
+    transform 2.85s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .chart-spot-price.up {
@@ -2694,6 +2694,17 @@ select {
 .tv-chart-candle-timer--down .tv-chart-candle-timer-val {
   color: #ff5c6c;
   transition: color 2s cubic-bezier(0.25, 0.46, 0.45, 1), letter-spacing 1.8s ease;
+}
+
+.tv-chart-candle-timer--paused {
+  opacity: 0.72;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.tv-chart-candle-timer--paused .tv-chart-candle-timer-val {
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
 }
 
 .tv-chart-meta-sep {

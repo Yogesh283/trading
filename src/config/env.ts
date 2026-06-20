@@ -92,10 +92,16 @@ const envSchema = z.object({
    */
   TRADERMADE_LIVE_POLL_MS: z.coerce.number().int().positive().default(5000),
   /**
-   * Extra synthetic ticks between live polls (ms). Lower = denser 5s/10s OHLC. Default 250 (aligns with sim feed).
+   * Extra synthetic ticks between live polls (ms). 1000 = chart candle updates every second.
    * Ignored without TRADERMADE_KEY.
    */
-  TRADERMADE_STREAM_PULSE_MS: z.coerce.number().int().positive().default(250),
+  TRADERMADE_STREAM_PULSE_MS: z.coerce.number().int().positive().default(1000),
+  /** Sim + Yahoo stream pulse (ms). Default 1000 — one live_price tick/sec for forming candles. */
+  FOREX_STREAM_PULSE_MS: z.coerce.number().int().positive().default(1000),
+  /** Yahoo/Frankfurter poll when TRADERMADE_KEY is unset (ms). Lower = closer to world market. Default 10s. */
+  FOREX_RETAIL_POLL_MS: z.coerce.number().int().positive().default(10_000),
+  /** Between-poll synthetic wiggle (0 = real market only; live feed re-broadcasts last quote). Default 0. */
+  FOREX_PULSE_VOLATILITY: z.coerce.number().min(0).max(1).default(0),
   /** Set to 1 to force the old random-walk demo feed (no external APIs). */
   FOREX_SIMULATED_ONLY: z
     .string()

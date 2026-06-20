@@ -58,7 +58,8 @@ import {
   Trade,
   type WalletLedgerRow
 } from "./api";
-import { isXauIstWeeklyLockWindow, isXauUsdSymbol, shouldShowXauMarketLock } from "./xauChartLock";
+import { isOtcWeekendLockWindow } from "./xauChartLock";
+import { binaryCountdownSec, isChartMarketOff } from "./xauMarketPause";
 import { getBackendWsUrl } from "./backendOrigin";
 import { clearCachesAfterRegistration } from "./clearRegistrationCache";
 import { shouldOpenDepositScreenFromUrl } from "./depositStorage";
@@ -108,6 +109,10 @@ import {
   DrawerIconWalletActivity,
   DrawerIconWithdraw
 } from "./MobileDockIcons";
+
+const APP_UPDATE_NOTIFY_VER_KEY = "iqfxpro.app_update_notified_ver";
+const APP_UPDATE_NOTIFY_AT_KEY = "iqfxpro.app_update_notified_at";
+const APP_UPDATE_NOTIFY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 /** Logged-in session only — guest / no-login demo trading is disabled (server + UI). */
 type SessionState = {
@@ -255,10 +260,17 @@ function formatTradeDirectionShort(direction?: string | null, side?: string | nu
   return full.slice(0, 1).toUpperCase();
 }
 
-/** MM:SS until expiry (uses live Date.now — parent should re-render every second). */
-function countdownToExpiry(expiryAt: number | undefined): string {
+/** MM:SS until expiry — pauses while OTC market is off (weekend / stale XAU feed). */
+function countdownToExpiry(
+  expiryAt: number | undefined,
+  symbol?: string,
+  lastActivityMs = 0
+): string {
   if (expiryAt == null) return "—";
-  const s = Math.max(0, Math.ceil((expiryAt - Date.now()) / 1000));
+  const s =
+    symbol != null
+      ? binaryCountdownSec(expiryAt, symbol, Date.now(), lastActivityMs)
+      : Math.max(0, Math.ceil((expiryAt - Date.now()) / 1000));
   const m = Math.floor(s / 60);
   const sec = s % 60;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
@@ -426,8 +438,9 @@ export default function App() {
   const [assetPickerOpen, setAssetPickerOpen] = useState(false);
   const [mainNavOpen, setMainNavOpen] = useState(false);
   const [isPhone, setIsPhone] = useState(false);
-  /** XAU/USD: match chart — no new trades Sat–Sun IST. */
-  const xauWeekendOrdersBlocked = isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow();
+  const appUpdateNotifySessionRef = useRef<Set<number>>(new Set());
+  /** All OTC pairs: no new trades Sat–Sun IST. */
+  const otcWeekendOrdersBlocked = isOtcWeekendLockWindow();
   const [mobileSide, setMobileSide] = useState<"buy" | "sell">("buy");
   const [mobileMultiplier] = useState(1); /* multiplier UI hidden — stake = amount */
   /** Highlight 1x…9x after tap; cleared when balance chip, ±, or quantity field changes. */
@@ -1365,6 +1378,22 @@ export default function App() {
   const chartSeries = history[symbol] ?? [];
   const spotTickMove = lastTickMove(chartSeries);
   const selectedTick = markets.find((tick) => tick.symbol === symbol) ?? null;
+  const lastActivityBySymbol = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const tick of markets) {
+      map.set(tick.symbol, tick.timestamp);
+    }
+    return map;
+  }, [markets]);
+  const fmtTradeCountdown = useCallback(
+    (expiryAt?: number, tradeSymbol?: string) =>
+      countdownToExpiry(
+        expiryAt,
+        tradeSymbol,
+        tradeSymbol ? (lastActivityBySymbol.get(tradeSymbol) ?? 0) : 0
+      ),
+    [lastActivityBySymbol]
+  );
   const symbolTrades = trades.filter((trade) => trade.symbol === symbol);
   const openBinaryTrades = trades.filter(
     (t) => t.status === "open" && typeof t.expiryAt === "number"
@@ -1640,8 +1669,8 @@ export default function App() {
         }
       }
     }
-    if (xauWeekendOrdersBlocked) {
-      showAlert("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.", "error");
+    if (otcWeekendOrdersBlocked) {
+      showAlert("OTC markets are closed Saturday–Sunday (IST). You cannot place orders.", "error");
       return;
     }
     try {
@@ -1685,8 +1714,8 @@ export default function App() {
       showAlert("Enter a valid amount.", "error");
       return;
     }
-    if (xauWeekendOrdersBlocked) {
-      showAlert("XAU/USD is closed Saturday–Sunday (IST). You cannot place orders.", "error");
+    if (otcWeekendOrdersBlocked) {
+      showAlert("OTC markets are closed Saturday–Sunday (IST). You cannot place orders.", "error");
       return;
     }
     try {
@@ -1899,6 +1928,75 @@ export default function App() {
     }
     return "Download APK";
   })();
+
+  useEffect(() => {
+    if (!session || !isCapNativeClient || !showApkUpdateBadge || !androidAppInfo?.apkReady) {
+      return;
+    }
+    const versionCode = Number(androidAppInfo.versionCode);
+    if (!Number.isFinite(versionCode) || versionCode <= 0) {
+      return;
+    }
+    if (appUpdateNotifySessionRef.current.has(versionCode)) {
+      return;
+    }
+    try {
+      const lastVer = Number(window.localStorage.getItem(APP_UPDATE_NOTIFY_VER_KEY) ?? "0");
+      const lastAt = Number(window.localStorage.getItem(APP_UPDATE_NOTIFY_AT_KEY) ?? "0");
+      if (
+        Number.isFinite(lastVer) &&
+        lastVer === versionCode &&
+        Number.isFinite(lastAt) &&
+        Date.now() - lastAt < APP_UPDATE_NOTIFY_COOLDOWN_MS
+      ) {
+        appUpdateNotifySessionRef.current.add(versionCode);
+        return;
+      }
+    } catch {
+      /* ignore storage read issues */
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { LocalNotifications } = await import("@capacitor/local-notifications");
+        const perm = await LocalNotifications.checkPermissions();
+        let granted = perm.display === "granted";
+        if (!granted && perm.display === "prompt") {
+          const req = await LocalNotifications.requestPermissions();
+          granted = req.display === "granted";
+        }
+        if (!granted || cancelled) {
+          return;
+        }
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: 41000 + (versionCode % 1000),
+              title: "App update available",
+              body: `New version v${androidAppInfo.versionName} is ready. Please update from Play Store.`,
+              schedule: { at: new Date(Date.now() + 1500) }
+            }
+          ]
+        });
+        if (cancelled) {
+          return;
+        }
+        appUpdateNotifySessionRef.current.add(versionCode);
+        try {
+          window.localStorage.setItem(APP_UPDATE_NOTIFY_VER_KEY, String(versionCode));
+          window.localStorage.setItem(APP_UPDATE_NOTIFY_AT_KEY, String(Date.now()));
+        } catch {
+          /* ignore storage write issues */
+        }
+      } catch {
+        /* plugin unavailable on web / unsupported platform */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session, isCapNativeClient, showApkUpdateBadge, androidAppInfo]);
 
   if (!splashReady || booting) {
     return <SplashScreen />;
@@ -2936,10 +3034,10 @@ export default function App() {
                 className={`mobile-trade-dir mobile-trade-dir--up mobile-trade-dir--outline-up${
                   binaryCreatedFlash === "up" ? " binary-created-flash" : ""
                 }`}
-                disabled={xauWeekendOrdersBlocked}
+                disabled={otcWeekendOrdersBlocked}
                 title={
-                  xauWeekendOrdersBlocked
-                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                  otcWeekendOrdersBlocked
+                    ? "OTC markets closed Sat–Sun (IST) — no new orders"
                     : undefined
                 }
                 onClick={() => placeMobileBinary("up")}
@@ -2956,10 +3054,10 @@ export default function App() {
                 className={`mobile-trade-dir mobile-trade-dir--down mobile-trade-dir--outline-down${
                   binaryCreatedFlash === "down" ? " binary-created-flash" : ""
                 }`}
-                disabled={xauWeekendOrdersBlocked}
+                disabled={otcWeekendOrdersBlocked}
                 title={
-                  xauWeekendOrdersBlocked
-                    ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                  otcWeekendOrdersBlocked
+                    ? "OTC markets closed Sat–Sun (IST) — no new orders"
                     : undefined
                 }
                 onClick={() => placeMobileBinary("down")}
@@ -3111,7 +3209,7 @@ export default function App() {
                         {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
                         {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
-                      <span className="countdown-badge">{countdownToExpiry(t.expiryAt)}</span>
+                      <span className="countdown-badge">{fmtTradeCountdown(t.expiryAt, t.symbol)}</span>
                     </div>
                   ))}
                 </div>
@@ -3436,10 +3534,10 @@ export default function App() {
                 <button
                   type="button"
                   className={`btn-buy-up${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
-                  disabled={xauWeekendOrdersBlocked}
+                  disabled={otcWeekendOrdersBlocked}
                   title={
-                    xauWeekendOrdersBlocked
-                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    otcWeekendOrdersBlocked
+                      ? "OTC markets closed Sat–Sun (IST) — no new orders"
                       : undefined
                   }
                   onClick={() => void handleBinaryOrder("up")}
@@ -3449,10 +3547,10 @@ export default function App() {
                 <button
                   type="button"
                   className={`btn-buy-down${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
-                  disabled={xauWeekendOrdersBlocked}
+                  disabled={otcWeekendOrdersBlocked}
                   title={
-                    xauWeekendOrdersBlocked
-                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    otcWeekendOrdersBlocked
+                      ? "OTC markets closed Sat–Sun (IST) — no new orders"
                       : undefined
                   }
                   onClick={() => void handleBinaryOrder("down")}
@@ -3473,7 +3571,7 @@ export default function App() {
                         {formatInr(t.quantity)} · open {formatFxPrice(t.symbol, t.entryPrice)}
                       </span>
                       <span className="countdown-badge" aria-live="polite">
-                        {countdownToExpiry(t.expiryAt)}
+                        {fmtTradeCountdown(t.expiryAt, t.symbol)}
                       </span>
                     </li>
                   ))}
@@ -3580,7 +3678,7 @@ export default function App() {
                   <span>{trade.status}</span>
                   <span className="table-cut-in">
                     {trade.status === "open" && trade.expiryAt != null
-                      ? countdownToExpiry(trade.expiryAt)
+                      ? fmtTradeCountdown(trade.expiryAt, trade.symbol)
                       : "—"}
                   </span>
                   <span
@@ -3674,10 +3772,10 @@ export default function App() {
                 <button
                   type="button"
                   className={`desktop-demo-bs-btn buy ${mobileSide === "buy" ? "on" : ""}${binaryCreatedFlash === "up" ? " binary-created-flash" : ""}`}
-                  disabled={xauWeekendOrdersBlocked}
+                  disabled={otcWeekendOrdersBlocked}
                   title={
-                    xauWeekendOrdersBlocked
-                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    otcWeekendOrdersBlocked
+                      ? "OTC markets closed Sat–Sun (IST) — no new orders"
                       : undefined
                   }
                   onClick={() => setMobileSide("buy")}
@@ -3687,10 +3785,10 @@ export default function App() {
                 <button
                   type="button"
                   className={`desktop-demo-bs-btn sell ${mobileSide === "sell" ? "on" : ""}${binaryCreatedFlash === "down" ? " binary-created-flash" : ""}`}
-                  disabled={xauWeekendOrdersBlocked}
+                  disabled={otcWeekendOrdersBlocked}
                   title={
-                    xauWeekendOrdersBlocked
-                      ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                    otcWeekendOrdersBlocked
+                      ? "OTC markets closed Sat–Sun (IST) — no new orders"
                       : undefined
                   }
                   onClick={() => setMobileSide("sell")}
@@ -3706,10 +3804,10 @@ export default function App() {
                   ? " desktop-demo-cta--created binary-created-flash"
                   : ""
               }`}
-              disabled={xauWeekendOrdersBlocked}
+              disabled={otcWeekendOrdersBlocked}
               title={
-                xauWeekendOrdersBlocked
-                  ? "XAU/USD is closed Sat–Sun (IST) — no new orders"
+                otcWeekendOrdersBlocked
+                  ? "OTC markets closed Sat–Sun (IST) — no new orders"
                   : undefined
               }
               onClick={() => {
@@ -3754,7 +3852,7 @@ export default function App() {
                   <AssetPairFlags symbol={t.symbol} className="demo-open-pill-flags" />
                   {formatForexPair(t.symbol)} {t.direction === "up" ? "↑" : "↓"} ·{" "}
                   {fmtWallet(t.quantity)} @ {formatFxPrice(t.symbol, t.entryPrice)} · cut in{" "}
-                  <strong>{countdownToExpiry(t.expiryAt)}</strong>
+                  <strong>{fmtTradeCountdown(t.expiryAt, t.symbol)}</strong>
                 </span>
               ))}
             </div>
@@ -4904,9 +5002,19 @@ function LiveChart({
     return out;
   }, [trades, symbol]);
 
-  /** ~4 Hz: wall-clock buckets / countdown stay aligned with the feed; 1 Hz felt laggy on forming candles. */
+  /** ~1 Hz: forming candle + countdown — paused while XAU market is off. */
+  const wallNowForEffect = Date.now();
+  const lastTickMsForEffect = points.length > 0 ? points[points.length - 1]!.timestamp : 0;
+  const lastCandleDbTsForEffect =
+    closedCandlesFromDb.length > 0
+      ? closedCandlesFromDb[closedCandlesFromDb.length - 1]!.timestamp
+      : 0;
+  const lastActivityForEffect = Math.max(lastTickMsForEffect, lastCandleDbTsForEffect);
+  const chartMarketOff = isChartMarketOff(symbol, lastActivityForEffect, wallNowForEffect);
+
   useEffect(() => {
-    const id = window.setInterval(() => setTick((n) => n + 1), 250);
+    const ms = chartMarketOff ? 60_000 : 1000;
+    const id = window.setInterval(() => setTick((n) => n + 1), ms);
     const syncNow = () => {
       if (document.visibilityState === "visible") {
         setTick((n) => n + 1);
@@ -4921,7 +5029,7 @@ function LiveChart({
       window.removeEventListener("pageshow", syncNow);
       window.removeEventListener("focus", syncNow);
     };
-  }, []);
+  }, [chartMarketOff]);
 
   useEffect(() => {
     setZoomIndex(defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -4985,21 +5093,18 @@ function LiveChart({
     prevChartSymbolRef.current = symbol;
     xauFreezeWallMsRef.current = null;
   }
-  const xauLocked =
-    isXauUsdSymbol(symbol) &&
-    lastActivityForLock > 0 &&
-    shouldShowXauMarketLock(symbol, lastActivityForLock, wallNow);
-  if (xauLocked) {
+  const marketLocked = isChartMarketOff(symbol, lastActivityForLock, wallNow);
+  if (marketLocked) {
     if (xauFreezeWallMsRef.current === null) {
-      xauFreezeWallMsRef.current = lastActivityForLock;
+      xauFreezeWallMsRef.current = lastActivityForLock > 0 ? lastActivityForLock : wallNow;
     }
   } else {
     xauFreezeWallMsRef.current = null;
   }
   const freezeWallMs = xauFreezeWallMsRef.current;
-  const candleWallNow = xauLocked && freezeWallMs != null ? freezeWallMs : wallNow;
+  const candleWallNow = marketLocked && freezeWallMs != null ? freezeWallMs : wallNow;
   const pointsForCandles =
-    xauLocked && freezeWallMs != null ? points.filter((p) => p.timestamp <= freezeWallMs) : points;
+    marketLocked && freezeWallMs != null ? points.filter((p) => p.timestamp <= freezeWallMs) : points;
 
   const liveCandles =
     pointsForCandles.length > 0 ? buildCandles(pointsForCandles, timeframeSec, candleWallNow) : [];
@@ -5163,17 +5268,19 @@ function LiveChart({
         <div className="chart-meta-right tv-chart-meta">
             <span
               className={`tv-chart-candle-timer${
+                marketLocked ? " tv-chart-candle-timer--paused" : ""
+              }${
                 tickDirection === "up"
                   ? " tv-chart-candle-timer--up"
                   : tickDirection === "down"
                     ? " tv-chart-candle-timer--down"
                     : ""
               }`}
-              aria-live="polite"
-              title="Time until this candle closes"
+              aria-live={marketLocked ? "off" : "polite"}
+              title={marketLocked ? "Market closed — timer paused" : "Time until this candle closes"}
             >
               <span className="tv-chart-candle-timer-label">{tfLabel(timeframeSec)}</span>
-              <span className="tv-chart-candle-timer-val">{countdownStr}</span>
+              <span className="tv-chart-candle-timer-val">{marketLocked ? "PAUSED" : countdownStr}</span>
             </span>
             <span className="tv-chart-meta-sep" aria-hidden>
               ·
@@ -5220,7 +5327,7 @@ function LiveChart({
             zoomIndex={zoomIndex}
             isMobileChart={isMobileChart}
             chartResetKey={chartResetKey}
-            countdownStr={countdownStr}
+            countdownStr={marketLocked ? "PAUSED" : countdownStr}
             timerTextZoomed={timerTextZoomed}
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
             tickDirection={tickDirection}

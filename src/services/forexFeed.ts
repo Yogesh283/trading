@@ -7,7 +7,7 @@ import {
   fetchTraderMadeLive
 } from "./forexExternalRates";
 import { logger } from "../utils/logger";
-import { isXauIstWeeklyLockWindow, isXauUsdSymbol } from "../utils/xauIstWeekend";
+import { isOtcWeekendLockWindow } from "../utils/xauIstWeekend";
 
 export interface ForexTick {
   symbol: string;
@@ -16,51 +16,56 @@ export interface ForexTick {
   source: "forex";
 }
 
-/** ~5h window: `HISTORY_MAX * SIM_TICK_MS` (see seedIntradayBackfill). */
+/** Cap in-memory tick history per symbol (live + heartbeat). */
 const HISTORY_MAX_TICKS_PER_SYMBOL = 72_000;
 
-/** Simulated + stream pulse cadence — higher = snappier live candles / WebSocket (more CPU + WS traffic). */
-const SIM_TICK_MS = 250;
-/** Between live API polls: synthetic walk at same cadence as sim ticks. */
-const STREAM_PULSE_MS = 250;
+function streamPulseMs(): number {
+  return env.FOREX_STREAM_PULSE_MS;
+}
 
-/** Live ECB / TraderMade quotes when configured; otherwise random-walk demo. */
+function pulseVolScale(): number {
+  return env.FOREX_PULSE_VOLATILITY;
+}
+
+/** Live ECB / TraderMade / Yahoo quotes when configured; simulated only if FOREX_SIMULATED_ONLY or API down. */
 export class ForexFeed extends EventEmitter {
   private readonly latest = new Map<string, ForexTick>();
   private readonly history = new Map<string, ForexTick[]>();
   private simTimer: ReturnType<typeof setInterval> | null = null;
   private externalTimer: ReturnType<typeof setInterval> | null = null;
-  /** 1 Hz price pulse while live external feed is active (without this, quotes only refresh every API poll). */
+  /** Re-broadcast last real quote for chart clock (no synthetic price drift). */
   private streamPulseTimer: ReturnType<typeof setInterval> | null = null;
-  /** Simulated wick only for symbols missing from the last external batch (e.g. XAU if Yahoo fails). */
+  /** Simulated wick only for symbols missing from the last external batch. */
   private gapSimTimer: ReturnType<typeof setInterval> | null = null;
   private gapSymbols = new Set<string>();
   private pendingExternalRetry: ReturnType<typeof setTimeout> | null = null;
+  /** True after first successful external batch — prices come from API, not random walk. */
+  private liveMarketActive = false;
+  private liveAnchored = false;
 
   start() {
     if (this.simTimer || this.externalTimer) {
       return;
     }
-    this.seedIntradayBackfill();
+    this.seedInitialQuotes();
 
     if (env.FOREX_SIMULATED_ONLY) {
-      this.simTimer = setInterval(() => this.emitSimulatedTick(), SIM_TICK_MS);
+      this.simTimer = setInterval(() => this.emitSimulatedTick(), streamPulseMs());
       logger.info({ pairs: FOREX_PAIRS.length }, "Forex feed: simulated only (FOREX_SIMULATED_ONLY)");
       return;
     }
 
-    const apiKey = env.TRADERMADE_KEY?.trim();
-    this.simTimer = setInterval(() => this.emitSimulatedTick(), SIM_TICK_MS);
+    this.simTimer = setInterval(() => this.emitSimulatedTick(), streamPulseMs());
     logger.info(
-      { pairs: FOREX_PAIRS.length, traderMade: Boolean(apiKey) },
-      "Forex feed: fetching live rates (simulated until first success)"
+      { pairs: FOREX_PAIRS.length, traderMade: Boolean(env.TRADERMADE_KEY?.trim()) },
+      "Forex feed: loading world market quotes (brief sim until first API success)"
     );
 
+    const apiKey = env.TRADERMADE_KEY?.trim();
     if (apiKey) {
       void this.bootstrapExternal(
         async () => {
-          const tmSyms = FOREX_SYMBOLS;
-          const m = await fetchTraderMadeLive(apiKey, tmSyms);
+          const m = await fetchTraderMadeLive(apiKey, FOREX_SYMBOLS);
           const gold = await fetchGoldUsdSpot();
           if (gold != null) {
             m.set("XAUUSD", gold);
@@ -81,9 +86,9 @@ export class ForexFeed extends EventEmitter {
           }
           return m;
         },
-        60_000,
+        env.FOREX_RETAIL_POLL_MS,
         "yahoo-frankfurter",
-        STREAM_PULSE_MS
+        streamPulseMs()
       );
     }
   }
@@ -110,6 +115,8 @@ export class ForexFeed extends EventEmitter {
       this.pendingExternalRetry = null;
     }
     this.gapSymbols.clear();
+    this.liveMarketActive = false;
+    this.liveAnchored = false;
   }
 
   snapshot(): ForexTick[] {
@@ -146,50 +153,29 @@ export class ForexFeed extends EventEmitter {
 
   private pushTick(symbol: string, price: number, timestamp: number) {
     const sym = symbol.toUpperCase();
-    /** XAU/USD only: no new ticks Sat–Sun IST — price stays at last weekday close in memory/WS/DB/candles. */
-    if (isXauUsdSymbol(sym) && isXauIstWeeklyLockWindow(timestamp)) {
+    if (isOtcWeekendLockWindow(timestamp)) {
       return;
     }
     const p = this.roundPrice(sym, price);
     const tick: ForexTick = { symbol: sym, price: p, timestamp, source: "forex" };
-    this.latest.set(symbol, tick);
-    const buf = this.history.get(symbol) ?? [];
+    this.latest.set(sym, tick);
+    const buf = this.history.get(sym) ?? [];
     buf.push(tick);
     if (buf.length > HISTORY_MAX_TICKS_PER_SYMBOL) {
       buf.shift();
     }
-    this.history.set(symbol, buf);
+    this.history.set(sym, buf);
     this.emit("tick", tick);
   }
 
-  private seedIntradayBackfill() {
+  /** One placeholder tick per pair until the first real API quote (no fake random-walk history). */
+  private seedInitialQuotes() {
     const now = Date.now();
-    const stepMs = SIM_TICK_MS;
-    const backfillMs = (HISTORY_MAX_TICKS_PER_SYMBOL - 1) * stepMs;
-
     for (const p of FOREX_PAIRS) {
-      const ticks: ForexTick[] = [];
-      let price = p.base * (0.997 + Math.random() * 0.006);
-      for (let t = now - backfillMs; t <= now; t += stepMs) {
-        const prev = price;
-        const vol =
-          p.symbol === "XAUUSD"
-            ? 0.00006
-            : p.symbol.includes("JPY") || (p.symbol.startsWith("USD") && prev > 50)
-              ? 0.00012
-              : 0.00008;
-        const drift = (Math.random() - 0.5) * 2 * vol;
-        let next = prev * (1 + drift);
-        const min = p.base * 0.985;
-        const max = p.base * 1.015;
-        next = Math.min(max, Math.max(min, next));
-        price = this.roundPrice(p.symbol, next);
-        ticks.push({ symbol: p.symbol, price, timestamp: t, source: "forex" });
-      }
-      const trimmed = ticks.slice(-HISTORY_MAX_TICKS_PER_SYMBOL);
-      this.history.set(p.symbol, trimmed);
-      const last = trimmed[trimmed.length - 1]!;
-      this.latest.set(p.symbol, last);
+      const price = this.roundPrice(p.symbol, p.base);
+      const tick: ForexTick = { symbol: p.symbol, price, timestamp: now, source: "forex" };
+      this.latest.set(p.symbol, tick);
+      this.history.set(p.symbol, [tick]);
     }
   }
 
@@ -201,11 +187,16 @@ export class ForexFeed extends EventEmitter {
         : 0.00008;
   }
 
+  /** Demo / pre-API only — not used after live market connects. */
   private emitSimulatedTick() {
+    if (this.liveMarketActive) {
+      return;
+    }
     const now = Date.now();
+    const volScale = pulseVolScale();
     for (const p of FOREX_PAIRS) {
       const prev = this.latest.get(p.symbol)?.price ?? p.base;
-      const vol = this.volatilityForSymbol(p.symbol, prev);
+      const vol = this.volatilityForSymbol(p.symbol, prev) * (volScale > 0 ? volScale * 1.35 : 1);
       const drift = (Math.random() - 0.5) * 2 * vol;
       let next = prev * (1 + drift);
       const min = p.base * 0.985;
@@ -215,47 +206,33 @@ export class ForexFeed extends EventEmitter {
     }
   }
 
-  /** Softer walk between live API polls so clients get steady quotes over WebSocket (same cadence as `SIM_TICK_MS`). */
-  private emitStreamPulse() {
+  /**
+   * Live mode: re-send the last **real** API price (chart/candle clock only).
+   * Up/down on chart + binary settle use the same quote until the next API poll updates it.
+   */
+  private emitLiveHeartbeat() {
     const now = Date.now();
     for (const p of FOREX_PAIRS) {
-      const prev = this.latest.get(p.symbol)?.price ?? p.base;
-      const vol = this.volatilityForSymbol(p.symbol, prev) * 0.42;
-      let next = prev;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const drift = (Math.random() - 0.5) * 2 * vol;
-        let cand = prev * (1 + drift);
-        const min = p.base * 0.985;
-        const max = p.base * 1.015;
-        cand = Math.min(max, Math.max(min, cand));
-        const rounded = this.roundPrice(p.symbol, cand);
-        if (rounded !== prev) {
-          next = rounded;
-          break;
-        }
+      if (this.gapSymbols.has(p.symbol)) {
+        continue;
       }
-      if (next !== prev) {
-        this.pushTick(p.symbol, next, now);
-      } else {
-        /** Same rounded price as last pulse — still emit so WebSocket clients get steady ticks and candles build. */
-        this.pushTick(p.symbol, prev, now);
+      const last = this.latest.get(p.symbol);
+      if (!last) {
+        continue;
       }
+      this.pushTick(p.symbol, last.price, now);
     }
   }
 
   private emitGapSimulatedTick() {
     const now = Date.now();
+    const volScale = pulseVolScale();
     for (const p of FOREX_PAIRS) {
       if (!this.gapSymbols.has(p.symbol)) {
         continue;
       }
       const prev = this.latest.get(p.symbol)?.price ?? p.base;
-      const vol =
-        p.symbol === "XAUUSD"
-          ? 0.00006
-          : p.symbol.includes("JPY") || (p.symbol.startsWith("USD") && prev > 50)
-            ? 0.00012
-            : 0.00008;
+      const vol = this.volatilityForSymbol(p.symbol, prev) * (volScale > 0 ? volScale * 1.35 : 1);
       const drift = (Math.random() - 0.5) * 2 * vol;
       let next = prev * (1 + drift);
       const min = p.base * 0.985;
@@ -267,6 +244,23 @@ export class ForexFeed extends EventEmitter {
 
   private applyExternalPrices(map: Map<string, number>) {
     const now = Date.now();
+
+    if (!this.liveAnchored && map.size > 0) {
+      this.liveAnchored = true;
+      for (const sym of FOREX_SYMBOLS) {
+        const raw = map.get(sym);
+        if (raw == null || !Number.isFinite(raw) || raw <= 0) {
+          continue;
+        }
+        const s = sym.toUpperCase();
+        const p = this.roundPrice(s, raw);
+        const tick: ForexTick = { symbol: s, price: p, timestamp: now, source: "forex" };
+        this.latest.set(s, tick);
+        this.history.set(s, [tick]);
+      }
+      logger.info({ quotes: map.size }, "Forex: anchored to world market — cleared simulated backfill");
+    }
+
     for (const [sym, raw] of map) {
       if (!Number.isFinite(raw) || raw <= 0) {
         continue;
@@ -284,17 +278,17 @@ export class ForexFeed extends EventEmitter {
       return;
     }
     this.gapSymbols = new Set(missing);
-    if (!this.gapSimTimer) {
-      this.gapSimTimer = setInterval(() => this.emitGapSimulatedTick(), SIM_TICK_MS);
+    if (!this.gapSimTimer && pulseVolScale() > 0) {
+      this.gapSimTimer = setInterval(() => this.emitGapSimulatedTick(), streamPulseMs());
     }
-    logger.warn({ missing }, "Forex live: some pairs missing from feed — simulating gap symbols only");
+    logger.warn({ missing }, "Forex live: some pairs missing from feed");
   }
 
   private async bootstrapExternal(
     fetcher: () => Promise<Map<string, number>>,
     intervalMs: number,
     name: string,
-    streamPulseMs: number = STREAM_PULSE_MS
+    heartbeatMs: number = env.FOREX_STREAM_PULSE_MS
   ) {
     try {
       const map = await fetcher();
@@ -303,6 +297,7 @@ export class ForexFeed extends EventEmitter {
         throw new Error(`Too few quotes (${map.size}/${FOREX_SYMBOLS.length})`);
       }
       this.applyExternalPrices(map);
+      this.liveMarketActive = true;
       if (this.pendingExternalRetry) {
         clearTimeout(this.pendingExternalRetry);
         this.pendingExternalRetry = null;
@@ -315,10 +310,10 @@ export class ForexFeed extends EventEmitter {
         clearInterval(this.streamPulseTimer);
         this.streamPulseTimer = null;
       }
-      this.streamPulseTimer = setInterval(() => this.emitStreamPulse(), streamPulseMs);
+      this.streamPulseTimer = setInterval(() => this.emitLiveHeartbeat(), heartbeatMs);
       logger.info(
-        { source: name, quotes: map.size, streamPulseMs, pollMs: intervalMs },
-        "Forex live rates active"
+        { source: name, quotes: map.size, heartbeatMs, pollMs: intervalMs, syntheticVol: pulseVolScale() },
+        "Forex world market live — chart/trades follow API quotes (no random walk between polls)"
       );
       this.externalTimer = setInterval(() => {
         void fetcher()
@@ -337,7 +332,7 @@ export class ForexFeed extends EventEmitter {
       this.pendingExternalRetry = setTimeout(() => {
         this.pendingExternalRetry = null;
         if (!this.externalTimer) {
-          void this.bootstrapExternal(fetcher, intervalMs, name, streamPulseMs);
+          void this.bootstrapExternal(fetcher, intervalMs, name, heartbeatMs);
         }
       }, 30_000);
     }

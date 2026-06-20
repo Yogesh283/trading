@@ -5,6 +5,7 @@ import { logger } from "../utils/logger";
 import { getIstDateKey } from "../utils/istDate";
 import { dbAll, dbGet, dbRun, getPool, initAppDb, isMysqlMode } from "../db/appDb";
 import { DemoAccount } from "./demoAccount";
+import { listOpenTradesForUserWallet, type TradeWalletType } from "./tradeHistoryStore";
 import {
   ensureWallet,
   getBonusBalanceFromDb,
@@ -728,6 +729,14 @@ export function evictInMemoryAccountsForUser(userId: string) {
   demoAccounts.delete(walletStorageKey(userId, "bonus"));
 }
 
+async function restoreOpenTradesFromDb(userId: string, wallet: WalletType, account: DemoAccount) {
+  if (userId === GUEST_USER.id) {
+    return;
+  }
+  const open = await listOpenTradesForUserWallet(userId, wallet as TradeWalletType);
+  account.restoreOpenTradesFromDb(open);
+}
+
 /** Load account state from DB before handling the request (no stale RAM after register). */
 export async function prepareAccountForRequest(userId: string, wallet: WalletType) {
   if (userId === GUEST_USER.id) {
@@ -735,6 +744,7 @@ export async function prepareAccountForRequest(userId: string, wallet: WalletTyp
   }
   if (wallet === "live") {
     await hydrateLiveAccountFromWallet(userId);
+    await restoreOpenTradesFromDb(userId, "live", getAccountForWallet(userId, "live"));
     return;
   }
   if (wallet === "bonus") {
@@ -742,13 +752,16 @@ export async function prepareAccountForRequest(userId: string, wallet: WalletTyp
     const bonusBal = await getBonusBalanceFromDb(userId);
     const existing = demoAccounts.get(bKey);
     if (!existing) {
-      demoAccounts.set(bKey, new DemoAccount(bonusBal));
+      const acc = new DemoAccount(bonusBal);
+      demoAccounts.set(bKey, acc);
+      await restoreOpenTradesFromDb(userId, "bonus", acc);
       return;
     }
     const hasOpen = existing.listTrades().some((t) => t.status === "open");
     if (!hasOpen) {
       existing.setBalance(bonusBal);
     }
+    await restoreOpenTradesFromDb(userId, "bonus", existing);
     return;
   }
   const key = walletStorageKey(userId, "demo");
@@ -759,11 +772,13 @@ export async function prepareAccountForRequest(userId: string, wallet: WalletTyp
       const demoBal = await getDemoBalanceFromDb(userId);
       existingDemo.setBalance(demoBal);
     }
+    await restoreOpenTradesFromDb(userId, "demo", existingDemo);
     return;
   }
   const demoBal = await getDemoBalanceFromDb(userId);
   const acc = new DemoAccount(demoBal);
   demoAccounts.set(key, acc);
+  await restoreOpenTradesFromDb(userId, "demo", acc);
 }
 
 export function getAccountForWallet(userId: string, wallet: WalletType) {

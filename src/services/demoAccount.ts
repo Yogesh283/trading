@@ -1,5 +1,6 @@
 import { BINARY_WIN_PAYOUT_MULTIPLIER } from "../config/binary";
 import { DEFAULT_DEMO_BALANCE_INR } from "../config/demo";
+import { effectiveBinaryExpiryAt, isBinaryTradePaused } from "../utils/xauMarketPause";
 
 export type TradeSide = "buy" | "sell";
 export type BinaryDirection = "up" | "down";
@@ -167,14 +168,21 @@ export class DemoAccount {
     return trade;
   }
 
-  /** Returns open trades that have expired (binary only). */
-  getExpiredOpenTrades(nowMs: number): DemoTrade[] {
-    return this.trades.filter(
-      (t) =>
-        t.status === "open" &&
-        t.expiryAt != null &&
-        t.expiryAt <= nowMs
-    );
+  /** Returns open trades that have expired (binary only). Respects XAU market-off pause. */
+  getExpiredOpenTrades(
+    nowMs: number,
+    opts?: { getLastActivityMs?: (symbol: string) => number }
+  ): DemoTrade[] {
+    return this.trades.filter((t) => {
+      if (t.status !== "open" || t.expiryAt == null || t.direction == null) {
+        return false;
+      }
+      const lastAct = opts?.getLastActivityMs?.(t.symbol) ?? 0;
+      if (isBinaryTradePaused(t, lastAct, nowMs)) {
+        return false;
+      }
+      return effectiveBinaryExpiryAt(t.expiryAt, t.symbol, nowMs) <= nowMs;
+    });
   }
 
   closeTrade(id: string, closePrice: number) {
@@ -247,5 +255,14 @@ export class DemoAccount {
 
   listTrades() {
     return [...this.trades];
+  }
+
+  /** Restore open trades from DB after server restart (balance unchanged). */
+  restoreOpenTradesFromDb(trades: DemoTrade[]) {
+    for (const t of trades) {
+      if (t.status !== "open") continue;
+      if (this.trades.some((x) => x.id === t.id)) continue;
+      this.trades.unshift({ ...t });
+    }
   }
 }

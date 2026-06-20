@@ -333,6 +333,50 @@ const TRANSACTIONS_SQL_MYSQL = `
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `;
 
+/** Per-user binary/spot trade history (demo, live, bonus) — survives restart. */
+const USER_TRADES_SQL = `
+  CREATE TABLE IF NOT EXISTS user_trades (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    wallet_type TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    entry_price REAL NOT NULL,
+    opened_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    close_price REAL,
+    closed_at TEXT,
+    pnl REAL,
+    direction TEXT,
+    expiry_at INTEGER,
+    timeframe_seconds INTEGER
+  )
+`;
+const USER_TRADES_INDEX_SQL = `CREATE INDEX IF NOT EXISTS idx_user_trades_user_wallet ON user_trades(user_id, wallet_type, opened_at)`;
+
+const USER_TRADES_SQL_MYSQL = `
+  CREATE TABLE IF NOT EXISTS user_trades (
+    id VARCHAR(128) NOT NULL PRIMARY KEY,
+    user_id VARCHAR(64) NOT NULL,
+    wallet_type VARCHAR(16) NOT NULL,
+    symbol VARCHAR(32) NOT NULL,
+    side VARCHAR(8) NOT NULL,
+    quantity DOUBLE NOT NULL,
+    entry_price DOUBLE NOT NULL,
+    opened_at VARCHAR(64) NOT NULL,
+    status VARCHAR(16) NOT NULL,
+    close_price DOUBLE NULL,
+    closed_at VARCHAR(64) NULL,
+    pnl DOUBLE NULL,
+    direction VARCHAR(8) NULL,
+    expiry_at BIGINT NULL,
+    timeframe_seconds INT NULL,
+    INDEX idx_user_trades_user_wallet (user_id, wallet_type, opened_at),
+    CONSTRAINT fk_user_trades_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`;
+
 /** Chart history: persist ticks so all candles show after restart. */
 const MARKET_TICKS_SQL = `
   CREATE TABLE IF NOT EXISTS market_ticks (
@@ -1225,6 +1269,19 @@ async function migrateUsersPassPlaintext(): Promise<void> {
   }
 }
 
+async function migrateUserTrades(): Promise<void> {
+  if (mysqlMode) {
+    await getPool().execute(USER_TRADES_SQL_MYSQL);
+  } else {
+    await dbRun(USER_TRADES_SQL);
+    try {
+      await dbRun(USER_TRADES_INDEX_SQL);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 async function migrateUsersPhone(): Promise<void> {
   if (mysqlMode) {
     const dbName = env.MYSQL_DATABASE?.trim();
@@ -1308,6 +1365,7 @@ export function initAppDb(): Promise<void> {
         await migrateSupportTickets();
         await migratePasswordResetOtps();
         await migrateWithdrawalsSourceWallet();
+        await migrateUserTrades();
       } else {
         await runSqliteChain(getSqlite(), [
           ...SQLITE_PRAGMAS,
@@ -1339,6 +1397,7 @@ export function initAppDb(): Promise<void> {
         await migrateSupportTickets();
         await migratePasswordResetOtps();
         await migrateWithdrawalsSourceWallet();
+        await migrateUserTrades();
       }
     })();
   }

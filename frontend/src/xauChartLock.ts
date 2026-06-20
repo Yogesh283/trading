@@ -1,11 +1,10 @@
 /**
- * XAU/USD: padlock when the chart feed is stale, or on the weekend when the
- * market is closed (Sat–Sun in IST).
+ * OTC platform: Sat–Sun closed in IST (all pairs). XAU also locks on stale feed.
  */
 
 const IST = "Asia/Kolkata";
 
-/** Stale feed: no tick/candle update for this long → treat as locked (weekdays). */
+/** Stale feed: no tick/candle update for this long → treat as locked (weekdays, XAU only). */
 const STALE_MS = 15 * 60 * 1000;
 
 export function isXauUsdSymbol(assetTag: string): boolean {
@@ -18,26 +17,41 @@ function istWeekdayShort(d: Date): string {
 }
 
 /**
- * Weekend closure (Asia/Kolkata): Saturday and Sunday — chart shows locked.
- * Monday–Friday: not locked by this rule (stale-feed rule may still apply).
+ * Weekend closure (Asia/Kolkata): Saturday and Sunday — all OTC markets off.
+ * Monday–Friday: open (XAU stale-feed rule may still apply).
  */
-export function isXauIstWeeklyLockWindow(now: Date = new Date()): boolean {
+export function isOtcWeekendLockWindow(now: Date = new Date()): boolean {
   const wd = istWeekdayShort(now);
   return wd === "Sat" || wd === "Sun";
 }
 
+/** @deprecated Use isOtcWeekendLockWindow — same rule, all OTC pairs. */
+export function isXauIstWeeklyLockWindow(now: Date = new Date()): boolean {
+  return isOtcWeekendLockWindow(now);
+}
+
 /**
- * Show padlock when XAU is “off”: weekend (IST), or feed stale vs `lastActivityMs`.
+ * Chart padlock: all pairs off on weekend (IST); XAU also when feed is stale.
  */
-export function shouldShowXauMarketLock(assetTag: string, lastActivityMs: number, now: number = Date.now()): boolean {
-  if (!isXauUsdSymbol(assetTag)) {
-    return false;
-  }
-  if (isXauIstWeeklyLockWindow(new Date(now))) {
+export function shouldShowMarketLock(
+  assetTag: string,
+  lastActivityMs: number,
+  now: number = Date.now()
+): boolean {
+  if (isOtcWeekendLockWindow(new Date(now))) {
     return true;
   }
-  if (lastActivityMs > 0 && now - lastActivityMs > STALE_MS) {
+  if (isXauUsdSymbol(assetTag) && lastActivityMs > 0 && now - lastActivityMs > STALE_MS) {
     return true;
   }
   return false;
+}
+
+/** @deprecated Use shouldShowMarketLock */
+export function shouldShowXauMarketLock(
+  assetTag: string,
+  lastActivityMs: number,
+  now: number = Date.now()
+): boolean {
+  return shouldShowMarketLock(assetTag, lastActivityMs, now);
 }

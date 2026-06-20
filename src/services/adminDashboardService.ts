@@ -1,5 +1,5 @@
 import { dbAll, dbGet, initAppDb } from "../db/appDb";
-import { getIstDateKey } from "../utils/istDate";
+import { istCalendarDayBoundsIso, istDayBoundsWithOffset } from "../utils/istDate";
 import { logger } from "../utils/logger";
 
 function num(v: unknown): number {
@@ -53,14 +53,6 @@ function utcCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabe
   };
 }
 
-/** IST midnight → next midnight (matches app “aaj”). */
-function istCalendarDayBoundsIso(): { startIso: string; endIso: string; dateLabel: string } {
-  const dateLabel = getIstDateKey();
-  const start = new Date(`${dateLabel}T00:00:00+05:30`);
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return { startIso: start.toISOString(), endIso: end.toISOString(), dateLabel };
-}
-
 export type WithdrawalDayReportRow = {
   date: string;
   submittedCount: number;
@@ -110,19 +102,6 @@ export type AdminDashboardStatsPayload = {
   todayCompanyNetProfitInr: number;
   withdrawalsLast7Days: WithdrawalDayReportRow[];
 };
-
-function utcDayBoundsWithOffset(dayOffset: number): { startIso: string; endIso: string; label: string } {
-  const now = new Date();
-  const base = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayOffset, 0, 0, 0, 0)
-  );
-  const next = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + 1, 0, 0, 0, 0));
-  return {
-    startIso: base.toISOString(),
-    endIso: next.toISOString(),
-    label: base.toISOString().slice(0, 10)
-  };
-}
 
 const TODAY_ACTIVITY_CAP = 300;
 
@@ -217,7 +196,7 @@ async function getWithdrawalsLast7DaysReport(): Promise<WithdrawalDayReportRow[]
   try {
     const out: WithdrawalDayReportRow[] = [];
     for (let i = 0; i < 7; i++) {
-      const { startIso, endIso, label } = utcDayBoundsWithOffset(i);
+      const { startIso, endIso, label } = istDayBoundsWithOffset(i);
       const sub = await dbGet<{ c: unknown; s: unknown }>(
         `SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM withdrawals WHERE created_at >= ? AND created_at < ?`,
         [startIso, endIso]
@@ -256,18 +235,24 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     `SELECT COALESCE(SUM(balance), 0) AS live, COALESCE(SUM(demo_balance), 0) AS demo, COALESCE(SUM(bonus_balance_inr), 0) AS bonus FROM wallets`
   );
 
-  const { startIso, endIso, dateLabel } = utcCalendarDayBoundsIso();
-  const logins = await dbGet<{ c: unknown }>(
+  const utc = utcCalendarDayBoundsIso();
+  const utcLogins = await dbGet<{ c: unknown }>(
     `SELECT COUNT(*) AS c FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= ? AND last_login_at < ?`,
-    [startIso, endIso]
+    [utc.startIso, utc.endIso]
   );
+  const usersLoggedInTodayUtcIds = await getUsersLoggedInTodayIds(utc.startIso, utc.endIso);
+  const loginCount = num(utcLogins?.c);
+  const usersLoggedInTodayUtcIdsTruncated = loginCount > usersLoggedInTodayUtcIds.length;
+
+  const ist = istCalendarDayBoundsIso();
+  const { startIso: istStartIso, endIso: istEndIso } = ist;
 
   const totalDepositsCreditedUsdt = await queryNum(
     `SELECT COALESCE(SUM(amount), 0) AS x FROM deposits WHERE status = 'credited'`
   );
   const todayDepositsCreditedUsdt = await queryNum(
     `SELECT COALESCE(SUM(amount), 0) AS x FROM deposits WHERE status = 'credited' AND updated_at >= ? AND updated_at < ?`,
-    [startIso, endIso]
+    [istStartIso, istEndIso]
   );
 
   const totalWithdrawalsCompletedUsdt = Number(
@@ -281,7 +266,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     (
       await queryNum(
         `SELECT COALESCE(SUM(amount), 0) AS x FROM withdrawals WHERE LOWER(TRIM(COALESCE(status, ''))) = 'completed' AND updated_at >= ? AND updated_at < ?`,
-        [startIso, endIso]
+        [istStartIso, istEndIso]
       )
     ).toFixed(6)
   );
@@ -298,23 +283,18 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
        ON s.reference_id = w.reference_id AND s.user_id = w.user_id AND s.txn_type = 'binary_stake'
      WHERE w.txn_type IN ('binary_settle_win', 'binary_settle_loss')
        AND w.created_at >= ? AND w.created_at < ?`,
-    [startIso, endIso]
+    [istStartIso, istEndIso]
   );
 
   const todayReferral = await queryNum(
     `SELECT COALESCE(SUM(amount), 0) AS x FROM transactions
      WHERE txn_type IN ('level_income', 'level_income_staking', 'level_income_roi')
        AND created_at >= ? AND created_at < ?`,
-    [startIso, endIso]
+    [istStartIso, istEndIso]
   );
 
   const netProfit = Number((todayBinaryGross - todayReferral).toFixed(4));
   const withdrawalsLast7Days = await getWithdrawalsLast7DaysReport();
-  const usersLoggedInTodayUtcIds = await getUsersLoggedInTodayIds(startIso, endIso);
-  const loginCount = num(logins?.c);
-  const usersLoggedInTodayUtcIdsTruncated = loginCount > usersLoggedInTodayUtcIds.length;
-
-  const ist = istCalendarDayBoundsIso();
   const usersLoggedInTodayIstIds = await getUsersLoggedInTodayIds(ist.startIso, ist.endIso);
   const istLogins = await dbGet<{ c: unknown }>(
     `SELECT COUNT(*) AS c FROM users WHERE last_login_at IS NOT NULL AND last_login_at >= ? AND last_login_at < ?`,
@@ -343,7 +323,7 @@ export async function getAdminDashboardStats(): Promise<AdminDashboardStatsPaylo
     totalDemoWalletInr: num(w?.demo),
     totalBonusWalletInr: num(w?.bonus),
     usersLoggedInTodayUtc: loginCount,
-    usersLoggedInTodayUtcDate: dateLabel,
+    usersLoggedInTodayUtcDate: utc.dateLabel,
     usersLoggedInTodayUtcIds,
     usersLoggedInTodayUtcIdsTruncated,
     todayIstDate: ist.dateLabel,

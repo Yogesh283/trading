@@ -104,11 +104,18 @@ import {
   DEMO_PRACTICE_RETRY_BELOW_INR,
   MIN_WITHDRAWAL_INR
 } from "./config/demoChallenge";
-import { DemoAccount, TradeSide } from "./services/demoAccount";
+import { DemoAccount, DemoTrade, TradeSide } from "./services/demoAccount";
+import {
+  listTradesForUserWallet,
+  listUsersWithExpiredOpenTrades,
+  persistClosedTrade,
+  persistOpenedTrade,
+  type TradeWalletType
+} from "./services/tradeHistoryStore";
 import { onForexTickForCandles, persistOpenBarBeforeCandlesRead } from "./services/chartCandlePersistence";
 import { ForexFeed, ForexTick } from "./services/forexFeed";
 import { logger } from "./utils/logger";
-import { isXauUsdSymbol, isXauIstWeeklyLockWindow } from "./utils/xauIstWeekend";
+import { isOtcWeekendLockWindow } from "./utils/xauIstWeekend";
 import { warnDbOrThrottle } from "./utils/dbTransientErrorThrottle";
 import { distributeBinaryBetLevelIncome } from "./services/referralService";
 import {
@@ -1078,7 +1085,7 @@ app.get("/api/trades", (_req, res) => {
       }
     }
     /** Bonus must not mutate on read-only endpoints; bonus writes happen only on redeem/open/settle flows. */
-    res.json({ trades: account.listTrades() });
+    res.json({ trades: await resolveTradesForUser(user.id, wallet, account) });
   })().catch((error) => {
     logger.error({ error }, "Unable to load trades");
     res.status(500).json({ message: "Unable to load trades" });
@@ -2542,7 +2549,6 @@ async function assertWithdrawalTurnover(userId: string): Promise<void> {
   }
 }
 
-/** Idempotent guard: same trade must not credit win/loss twice (multi-process or rare retry). */
 async function liveBinarySettleAlreadyInLedger(userId: string, tradeId: string): Promise<boolean> {
   await initAppDb();
   const row = await dbGet<{ c: number }>(
@@ -2552,6 +2558,28 @@ async function liveBinarySettleAlreadyInLedger(userId: string, tradeId: string):
     [userId, tradeId]
   );
   return Number(row?.c ?? 0) >= 1;
+}
+
+async function resolveTradesForUser(
+  userId: string,
+  wallet: WalletType,
+  account: DemoAccount
+): Promise<ReturnType<DemoAccount["listTrades"]>> {
+  if (userId === getGuestUser().id) {
+    return account.listTrades();
+  }
+  const fromDb = await listTradesForUserWallet(userId, wallet as TradeWalletType);
+  if (fromDb.length > 0) {
+    return fromDb;
+  }
+  return account.listTrades();
+}
+
+function noteSettledTrade(userId: string, wallet: WalletType, settled: DemoTrade | null) {
+  if (!settled || userId === getGuestUser().id) {
+    return;
+  }
+  void persistClosedTrade(userId, wallet as TradeWalletType, settled);
 }
 
 /** Public — maintenance flag and message for withdrawal UI (no auth). */
@@ -2812,9 +2840,9 @@ app.post("/api/demo/orders", (req, res) => {
     if (!symbol || !(FOREX_SYMBOLS as readonly string[]).includes(symbol)) {
       return res.status(400).json({ message: "Unsupported symbol" });
     }
-    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+    if (isOtcWeekendLockWindow()) {
       return res.status(400).json({
-        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+        message: "OTC markets are closed Saturday–Sunday (IST). Orders are not available."
       });
     }
 
@@ -2883,6 +2911,7 @@ app.post("/api/demo/orders", (req, res) => {
     }
 
     logger.info({ trade, userId: user.id }, "Demo trade opened");
+    await persistOpenedTrade(user.id, "demo", trade);
 
     return res.status(201).json({ trade });
   })().catch((error) => {
@@ -2917,9 +2946,9 @@ app.post("/api/bonus/orders", (req, res) => {
     if (!Number.isFinite(quantity) || quantity <= 0) {
       return res.status(400).json({ message: "Amount must be greater than 0" });
     }
-    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+    if (isOtcWeekendLockWindow()) {
       return res.status(400).json({
-        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+        message: "OTC markets are closed Saturday–Sunday (IST). Orders are not available."
       });
     }
 
@@ -2953,6 +2982,7 @@ app.post("/api/bonus/orders", (req, res) => {
     }
 
     logger.info({ trade, userId: user.id }, "Bonus wallet binary trade opened");
+    await persistOpenedTrade(user.id, "bonus", trade);
     return res.status(201).json({ trade });
   })().catch((error) => {
     if (error instanceof Error && error.message === "Unauthorized") {
@@ -2988,9 +3018,9 @@ app.post("/api/orders", (req, res) => {
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ message: "Amount must be greater than 0" });
     }
-    if (isXauUsdSymbol(symbol) && isXauIstWeeklyLockWindow()) {
+    if (isOtcWeekendLockWindow()) {
       return res.status(400).json({
-        message: "XAU/USD is closed Saturday–Sunday (IST). Orders are not available."
+        message: "OTC markets are closed Saturday–Sunday (IST). Orders are not available."
       });
     }
 
@@ -3035,6 +3065,7 @@ app.post("/api/orders", (req, res) => {
     }
 
     logger.info({ trade, userId: user.id }, "Live binary trade opened");
+    await persistOpenedTrade(user.id, "live", trade);
     void distributeBinaryBetLevelIncome(user.id, amount, tradeId).catch((e) =>
       logger.warn({ e, userId: user.id, tradeId }, "Level income distribution failed")
     );
@@ -3055,9 +3086,15 @@ setInterval(() => {
   void (async () => {
     const now = Date.now();
     try {
+      const expiredUsers = await listUsersWithExpiredOpenTrades(now);
+      for (const { userId, wallet } of expiredUsers) {
+        await prepareAccountForRequest(userId, wallet);
+      }
       const liveTasks: Promise<void>[] = [];
       forEachWalletAccount((userId, wallet, account) => {
-        const expired = account.getExpiredOpenTrades(now);
+        const expired = account.getExpiredOpenTrades(now, {
+          getLastActivityMs: (sym) => forexFeed.getTick(sym)?.timestamp ?? 0
+        });
         for (const trade of expired) {
           const tick = forexFeed.getTick(trade.symbol);
           if (!tick) {
@@ -3070,7 +3107,8 @@ setInterval(() => {
                   if (await liveBinarySettleAlreadyInLedger(userId, trade.id)) {
                     const accSkip = getAccountForWallet(userId, "live");
                     accSkip.setBalance(await getWalletBalance(userId));
-                    accSkip.settleExpiredTradeRecordOnly(trade.id, tick.price);
+                    const settledSkip = accSkip.settleExpiredTradeRecordOnly(trade.id, tick.price);
+                    noteSettledTrade(userId, "live", settledSkip);
                     return;
                   }
                   const win =
@@ -3091,6 +3129,7 @@ setInterval(() => {
                   acc.setBalance(await getWalletBalance(userId));
                   const settled = acc.settleExpiredTradeRecordOnly(trade.id, tick.price);
                   if (settled) {
+                    noteSettledTrade(userId, "live", settled);
                     logger.info(
                       { tradeId: settled.id, symbol: settled.symbol, pnl: settled.pnl, wallet: "live" },
                       "Binary trade settled"
@@ -3104,6 +3143,7 @@ setInterval(() => {
           } else if (wallet === "bonus" && userId !== getGuestUser().id) {
             const settled = account.settleExpiredTrade(trade.id, tick.price);
             if (settled) {
+              noteSettledTrade(userId, "bonus", settled);
               void (async () => {
                 try {
                   const savedB = await saveBonusBalanceToDb(userId, account.balance);
@@ -3122,6 +3162,7 @@ setInterval(() => {
           } else {
             const settled = account.settleExpiredTrade(trade.id, tick.price);
             if (settled) {
+              noteSettledTrade(userId, wallet, settled);
               if (wallet === "demo" && userId !== getGuestUser().id) {
                 void (async () => {
                   try {
@@ -3270,13 +3311,14 @@ async function sendTradingWsSnapshot(socket: WebSocket, req: IncomingMessage) {
         await prepareAccountForRequest(user.id, qpWallet);
         const account = getAccountForWallet(user.id, qpWallet);
         await alignIdleBonusAccountCashWithDb(user.id, qpWallet, account);
+        const trades = await resolveTradesForUser(user.id, qpWallet, account);
         socket.send(
           JSON.stringify({
             type: "snapshot",
             data: {
               markets,
               account: account.snapshot(markets),
-              trades: account.listTrades(),
+              trades,
               wallet: qpWallet
             }
           })

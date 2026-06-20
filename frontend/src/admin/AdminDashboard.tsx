@@ -374,11 +374,11 @@ export function AdminDashboard() {
         </Paper>
 
         <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
-          Company overview (UTC · {stats.usersLoggedInTodayUtcDate ?? "—"})
+          Company overview (IST · {stats.todayIstDate ?? "—"})
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Deposits: credited USDT only. Withdrawals: completed USDT only (paid out). Profit: live binary settles today minus
-          referral payouts (level income). Not full accounting — excludes fees, etc.
+          Deposits: credited USDT only. Withdrawals: completed USDT only (paid out). Profit: live binary settles today (IST)
+          minus referral payouts (level income). Not full accounting — excludes fees, etc.
         </Typography>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -392,7 +392,7 @@ export function AdminDashboard() {
             <StatCard
               title="Today deposits credited"
               value={fmtUsdt(stats.todayDepositsCreditedUsdt)}
-              subtitle="By deposit updated_at (UTC day)"
+              subtitle="By deposit updated_at (IST day)"
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -407,7 +407,7 @@ export function AdminDashboard() {
             <StatCard
               title="Today withdrawals completed"
               value={fmtUsdt(stats.todayWithdrawalsCompletedUsdt)}
-              subtitle="By withdrawal updated_at (UTC day)"
+              subtitle="By withdrawal updated_at (IST day)"
               onNavigate={() => goList("withdrawals")}
             />
           </Grid>
@@ -435,7 +435,7 @@ export function AdminDashboard() {
         </Grid>
 
         <Typography variant="subtitle1" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
-          Withdrawal report (last 7 UTC days)
+          Withdrawal report (last 7 IST days)
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           Submitted: requests created that day. Completed: marked completed that day (amount = USDT). Open the{" "}
@@ -445,10 +445,10 @@ export function AdminDashboard() {
           list for detail.
         </Typography>
         <TableContainer component={Paper} variant="outlined" sx={{ maxWidth: 720, mb: 1 }}>
-          <Table size="small" aria-label="Withdrawals by UTC calendar day">
+          <Table size="small" aria-label="Withdrawals by IST calendar day">
             <TableHead>
               <TableRow>
-                <TableCell>Date (UTC)</TableCell>
+                <TableCell>Date (IST)</TableCell>
                 <TableCell align="right">Submitted #</TableCell>
                 <TableCell align="right">Submitted USDT</TableCell>
                 <TableCell align="right">Completed #</TableCell>
