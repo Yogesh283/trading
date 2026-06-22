@@ -810,6 +810,29 @@ export function LightweightTradingChart({
           });
           return;
         }
+        if (prevRows && prevRows.length + 1 === candleRows.length && candleRows.length >= 2) {
+          let prefixOk = true;
+          for (let i = 0; i < prevRows.length - 1; i++) {
+            if (candleBarKey(prevRows[i]!) !== candleBarKey(candleRows[i]!)) {
+              prefixOk = false;
+              break;
+            }
+          }
+          const closedIdx = candleRows.length - 2;
+          if (prefixOk) {
+            series.update(candleRows[closedIdx]!);
+            series.update(candleRows[candleRows.length - 1]!);
+            prevCandlestickRowsRef.current = candleRows;
+            refreshPriceLine(series);
+            syncTradeEntryPriceLines(series, tradeEntryLines, tradeEntryPriceLineRefs, graphType);
+            applyMarkers(series);
+            requestAnimationFrame(() => {
+              chart.timeScale().scrollToRealTime();
+              syncLivePriceChrome();
+            });
+            return;
+          }
+        }
         let usedUpdate = false;
         if (prevRows && prevRows.length === candleRows.length && candleRows.length > 0) {
           let samePrefix = true;

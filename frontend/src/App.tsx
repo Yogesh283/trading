@@ -21,7 +21,7 @@ import {
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
-import { nextChartPulsePrice, type ChartPulseState } from "./chartLivePulse";
+import { nextChartPulsePrice, resetChartPulseForNewCandle, type ChartPulseState } from "./chartLivePulse";
 import { AiChartInsightIcon } from "./AiChartInsightIcon";
 import { AssetPairFlags, assetPairEmojiPrefix, formatForexPair, formatMarketPairOtc } from "./marketAssetIcon";
 import { lastTickMove } from "./tickDirection";
@@ -4941,7 +4941,9 @@ function LiveChart({
   } | null;
 }) {
   const [chartTick, setTick] = useState(0);
+  const [wallNow, setWallNow] = useState(() => Date.now());
   const chartPulseRef = useRef<ChartPulseState | null>(null);
+  const formingBucketRef = useRef<number | null>(null);
   const anchorRef = useRef<number | null>(livePrice ?? null);
   const prevPulsePriceRef = useRef<number | null>(null);
   const [chartLivePrice, setChartLivePrice] = useState<number | null>(livePrice ?? null);
@@ -5008,22 +5010,23 @@ function LiveChart({
     return out;
   }, [trades, symbol]);
 
-  /** ~1 Hz: forming candle + countdown — paused while XAU market is off. */
-  const wallNowForEffect = Date.now();
+  /** ~1 Hz price pulse; wall clock at 250ms for 5s candle rollover + countdown. */
   const lastTickMsForEffect = points.length > 0 ? points[points.length - 1]!.timestamp : 0;
   const lastCandleDbTsForEffect =
     closedCandlesFromDb.length > 0
       ? closedCandlesFromDb[closedCandlesFromDb.length - 1]!.timestamp
       : 0;
   const lastActivityForEffect = Math.max(lastTickMsForEffect, lastCandleDbTsForEffect);
-  const chartMarketOff = isChartMarketOff(symbol, lastActivityForEffect, wallNowForEffect);
+  const chartMarketOff = isChartMarketOff(symbol, lastActivityForEffect, wallNow);
 
   useEffect(() => {
-    const ms = chartMarketOff ? 60_000 : 1000;
-    const id = window.setInterval(() => setTick((n) => n + 1), ms);
+    const ms = chartMarketOff ? 60_000 : 250;
+    const id = window.setInterval(() => {
+      setWallNow(Date.now());
+    }, ms);
     const syncNow = () => {
       if (document.visibilityState === "visible") {
-        setTick((n) => n + 1);
+        setWallNow(Date.now());
       }
     };
     document.addEventListener("visibilitychange", syncNow);
@@ -5037,15 +5040,51 @@ function LiveChart({
     };
   }, [chartMarketOff]);
 
+  /** Price pulse: exactly once per second (wall clock uses 250ms above). */
+  useEffect(() => {
+    if (chartMarketOff) {
+      return;
+    }
+    const id = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [chartMarketOff]);
+
   useEffect(() => {
     chartPulseRef.current = null;
+    formingBucketRef.current = null;
     anchorRef.current = livePrice ?? null;
     prevPulsePriceRef.current = null;
     setChartLivePrice(livePrice ?? null);
     setChartPulseDirection(null);
-  }, [symbol]);
+  }, [symbol, timeframeSec]);
 
   anchorRef.current = livePrice ?? anchorRef.current;
+
+  const tfMsForBucket = timeframeSec * 1000;
+  const formingBucketMs = Math.floor(wallNow / tfMsForBucket) * tfMsForBucket;
+
+  /** New candle bucket (e.g. every 5s): open at prior close, then smooth 1 Hz steps. */
+  useEffect(() => {
+    if (chartMarketOff) {
+      formingBucketRef.current = formingBucketMs;
+      return;
+    }
+    const prevBucket = formingBucketRef.current;
+    if (prevBucket != null && prevBucket !== formingBucketMs) {
+      const anchor = anchorRef.current;
+      const openAt =
+        chartPulseRef.current?.display ??
+        prevPulsePriceRef.current ??
+        anchor;
+      if (anchor != null && openAt != null && Number.isFinite(anchor) && Number.isFinite(openAt)) {
+        chartPulseRef.current = resetChartPulseForNewCandle(symbol, openAt, anchor, timeframeSec);
+        prevPulsePriceRef.current = openAt;
+        setChartLivePrice(openAt);
+        setChartPulseDirection(null);
+      }
+    }
+    formingBucketRef.current = formingBucketMs;
+  }, [formingBucketMs, chartMarketOff, symbol, timeframeSec]);
 
   /** One chart price step per second only (not on every WebSocket message). */
   useEffect(() => {
@@ -5060,7 +5099,7 @@ function LiveChart({
     if (anchor == null || !Number.isFinite(anchor) || anchor <= 0) {
       return;
     }
-    const r = nextChartPulsePrice(chartPulseRef.current, symbol, anchor);
+    const r = nextChartPulsePrice(chartPulseRef.current, symbol, anchor, timeframeSec);
     if (!r) {
       return;
     }
@@ -5077,7 +5116,7 @@ function LiveChart({
     }
     prevPulsePriceRef.current = r.price;
     setChartLivePrice(r.price);
-  }, [chartTick, symbol, chartMarketOff]);
+  }, [chartTick, symbol, chartMarketOff, timeframeSec, livePrice]);
 
   useEffect(() => {
     setZoomIndex(defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -5130,7 +5169,6 @@ function LiveChart({
     };
   }, [isMobileChart, zoomIndex]);
 
-  const wallNow = Date.now();
   const lastTickMs = points.length > 0 ? points[points.length - 1]!.timestamp : 0;
   const lastCandleDbTs =
     closedCandlesFromDb.length > 0
@@ -5216,11 +5254,11 @@ function LiveChart({
 
   /** All TFs: clamp absurd H/L from mixed ticks/DB so candles look like real OHLC (not barcode). */
   const tfMsForClamp = timeframeSec * 1000;
-  const formingBucketMs = Math.floor(candleWallNow / tfMsForClamp) * tfMsForClamp;
+  const formingBucketForDisplay = Math.floor(candleWallNow / tfMsForClamp) * tfMsForClamp;
   const displayCandles = allCandles.map((c, i) => {
     const isLast = i === allCandles.length - 1;
     const bucket = Math.floor(Number(c.timestamp) / tfMsForClamp) * tfMsForClamp;
-    if (isLast && bucket === formingBucketMs) {
+    if (isLast && bucket === formingBucketForDisplay) {
       return c;
     }
     return clampChartCandleBar(c, timeframeSec);
