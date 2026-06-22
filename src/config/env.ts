@@ -100,7 +100,7 @@ const envSchema = z.object({
   FOREX_STREAM_PULSE_MS: z.coerce.number().int().positive().default(1000),
   /** Yahoo/Frankfurter poll when TRADERMADE_KEY is unset (ms). Lower = closer to world market. Default 10s. */
   FOREX_RETAIL_POLL_MS: z.coerce.number().int().positive().default(10_000),
-  /** Between-poll synthetic wiggle (0 = real market only; live feed re-broadcasts last quote). Default 0. */
+  /** Extra between-poll wiggle scale (0 = small built-in 1s chart step only; trades still use API anchor). Default 0. */
   FOREX_PULSE_VOLATILITY: z.coerce.number().min(0).max(1).default(0),
   /** Set to 1 to force the old random-walk demo feed (no external APIs). */
   FOREX_SIMULATED_ONLY: z

@@ -19,6 +19,11 @@ export interface ForexTick {
 /** Cap in-memory tick history per symbol (live + heartbeat). */
 const HISTORY_MAX_TICKS_PER_SYMBOL = 72_000;
 
+/** Each 1s heartbeat closes this fraction of (anchor − chart) so API jumps spread over ~2–4s. */
+const CHART_HEARTBEAT_STEP = 0.42;
+/** Micro-wiggle when `FOREX_PULSE_VOLATILITY=0` — 1s candle motion without drifting off the real quote. */
+const CHART_HEARTBEAT_WIGGLE = 0.35;
+
 function streamPulseMs(): number {
   return env.FOREX_STREAM_PULSE_MS;
 }
@@ -31,9 +36,13 @@ function pulseVolScale(): number {
 export class ForexFeed extends EventEmitter {
   private readonly latest = new Map<string, ForexTick>();
   private readonly history = new Map<string, ForexTick[]>();
+  /** Real API quote — trades, settlement, spot badge. */
+  private readonly anchor = new Map<string, number>();
+  /** Smoothed price streamed to chart ticks (~1/s). */
+  private readonly chartPrice = new Map<string, number>();
   private simTimer: ReturnType<typeof setInterval> | null = null;
   private externalTimer: ReturnType<typeof setInterval> | null = null;
-  /** Re-broadcast last real quote for chart clock (no synthetic price drift). */
+  /** Per-second chart stream between API polls (smooth step toward anchor). */
   private streamPulseTimer: ReturnType<typeof setInterval> | null = null;
   /** Simulated wick only for symbols missing from the last external batch. */
   private gapSimTimer: ReturnType<typeof setInterval> | null = null;
@@ -115,6 +124,8 @@ export class ForexFeed extends EventEmitter {
       this.pendingExternalRetry = null;
     }
     this.gapSymbols.clear();
+    this.anchor.clear();
+    this.chartPrice.clear();
     this.liveMarketActive = false;
     this.liveAnchored = false;
   }
@@ -137,7 +148,40 @@ export class ForexFeed extends EventEmitter {
   }
 
   getTick(symbol: string) {
-    return this.latest.get(symbol.toUpperCase());
+    const tick = this.latest.get(symbol.toUpperCase());
+    if (!tick) {
+      return undefined;
+    }
+    return this.quoteTick(tick.symbol, tick);
+  }
+
+  private quoteTick(sym: string, tick: ForexTick): ForexTick {
+    const anchor = this.anchor.get(sym);
+    if (anchor == null) {
+      return tick;
+    }
+    return { ...tick, price: this.roundPrice(sym, anchor) };
+  }
+
+  private chartWiggleScale(): number {
+    const vs = pulseVolScale();
+    return vs > 0 ? vs * 1.35 : CHART_HEARTBEAT_WIGGLE;
+  }
+
+  /** Next chart-stream price: step toward anchor + small wiggle so forming candles move every second. */
+  private stepChartPrice(symbol: string, anchor: number): number {
+    const sym = symbol.toUpperCase();
+    const prev = this.chartPrice.get(sym) ?? anchor;
+    const vol = this.volatilityForSymbol(sym, anchor);
+    const wiggle = this.chartWiggleScale();
+    const toward = (anchor - prev) * CHART_HEARTBEAT_STEP;
+    const noise = (Math.random() - 0.5) * 2 * vol * wiggle * anchor;
+    let next = prev + toward + noise;
+    const band = vol * anchor * Math.max(2, wiggle * 4);
+    next = Math.min(anchor + band, Math.max(anchor - band, next));
+    next = this.roundPrice(sym, next);
+    this.chartPrice.set(sym, next);
+    return next;
   }
 
   private roundPrice(symbol: string, raw: number): number {
@@ -207,8 +251,8 @@ export class ForexFeed extends EventEmitter {
   }
 
   /**
-   * Live mode: re-send the last **real** API price (chart/candle clock only).
-   * Up/down on chart + binary settle use the same quote until the next API poll updates it.
+   * Live mode: one chart tick per second — smooth step toward the real API anchor (not a 3–5s lump jump).
+   * Binary settle / open-trade entry still use `anchor` via `getTick()`.
    */
   private emitLiveHeartbeat() {
     const now = Date.now();
@@ -216,11 +260,12 @@ export class ForexFeed extends EventEmitter {
       if (this.gapSymbols.has(p.symbol)) {
         continue;
       }
-      const last = this.latest.get(p.symbol);
-      if (!last) {
+      const anchor = this.anchor.get(p.symbol) ?? this.latest.get(p.symbol)?.price;
+      if (anchor == null || !Number.isFinite(anchor)) {
         continue;
       }
-      this.pushTick(p.symbol, last.price, now);
+      const display = this.stepChartPrice(p.symbol, anchor);
+      this.pushTick(p.symbol, display, now);
     }
   }
 
@@ -254,6 +299,8 @@ export class ForexFeed extends EventEmitter {
         }
         const s = sym.toUpperCase();
         const p = this.roundPrice(s, raw);
+        this.anchor.set(s, p);
+        this.chartPrice.set(s, p);
         const tick: ForexTick = { symbol: s, price: p, timestamp: now, source: "forex" };
         this.latest.set(s, tick);
         this.history.set(s, [tick]);
@@ -265,7 +312,13 @@ export class ForexFeed extends EventEmitter {
       if (!Number.isFinite(raw) || raw <= 0) {
         continue;
       }
-      this.pushTick(sym.toUpperCase(), raw, now);
+      const s = sym.toUpperCase();
+      const p = this.roundPrice(s, raw);
+      this.anchor.set(s, p);
+      if (!this.liveMarketActive) {
+        this.chartPrice.set(s, p);
+        this.pushTick(s, p, now);
+      }
     }
 
     const missing = FOREX_SYMBOLS.filter((s) => !map.has(s));
@@ -313,7 +366,7 @@ export class ForexFeed extends EventEmitter {
       this.streamPulseTimer = setInterval(() => this.emitLiveHeartbeat(), heartbeatMs);
       logger.info(
         { source: name, quotes: map.size, heartbeatMs, pollMs: intervalMs, syntheticVol: pulseVolScale() },
-        "Forex world market live — chart/trades follow API quotes (no random walk between polls)"
+        "Forex world market live — chart ticks/sec smooth toward API anchor; trades settle on anchor"
       );
       this.externalTimer = setInterval(() => {
         void fetcher()

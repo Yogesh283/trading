@@ -387,7 +387,7 @@ setInterval(async () => {
 forexFeed.on("tick", (tick: ForexTick) => {
   tickBuffer.push(tick);
   onForexTickForCandles(tick.symbol, tick.price, tick.timestamp);
-  /** WebSocket `LivePrice` — every forex tick (~4/s by default); same payload shape as legacy `tick`. */
+  /** WebSocket `LivePrice` — chart stream tick (~1/s heartbeat + API anchor refresh); legacy shape `tick`. */
   const payload = JSON.stringify({ type: "live_price", data: tick });
 
   for (const client of wsServer.clients) {
