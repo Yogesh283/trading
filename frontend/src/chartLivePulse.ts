@@ -32,13 +32,12 @@ export type ChartPulseState = {
 };
 
 /**
- * One chart price per second: chase API anchor smoothly, then wiggle up/down so the forming candle moves every tick.
+ * Exactly one chart price step per second: one tick up or down (not two in the same second).
  */
 export function nextChartPulsePrice(
   state: ChartPulseState | null,
   symbol: string,
-  anchorPrice: number | null | undefined,
-  tickIndex: number
+  anchorPrice: number | null | undefined
 ): { state: ChartPulseState; price: number } | null {
   if (anchorPrice == null || !Number.isFinite(anchorPrice) || anchorPrice <= 0) {
     return null;
@@ -47,36 +46,36 @@ export function nextChartPulsePrice(
   const sym = symbol.toUpperCase();
   const anchor = roundChartPrice(sym, anchorPrice);
   const step = chartMinPriceStep(sym, anchor);
+  const band = step * 6;
 
   let s = state;
   if (!s || s.symbol !== sym) {
     s = { symbol: sym, anchor, display: anchor, stepSign: 1 };
+    return { state: s, price: anchor };
   }
 
-  if (s.anchor !== anchor) {
+  s = { ...s, anchor };
+
+  if (s.display !== anchor) {
     const delta = anchor - s.display;
-    const chase = Math.sign(delta) * Math.max(step, Math.abs(delta) * 0.38);
-    const display =
-      Math.abs(delta) <= step ? anchor : roundChartPrice(sym, s.display + chase);
-    s = { symbol: sym, anchor, display, stepSign: display >= anchor ? (-1 as const) : (1 as const) };
+    if (Math.abs(delta) <= step) {
+      s = { ...s, display: anchor, stepSign: (delta >= 0 ? -1 : 1) as 1 | -1 };
+      return { state: s, price: anchor };
+    }
+    const display = roundChartPrice(sym, s.display + Math.sign(delta) * step);
+    s = { ...s, display, stepSign: (Math.sign(delta) * -1) as 1 | -1 };
     return { state: s, price: display };
   }
 
-  const band = step * (6 + (tickIndex % 4));
-  const wiggle = step * (1 + (tickIndex % 2));
-  let display = roundChartPrice(sym, s.display + s.stepSign * wiggle);
-
+  let display = roundChartPrice(sym, s.display + s.stepSign * step);
   if (display > anchor + band) {
     display = roundChartPrice(sym, anchor + band);
-    s = { ...s, anchor, display, stepSign: -1 };
+    s = { ...s, display, stepSign: -1 };
   } else if (display < anchor - band) {
     display = roundChartPrice(sym, anchor - band);
-    s = { ...s, anchor, display, stepSign: 1 };
-  } else if (display === s.display) {
-    display = roundChartPrice(sym, s.display + s.stepSign * step);
-    s = { ...s, anchor, display, stepSign: (s.stepSign * -1) as 1 | -1 };
+    s = { ...s, display, stepSign: 1 };
   } else {
-    s = { ...s, anchor, display, stepSign: (s.stepSign * -1) as 1 | -1 };
+    s = { ...s, display, stepSign: (s.stepSign * -1) as 1 | -1 };
   }
 
   return { state: s, price: display };

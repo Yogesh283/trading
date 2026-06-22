@@ -4942,9 +4942,10 @@ function LiveChart({
 }) {
   const [chartTick, setTick] = useState(0);
   const chartPulseRef = useRef<ChartPulseState | null>(null);
-  const chartLivePriceRef = useRef<number | null>(null);
-  const chartPulseKeyRef = useRef("");
-  const prevChartLiveRef = useRef<number | null>(null);
+  const anchorRef = useRef<number | null>(livePrice ?? null);
+  const prevPulsePriceRef = useRef<number | null>(null);
+  const [chartLivePrice, setChartLivePrice] = useState<number | null>(livePrice ?? null);
+  const [chartPulseDirection, setChartPulseDirection] = useState<"up" | "down" | null>(null);
   const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
   /** Touch/tap on timer badge zooms the time text (mobile). */
   const [timerTextZoomed, setTimerTextZoomed] = useState(false);
@@ -5038,10 +5039,45 @@ function LiveChart({
 
   useEffect(() => {
     chartPulseRef.current = null;
-    chartLivePriceRef.current = null;
-    chartPulseKeyRef.current = "";
-    prevChartLiveRef.current = null;
+    anchorRef.current = livePrice ?? null;
+    prevPulsePriceRef.current = null;
+    setChartLivePrice(livePrice ?? null);
+    setChartPulseDirection(null);
   }, [symbol]);
+
+  anchorRef.current = livePrice ?? anchorRef.current;
+
+  /** One chart price step per second only (not on every WebSocket message). */
+  useEffect(() => {
+    if (chartTick === 0) {
+      return;
+    }
+    if (chartMarketOff) {
+      setChartLivePrice(livePrice ?? null);
+      return;
+    }
+    const anchor = anchorRef.current;
+    if (anchor == null || !Number.isFinite(anchor) || anchor <= 0) {
+      return;
+    }
+    const r = nextChartPulsePrice(chartPulseRef.current, symbol, anchor);
+    if (!r) {
+      return;
+    }
+    chartPulseRef.current = r.state;
+    const prev = prevPulsePriceRef.current;
+    if (prev != null) {
+      if (r.price > prev) {
+        setChartPulseDirection("up");
+      } else if (r.price < prev) {
+        setChartPulseDirection("down");
+      } else {
+        setChartPulseDirection(null);
+      }
+    }
+    prevPulsePriceRef.current = r.price;
+    setChartLivePrice(r.price);
+  }, [chartTick, symbol, chartMarketOff]);
 
   useEffect(() => {
     setZoomIndex(defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
@@ -5118,48 +5154,11 @@ function LiveChart({
   const pointsForCandles =
     marketLocked && freezeWallMs != null ? points.filter((p) => p.timestamp <= freezeWallMs) : points;
 
-  const pulseKey = `${chartTick}|${livePrice ?? ""}|${symbol}|${marketLocked}`;
-  if (pulseKey !== chartPulseKeyRef.current) {
-    chartPulseKeyRef.current = pulseKey;
-    if (!marketLocked && livePrice != null && Number.isFinite(livePrice) && livePrice > 0) {
-      const r = nextChartPulsePrice(chartPulseRef.current, symbol, livePrice, chartTick);
-      if (r) {
-        chartPulseRef.current = r.state;
-        chartLivePriceRef.current = r.price;
-      }
-    } else {
-      chartLivePriceRef.current = livePrice ?? null;
-    }
-  }
-  const chartLivePrice = chartLivePriceRef.current ?? livePrice;
-  let chartPulseDirection: "up" | "down" | null = null;
-  if (chartLivePrice != null && prevChartLiveRef.current != null) {
-    if (chartLivePrice > prevChartLiveRef.current) {
-      chartPulseDirection = "up";
-    } else if (chartLivePrice < prevChartLiveRef.current) {
-      chartPulseDirection = "down";
-    }
-  }
-  if (chartLivePrice != null) {
-    prevChartLiveRef.current = chartLivePrice;
-  }
+  const effectiveChartPrice = chartLivePrice ?? livePrice;
   const chartTickDirection = chartPulseDirection ?? tickDirection;
 
-  const pointsWithPulse =
-    chartLivePrice != null && !marketLocked
-      ? [
-          ...pointsForCandles,
-          {
-            symbol,
-            price: chartLivePrice,
-            timestamp: candleWallNow,
-            source: "forex" as const
-          }
-        ]
-      : pointsForCandles;
-
   const liveCandles =
-    pointsWithPulse.length > 0 ? buildCandles(pointsWithPulse, timeframeSec, candleWallNow) : [];
+    pointsForCandles.length > 0 ? buildCandles(pointsForCandles, timeframeSec, candleWallNow) : [];
 
   let allCandles: CandlePoint[];
   if (points.length === 0) {
@@ -5186,7 +5185,7 @@ function LiveChart({
 
   allCandles = overlayLivePriceOnFormingCandle(
     allCandles,
-    chartLivePrice,
+    effectiveChartPrice,
     timeframeSec,
     candleWallNow
   );
@@ -5508,6 +5507,11 @@ function mergeHistoryTicks(
 
 function appendPoint(current: Record<string, MarketTick[]>, tick: MarketTick) {
   const existing = current[tick.symbol] ?? [];
+  const last = existing[existing.length - 1];
+  /** At most one history point per second when price unchanged — chart uses 1 Hz client pulse. */
+  if (last && last.price === tick.price && tick.timestamp - last.timestamp < 1000) {
+    return current;
+  }
   const nextSeries = [...existing, tick].slice(-15000);
   return {
     ...current,

@@ -271,8 +271,8 @@ export class ForexFeed extends EventEmitter {
   }
 
   /**
-   * Live mode: one chart tick per second — smooth step toward the real API anchor (not a 3–5s lump jump).
-   * Binary settle / open-trade entry still use `anchor` via `getTick()`.
+   * Live mode: refresh quote timestamp only — chart candle motion is client-side (1 Hz).
+   * Avoids double up/down per second (server WS + browser pulse).
    */
   private emitLiveHeartbeat() {
     const now = Date.now();
@@ -280,12 +280,13 @@ export class ForexFeed extends EventEmitter {
       if (this.gapSymbols.has(p.symbol)) {
         continue;
       }
-      const anchor = this.anchor.get(p.symbol) ?? this.latest.get(p.symbol)?.price;
-      if (anchor == null || !Number.isFinite(anchor)) {
+      const sym = p.symbol.toUpperCase();
+      const anchor = this.anchor.get(sym);
+      const last = this.latest.get(sym);
+      if (anchor == null || !Number.isFinite(anchor) || !last) {
         continue;
       }
-      const display = this.stepChartPrice(p.symbol, anchor);
-      this.pushTick(p.symbol, display, now);
+      this.latest.set(sym, { ...last, timestamp: now });
     }
   }
 
@@ -334,8 +335,12 @@ export class ForexFeed extends EventEmitter {
       }
       const s = sym.toUpperCase();
       const p = this.roundPrice(s, raw);
+      const prevAnchor = this.anchor.get(s);
       this.anchor.set(s, p);
       if (!this.liveMarketActive) {
+        this.chartPrice.set(s, p);
+        this.pushTick(s, p, now);
+      } else if (prevAnchor == null || this.roundPrice(s, prevAnchor) !== p) {
         this.chartPrice.set(s, p);
         this.pushTick(s, p, now);
       }
