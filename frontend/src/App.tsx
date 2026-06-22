@@ -21,6 +21,7 @@ import {
   type CandlePoint
 } from "./chartCandles";
 import { CHART_ZOOM_STEP_COUNT, defaultZoomIndexForTimeframe } from "./chartBarSpacing";
+import { nextChartPulsePrice, type ChartPulseState } from "./chartLivePulse";
 import { AiChartInsightIcon } from "./AiChartInsightIcon";
 import { AssetPairFlags, assetPairEmojiPrefix, formatForexPair, formatMarketPairOtc } from "./marketAssetIcon";
 import { lastTickMove } from "./tickDirection";
@@ -4939,7 +4940,11 @@ function LiveChart({
     timeframeLabel: string;
   } | null;
 }) {
-  const [, setTick] = useState(0);
+  const [chartTick, setTick] = useState(0);
+  const chartPulseRef = useRef<ChartPulseState | null>(null);
+  const chartLivePriceRef = useRef<number | null>(null);
+  const chartPulseKeyRef = useRef("");
+  const prevChartLiveRef = useRef<number | null>(null);
   const [zoomIndex, setZoomIndex] = useState(() => defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
   /** Touch/tap on timer badge zooms the time text (mobile). */
   const [timerTextZoomed, setTimerTextZoomed] = useState(false);
@@ -5032,6 +5037,13 @@ function LiveChart({
   }, [chartMarketOff]);
 
   useEffect(() => {
+    chartPulseRef.current = null;
+    chartLivePriceRef.current = null;
+    chartPulseKeyRef.current = "";
+    prevChartLiveRef.current = null;
+  }, [symbol]);
+
+  useEffect(() => {
     setZoomIndex(defaultZoomIndexForTimeframe(timeframeSec, isMobileChart));
   }, [symbol, timeframeSec, isMobileChart]);
 
@@ -5106,8 +5118,48 @@ function LiveChart({
   const pointsForCandles =
     marketLocked && freezeWallMs != null ? points.filter((p) => p.timestamp <= freezeWallMs) : points;
 
+  const pulseKey = `${chartTick}|${livePrice ?? ""}|${symbol}|${marketLocked}`;
+  if (pulseKey !== chartPulseKeyRef.current) {
+    chartPulseKeyRef.current = pulseKey;
+    if (!marketLocked && livePrice != null && Number.isFinite(livePrice) && livePrice > 0) {
+      const r = nextChartPulsePrice(chartPulseRef.current, symbol, livePrice, chartTick);
+      if (r) {
+        chartPulseRef.current = r.state;
+        chartLivePriceRef.current = r.price;
+      }
+    } else {
+      chartLivePriceRef.current = livePrice ?? null;
+    }
+  }
+  const chartLivePrice = chartLivePriceRef.current ?? livePrice;
+  let chartPulseDirection: "up" | "down" | null = null;
+  if (chartLivePrice != null && prevChartLiveRef.current != null) {
+    if (chartLivePrice > prevChartLiveRef.current) {
+      chartPulseDirection = "up";
+    } else if (chartLivePrice < prevChartLiveRef.current) {
+      chartPulseDirection = "down";
+    }
+  }
+  if (chartLivePrice != null) {
+    prevChartLiveRef.current = chartLivePrice;
+  }
+  const chartTickDirection = chartPulseDirection ?? tickDirection;
+
+  const pointsWithPulse =
+    chartLivePrice != null && !marketLocked
+      ? [
+          ...pointsForCandles,
+          {
+            symbol,
+            price: chartLivePrice,
+            timestamp: candleWallNow,
+            source: "forex" as const
+          }
+        ]
+      : pointsForCandles;
+
   const liveCandles =
-    pointsForCandles.length > 0 ? buildCandles(pointsForCandles, timeframeSec, candleWallNow) : [];
+    pointsWithPulse.length > 0 ? buildCandles(pointsWithPulse, timeframeSec, candleWallNow) : [];
 
   let allCandles: CandlePoint[];
   if (points.length === 0) {
@@ -5134,7 +5186,7 @@ function LiveChart({
 
   allCandles = overlayLivePriceOnFormingCandle(
     allCandles,
-    livePrice,
+    chartLivePrice,
     timeframeSec,
     candleWallNow
   );
@@ -5217,9 +5269,9 @@ function LiveChart({
               <AssetPairFlags symbol={symbol} className="tv-symbol-flags" />
               {pairLabel}
             </strong>
-            {tickDirection ? (
-              <span className={`tv-spot-tick ${tickDirection}`} aria-hidden>
-                {tickDirection === "up" ? "↑" : "↓"}
+            {chartTickDirection ? (
+              <span className={`tv-spot-tick ${chartTickDirection}`} aria-hidden>
+                {chartTickDirection === "up" ? "↑" : "↓"}
               </span>
             ) : null}
             <span
@@ -5270,9 +5322,9 @@ function LiveChart({
               className={`tv-chart-candle-timer${
                 marketLocked ? " tv-chart-candle-timer--paused" : ""
               }${
-                tickDirection === "up"
+                chartTickDirection === "up"
                   ? " tv-chart-candle-timer--up"
-                  : tickDirection === "down"
+                  : chartTickDirection === "down"
                     ? " tv-chart-candle-timer--down"
                     : ""
               }`}
@@ -5330,7 +5382,7 @@ function LiveChart({
             countdownStr={marketLocked ? "PAUSED" : countdownStr}
             timerTextZoomed={timerTextZoomed}
             onTimerTap={() => setTimerTextZoomed((z) => !z)}
-            tickDirection={tickDirection}
+            tickDirection={chartTickDirection}
             tradeMarkers={chartTradeMarkers}
             tradeEntryLines={chartTradeEntryLines}
             graphType={graphType}

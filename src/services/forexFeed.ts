@@ -21,8 +21,8 @@ const HISTORY_MAX_TICKS_PER_SYMBOL = 72_000;
 
 /** Each 1s heartbeat closes this fraction of (anchor − chart) so API jumps spread over ~2–4s. */
 const CHART_HEARTBEAT_STEP = 0.42;
-/** Micro-wiggle when `FOREX_PULSE_VOLATILITY=0` — 1s candle motion without drifting off the real quote. */
-const CHART_HEARTBEAT_WIGGLE = 0.35;
+/** Micro-wiggle when `FOREX_PULSE_VOLATILITY=0` — visible 1s candle motion. */
+const CHART_HEARTBEAT_WIGGLE = 1.0;
 
 function streamPulseMs(): number {
   return env.FOREX_STREAM_PULSE_MS;
@@ -168,7 +168,21 @@ export class ForexFeed extends EventEmitter {
     return vs > 0 ? vs * 1.35 : CHART_HEARTBEAT_WIGGLE;
   }
 
-  /** Next chart-stream price: step toward anchor + small wiggle so forming candles move every second. */
+  private minChartStep(symbol: string, price: number): number {
+    const sym = symbol.toUpperCase();
+    if (sym === "XAUUSD" || price >= 1000) {
+      return 0.02;
+    }
+    if (price >= 20 || sym.includes("JPY")) {
+      return 0.002;
+    }
+    if (price >= 1) {
+      return 0.00002;
+    }
+    return 0.000002;
+  }
+
+  /** Next chart-stream price: step toward anchor + wiggle so forming candles move every second. */
   private stepChartPrice(symbol: string, anchor: number): number {
     const sym = symbol.toUpperCase();
     const prev = this.chartPrice.get(sym) ?? anchor;
@@ -177,9 +191,15 @@ export class ForexFeed extends EventEmitter {
     const toward = (anchor - prev) * CHART_HEARTBEAT_STEP;
     const noise = (Math.random() - 0.5) * 2 * vol * wiggle * anchor;
     let next = prev + toward + noise;
-    const band = vol * anchor * Math.max(2, wiggle * 4);
+    const band = vol * anchor * Math.max(4, wiggle * 6);
     next = Math.min(anchor + band, Math.max(anchor - band, next));
     next = this.roundPrice(sym, next);
+    const minStep = this.minChartStep(sym, anchor);
+    const prevR = this.roundPrice(sym, prev);
+    if (next === prevR && minStep > 0) {
+      const dir = Math.random() < 0.5 ? -1 : 1;
+      next = this.roundPrice(sym, prevR + dir * minStep);
+    }
     this.chartPrice.set(sym, next);
     return next;
   }
