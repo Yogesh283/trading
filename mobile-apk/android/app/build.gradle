@@ -7,8 +7,8 @@ android {
         applicationId "com.iqfxpro.trade"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 19
-        versionName "1.0.16"
+        versionCode 27
+        versionName "1.0.24"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,23 +16,25 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-signingConfigs {
-    release {
-        storeFile file("../new-key.jks")
-        storePassword "Iqfx@123"
-        keyAlias "new-key"
-        keyPassword "Iqfx@123"
+    signingConfigs {
+        release {
+            storeFile file("../new-key.jks")
+            storePassword "Iqfx@123"
+            keyAlias "new-key"
+            keyPassword "Iqfx@123"
+            enableV1Signing true
+            enableV2Signing true
+        }
     }
-}
-
-buildTypes {
-    release {
-        signingConfig signingConfigs.release
-        minifyEnabled false
-        proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources false
+            debuggable false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
     }
-}
-
     lint {
         checkReleaseBuilds false
         abortOnError false
